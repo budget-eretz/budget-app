@@ -192,3 +192,42 @@ export async function transferBudget(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to transfer budget' });
   }
 }
+
+export async function deleteBudget(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    // Check if budget exists
+    const budgetResult = await pool.query(
+      'SELECT * FROM budgets WHERE id = $1',
+      [id]
+    );
+
+    if (budgetResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    // Check if budget has associated funds
+    const fundsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM funds WHERE budget_id = $1',
+      [id]
+    );
+
+    const fundsCount = parseInt(fundsResult.rows[0].count);
+    if (fundsCount > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete budget with existing funds',
+        fundsCount 
+      });
+    }
+
+    // Delete the budget
+    await pool.query('DELETE FROM budgets WHERE id = $1', [id]);
+
+    res.json({ message: 'Budget deleted successfully' });
+  } catch (error) {
+    console.error('Delete budget error:', error);
+    res.status(500).json({ error: 'Failed to delete budget' });
+  }
+}

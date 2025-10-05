@@ -31,6 +31,7 @@ export const budgetsAPI = {
     api.post('/budgets', data),
   update: (id: number, data: Partial<{ name: string; totalAmount: number; fiscalYear: number }>) =>
     api.patch(`/budgets/${id}`, data),
+  delete: (id: number) => api.delete(`/budgets/${id}`),
   transfer: (data: { fromBudgetId: number; toBudgetId: number; amount: number; description?: string }) =>
     api.post('/budgets/transfer', data),
 };

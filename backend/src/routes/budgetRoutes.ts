@@ -10,6 +10,7 @@ router.get('/', budgetController.getBudgets);
 router.get('/:id', budgetController.getBudgetById);
 router.post('/', requireCircleTreasurer, budgetController.createBudget);
 router.patch('/:id', requireCircleTreasurer, budgetController.updateBudget);
+router.delete('/:id', requireCircleTreasurer, budgetController.deleteBudget);
 router.post('/transfer', requireCircleTreasurer, budgetController.transferBudget);
 
 export default router;
