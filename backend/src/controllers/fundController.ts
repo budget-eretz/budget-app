@@ -1,0 +1,158 @@
+import { Request, Response } from 'express';
+import pool from '../config/database';
+
+export async function getFunds(req: Request, res: Response) {
+  try {
+    const { budgetId } = req.query;
+
+    let query = `
+      SELECT f.*,
+             (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
+              WHERE fund_id = f.id AND status IN ('approved', 'paid')) as spent_amount,
+             (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
+              WHERE fund_id = f.id AND status = 'planned') as planned_amount
+      FROM funds f
+    `;
+
+    const params: any[] = [];
+
+    if (budgetId) {
+      query += ' WHERE f.budget_id = $1';
+      params.push(budgetId);
+    }
+
+    query += ' ORDER BY f.created_at DESC';
+
+    const result = await pool.query(query, params);
+
+    // Calculate available amount for each fund
+    const funds = result.rows.map(fund => ({
+      ...fund,
+      available_amount: fund.allocated_amount - fund.spent_amount - fund.planned_amount
+    }));
+
+    res.json(funds);
+  } catch (error) {
+    console.error('Get funds error:', error);
+    res.status(500).json({ error: 'Failed to get funds' });
+  }
+}
+
+export async function getFundById(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT f.*,
+              (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
+               WHERE fund_id = f.id AND status IN ('approved', 'paid')) as spent_amount,
+              (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
+               WHERE fund_id = f.id AND status = 'planned') as planned_amount
+       FROM funds f
+       WHERE f.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    const fund = result.rows[0];
+    fund.available_amount = fund.allocated_amount - fund.spent_amount - fund.planned_amount;
+
+    res.json(fund);
+  } catch (error) {
+    console.error('Get fund error:', error);
+    res.status(500).json({ error: 'Failed to get fund' });
+  }
+}
+
+export async function createFund(req: Request, res: Response) {
+  try {
+    const { budgetId, name, allocatedAmount, description } = req.body;
+    const user = req.user!;
+
+    // Check if user has permission for this budget
+    const budget = await pool.query(
+      'SELECT group_id FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+
+    if (budget.rows.length === 0) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    const budgetGroupId = budget.rows[0].group_id;
+
+    // Permission check
+    if (budgetGroupId === null && !user.isCircleTreasurer) {
+      return res.status(403).json({ error: 'Only circle treasurer can manage circle funds' });
+    }
+
+    if (budgetGroupId !== null && !user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'Treasurer access required' });
+    }
+
+    if (budgetGroupId !== null && user.isGroupTreasurer && budgetGroupId !== user.groupId) {
+      return res.status(403).json({ error: 'Cannot manage funds for other groups' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO funds (budget_id, name, allocated_amount, description)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [budgetId, name, allocatedAmount, description || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create fund error:', error);
+    res.status(500).json({ error: 'Failed to create fund' });
+  }
+}
+
+export async function updateFund(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { name, allocatedAmount, description } = req.body;
+
+    const result = await pool.query(
+      `UPDATE funds
+       SET name = COALESCE($1, name),
+           allocated_amount = COALESCE($2, allocated_amount),
+           description = COALESCE($3, description)
+       WHERE id = $4
+       RETURNING *`,
+      [name, allocatedAmount, description, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update fund error:', error);
+    res.status(500).json({ error: 'Failed to update fund' });
+  }
+}
+
+export async function deleteFund(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      'DELETE FROM funds WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    res.json({ message: 'Fund deleted successfully' });
+  } catch (error) {
+    console.error('Delete fund error:', error);
+    res.status(500).json({ error: 'Failed to delete fund' });
+  }
+}

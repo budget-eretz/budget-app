@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: budget-app-db
+    environment:
+      POSTGRES_USER: budget_app_user
+      POSTGRES_PASSWORD: budget_app_password
+      POSTGRES_DB: budget_app
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget_app_user -d budget_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: budget-app-backend
+    environment:
+      NODE_ENV: development
+      PORT: 4567
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: budget_app
+      PGUSER: budget_app_user
+      PGPASSWORD: budget_app_password
+      JWT_SECRET: super-secret-jwt-key-for-development-only
+      JWT_EXPIRES_IN: 7d
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/migrations:/app/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run dev
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: budget-app-frontend
+    environment:
+      VITE_API_URL: http://localhost:4567
+    ports:
+      - "3456:3456"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    depends_on:
+      - backend
+    command: npm run dev
+
+volumes:
+  postgres_data:
