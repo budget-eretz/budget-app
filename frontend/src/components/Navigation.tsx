@@ -55,15 +55,26 @@ export default function Navigation() {
               תקציבים
             </button>
             {isTreasurer && (
-              <button
-                onClick={() => handleNavigation('/payments')}
-                style={{
-                  ...styles.navLink,
-                  ...(isActive('/payments') ? styles.navLinkActive : {}),
-                }}
-              >
-                העברות
-              </button>
+              <>
+                <button
+                  onClick={() => handleNavigation('/payments')}
+                  style={{
+                    ...styles.navLink,
+                    ...(isActive('/payments') ? styles.navLinkActive : {}),
+                  }}
+                >
+                  אישור החזרים
+                </button>
+                <button
+                  onClick={() => handleNavigation('/payment-transfers')}
+                  style={{
+                    ...styles.navLink,
+                    ...(isActive('/payment-transfers') ? styles.navLinkActive : {}),
+                  }}
+                >
+                  העברות
+                </button>
+              </>
             )}
             {user?.isCircleTreasurer && (
               <>
@@ -145,15 +156,26 @@ export default function Navigation() {
             תקציבים
           </button>
           {isTreasurer && (
-            <button
-              onClick={() => handleNavigation('/payments')}
-              style={{
-                ...styles.mobileNavLink,
-                ...(isActive('/payments') ? styles.mobileNavLinkActive : {}),
-              }}
-            >
-              תשלומים
-            </button>
+            <>
+              <button
+                onClick={() => handleNavigation('/payments')}
+                style={{
+                  ...styles.mobileNavLink,
+                  ...(isActive('/payments') ? styles.mobileNavLinkActive : {}),
+                }}
+              >
+                אישור החזרים
+              </button>
+              <button
+                onClick={() => handleNavigation('/payment-transfers')}
+                style={{
+                  ...styles.mobileNavLink,
+                  ...(isActive('/payment-transfers') ? styles.mobileNavLinkActive : {}),
+                }}
+              >
+                העברות
+              </button>
+            </>
           )}
           {user?.isCircleTreasurer && (
             <>

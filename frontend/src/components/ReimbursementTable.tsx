@@ -7,6 +7,7 @@ interface ReimbursementTableProps {
   onSelect: (ids: number[]) => void;
   selectedIds: number[];
   onAction: (action: string, ids: number[]) => void;
+  showTransferInfo?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -34,6 +35,7 @@ export default function ReimbursementTable({
   onSelect,
   selectedIds,
   onAction,
+  showTransferInfo = false,
 }: ReimbursementTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
@@ -249,7 +251,7 @@ export default function ReimbursementTable({
     return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const columns: Column[] = [
+  const baseColumns: Column[] = [
     {
       key: 'checkbox',
       label: '',
@@ -425,17 +427,7 @@ export default function ReimbursementTable({
             </>
           )}
 
-          {status === 'approved' && (
-            <button
-              onClick={() => onAction('mark-paid', [reimbursement.id])}
-              style={{ ...styles.actionBtn, ...styles.paidBtn }}
-              className="action-btn paid-btn"
-              title="סמן כשולם"
-              aria-label="סמן כשולם"
-            >
-              💰
-            </button>
-          )}
+          {/* Approved status - no individual actions, payment handled via transfers */}
 
           {status === 'rejected' && reimbursement.notes && (
             <span style={styles.rejectionNote} title={reimbursement.notes}>
@@ -446,6 +438,34 @@ export default function ReimbursementTable({
       ),
     },
   ];
+
+  // Build final columns array with optional transfer info column
+  const columns: Column[] = [...baseColumns];
+  
+  // Insert transfer info column before actions if showTransferInfo is true
+  if (showTransferInfo) {
+    const actionsColumn = columns.pop(); // Remove actions column temporarily
+    columns.push({
+      key: 'transfer_info',
+      label: 'העברה',
+      sortable: false,
+      filterable: false,
+      render: (reimbursement: Reimbursement) => (
+        <div style={styles.transferInfo}>
+          {reimbursement.payment_transfer_id ? (
+            <>
+              <span style={styles.transferId}>#{reimbursement.payment_transfer_id}</span>
+              <br />
+              <span style={styles.transferRecipient}>{reimbursement.recipient_name || reimbursement.user_name}</span>
+            </>
+          ) : (
+            <span style={styles.noTransfer}>-</span>
+          )}
+        </div>
+      ),
+    });
+    if (actionsColumn) columns.push(actionsColumn); // Add actions column back
+  }
 
   if (reimbursements.length === 0) {
     return (
@@ -806,5 +826,22 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
+  },
+  transferInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  transferId: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  transferRecipient: {
+    fontSize: '11px',
+    color: '#718096',
+  },
+  noTransfer: {
+    color: '#cbd5e0',
   },
 };

@@ -11,6 +11,7 @@ import incomeRoutes from './routes/incomeRoutes';
 import reportRoutes from './routes/reportRoutes';
 import userRoutes from './routes/userRoutes';
 import groupRoutes from './routes/groupRoutes';
+import paymentTransferRoutes from './routes/paymentTransferRoutes';
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use('/api/incomes', incomeRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/payment-transfers', paymentTransferRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

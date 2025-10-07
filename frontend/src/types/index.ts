@@ -109,6 +109,8 @@ export interface Reimbursement {
   under_review_by?: number;
   under_review_at?: string;
   review_notes?: string;
+  payment_transfer_id?: number;
+  payment_transfer_status?: 'pending' | 'executed';
   created_at: string;
 }
 
@@ -171,4 +173,33 @@ export interface Dashboard {
   pendingReimbursements?: Reimbursement[];
   myReimbursements: Reimbursement[];
   myPlannedExpenses: PlannedExpense[];
+}
+
+export interface PaymentTransfer {
+  id: number;
+  recipientUserId: number;
+  recipientName: string;
+  recipientEmail: string;
+  budgetType: 'circle' | 'group';
+  groupId: number | null;
+  groupName: string | null;
+  status: 'pending' | 'executed';
+  totalAmount: number;
+  reimbursementCount: number;
+  createdAt: string;
+  executedAt: string | null;
+  executedBy: number | null;
+  executedByName: string | null;
+}
+
+export interface PaymentTransferDetails extends PaymentTransfer {
+  reimbursements: Reimbursement[];
+}
+
+export interface PaymentTransferStats {
+  pendingCount: number;
+  pendingTotalAmount: number;
+  executedCount: number;
+  executedTotalAmount: number;
+  recentExecutions: PaymentTransfer[];
 }

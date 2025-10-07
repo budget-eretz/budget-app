@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { associateReimbursementWithTransfer } from '../utils/paymentTransferHelpers';
 
 export async function getMyReimbursements(req: Request, res: Response) {
   try {
@@ -265,7 +266,7 @@ export async function approveReimbursement(req: Request, res: Response) {
 
     // Check reimbursement exists and is pending
     const existing = await pool.query(
-      'SELECT status FROM reimbursements WHERE id = $1',
+      'SELECT status, recipient_user_id, fund_id FROM reimbursements WHERE id = $1',
       [id]
     );
 
@@ -287,6 +288,13 @@ export async function approveReimbursement(req: Request, res: Response) {
        WHERE id = $3
        RETURNING *`,
       [user.userId, notes || null, id]
+    );
+
+    // Associate with payment transfer after approval
+    await associateReimbursementWithTransfer(
+      parseInt(id),
+      existing.rows[0].recipient_user_id,
+      existing.rows[0].fund_id
     );
 
     res.json(result.rows[0]);
@@ -338,42 +346,16 @@ export async function rejectReimbursement(req: Request, res: Response) {
   }
 }
 
+/**
+ * @deprecated This function is deprecated and replaced by payment transfer execution.
+ * Use the payment transfers API to execute transfers instead.
+ */
 export async function markAsPaid(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const user = req.user!;
-
-    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'Treasurer access required' });
-    }
-
-    const existing = await pool.query(
-      'SELECT status FROM reimbursements WHERE id = $1',
-      [id]
-    );
-
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Reimbursement not found' });
-    }
-
-    if (existing.rows[0].status !== 'approved') {
-      return res.status(400).json({ error: 'Can only mark approved reimbursements as paid' });
-    }
-
-    const result = await pool.query(
-      `UPDATE reimbursements
-       SET status = 'paid',
-           updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Mark as paid error:', error);
-    res.status(500).json({ error: 'Failed to mark as paid' });
-  }
+  return res.status(410).json({ 
+    error: 'פעולה זו הוחלפה על ידי מערכת העברות התשלום',
+    message: 'This endpoint is deprecated. Please use payment transfer execution instead.',
+    deprecatedSince: '2025-01-07'
+  });
 }
 
 export async function getMySummary(req: Request, res: Response) {
@@ -532,7 +514,7 @@ export async function batchApprove(req: Request, res: Response) {
       try {
         // Check if reimbursement exists and is in valid status
         const checkResult = await client.query(
-          'SELECT id, status FROM reimbursements WHERE id = $1',
+          'SELECT id, status, recipient_user_id, fund_id FROM reimbursements WHERE id = $1',
           [id]
         );
 
@@ -557,6 +539,13 @@ export async function batchApprove(req: Request, res: Response) {
                updated_at = NOW()
            WHERE id = $3`,
           [user.userId, notes || null, id]
+        );
+
+        // Associate with payment transfer after approval
+        await associateReimbursementWithTransfer(
+          id,
+          checkResult.rows[0].recipient_user_id,
+          checkResult.rows[0].fund_id
         );
 
         successes.push(id);
@@ -743,84 +732,20 @@ export async function batchMarkForReview(req: Request, res: Response) {
   }
 }
 
+/**
+ * @deprecated This function is deprecated and replaced by payment transfer execution.
+ * Use the payment transfers API to execute transfers instead.
+ */
 export async function batchMarkAsPaid(req: Request, res: Response) {
-  const client = await pool.connect();
-  
-  try {
-    const { reimbursementIds } = req.body;
-    const user = req.user!;
-
-    // Check treasurer permissions
-    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
-    }
-
-    // Validate input
-    if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
-      return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
-    }
-
-    await client.query('BEGIN');
-
-    const successes: number[] = [];
-    const errors: Array<{ id: number; error: string }> = [];
-
-    // Process each reimbursement
-    for (const id of reimbursementIds) {
-      try {
-        // Check if reimbursement exists and is approved
-        const checkResult = await client.query(
-          'SELECT id, status FROM reimbursements WHERE id = $1',
-          [id]
-        );
-
-        if (checkResult.rows.length === 0) {
-          errors.push({ id, error: 'בקשת החזר לא נמצאה' });
-          continue;
-        }
-
-        const status = checkResult.rows[0].status;
-        if (status !== 'approved') {
-          errors.push({ id, error: 'ניתן לסמן כשולם רק בקשות מאושרות' });
-          continue;
-        }
-
-        // Mark as paid
-        await client.query(
-          `UPDATE reimbursements
-           SET status = 'paid',
-               updated_at = NOW()
-           WHERE id = $1`,
-          [id]
-        );
-
-        successes.push(id);
-      } catch (error) {
-        console.error(`Error marking reimbursement ${id} as paid:`, error);
-        errors.push({ id, error: 'שגיאה בסימון כשולם' });
-      }
-    }
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      updated: successes.length,
-      successIds: successes,
-      errors: errors.length > 0 ? errors : undefined
-    });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Batch mark as paid error:', error);
-    res.status(500).json({ error: 'שגיאה בסימון מרובה כשולם' });
-  } finally {
-    client.release();
-  }
+  return res.status(410).json({ 
+    error: 'פעולה זו הוחלפה על ידי מערכת העברות התשלום',
+    message: 'This endpoint is deprecated. Please use payment transfer execution instead.',
+    deprecatedSince: '2025-01-07'
+  });
 }
 
 export async function getTreasurerReimbursements(req: Request, res: Response) {
   try {
-    const { groupBy } = req.query;
     const user = req.user!;
 
     // Check treasurer permissions
@@ -848,27 +773,24 @@ export async function getTreasurerReimbursements(req: Request, res: Response) {
       LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
       LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
       LEFT JOIN users under_reviewer ON r.under_review_by = under_reviewer.id
+      WHERE 1=1
     `;
 
-    // Apply access control for group treasurers
-    if (!user.isCircleTreasurer && user.isGroupTreasurer) {
-      // Group treasurer: only see reimbursements from their groups' budgets
+    // Apply budget type filtering based on treasurer role
+    if (user.isCircleTreasurer && !user.isGroupTreasurer) {
+      // Circle treasurer: only see circle budget reimbursements
+      baseQuery += ' AND b.group_id IS NULL';
+    } else if (!user.isCircleTreasurer && user.isGroupTreasurer) {
+      // Group treasurer: only see their group budget reimbursements
       baseQuery += `
-        WHERE b.id IN (
-          SELECT id 
-          FROM budgets 
-          WHERE group_id IS NULL
-          UNION
-          SELECT id 
-          FROM budgets 
-          WHERE group_id IN (
-            SELECT group_id 
-            FROM user_groups 
-            WHERE user_id = ${user.userId}
-          )
+        AND b.group_id IN (
+          SELECT group_id 
+          FROM user_groups 
+          WHERE user_id = ${user.userId}
         )
       `;
     }
+    // If user is both circle and group treasurer, they see all (no additional filter)
 
     baseQuery += ' ORDER BY r.created_at DESC';
 

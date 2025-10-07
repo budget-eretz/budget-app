@@ -76,6 +76,7 @@ export interface Reimbursement {
   reviewed_by?: number;
   reviewed_at?: Date;
   notes?: string;
+  payment_transfer_id?: number;
   created_at: Date;
   updated_at: Date;
   
@@ -85,6 +86,7 @@ export interface Reimbursement {
   user_name?: string;
   recipient_name?: string;
   reviewer_name?: string;
+  payment_transfer_status?: 'pending' | 'executed';
 }
 
 export interface Income {
@@ -144,4 +146,33 @@ export interface JWTPayload {
   isCircleTreasurer: boolean;
   isGroupTreasurer: boolean;
   groupIds: number[];
+}
+
+export interface PaymentTransfer {
+  id: number;
+  recipient_user_id: number;
+  recipient_name: string;
+  recipient_email: string;
+  budget_type: 'circle' | 'group';
+  group_id: number | null;
+  group_name: string | null;
+  status: 'pending' | 'executed';
+  total_amount: number;
+  reimbursement_count: number;
+  created_at: Date;
+  executed_at: Date | null;
+  executed_by: number | null;
+  executed_by_name: string | null;
+}
+
+export interface PaymentTransferDetails extends PaymentTransfer {
+  reimbursements: Reimbursement[];
+}
+
+export interface PaymentTransferStats {
+  pendingCount: number;
+  pendingTotalAmount: number;
+  executedCount: number;
+  executedTotalAmount: number;
+  recentExecutions: PaymentTransfer[];
 }

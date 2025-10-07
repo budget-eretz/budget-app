@@ -12,6 +12,7 @@ import MyReimbursements from './pages/MyReimbursements';
 import NewCharge from './pages/NewCharge';
 import UserManagement from './pages/UserManagement';
 import GroupManagement from './pages/GroupManagement';
+import PaymentTransfers from './pages/PaymentTransfers';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -70,6 +71,7 @@ function App() {
             <Route path="/budgets" element={<PrivateRoute><Budgets /></PrivateRoute>} />
             <Route path="/budgets/:id" element={<PrivateRoute><BudgetDetail /></PrivateRoute>} />
             <Route path="/payments" element={<TreasurerRoute><Payments /></TreasurerRoute>} />
+            <Route path="/payment-transfers" element={<TreasurerRoute><PaymentTransfers /></TreasurerRoute>} />
             <Route path="/reimbursements/new" element={<PrivateRoute><NewReimbursement /></PrivateRoute>} />
             <Route path="/planned-expenses/new" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
             <Route path="/my-reimbursements" element={<PrivateRoute><MyReimbursements /></PrivateRoute>} />

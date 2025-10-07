@@ -11,7 +11,8 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **User Management**: Create, edit, and manage users with role assignments and group memberships
 - **Group Management**: Create and manage groups with many-to-many user relationships
 - **Enhanced Reimbursement Management**: Personal reimbursement tracking, editing, deletion, and submission on behalf of others
-- **Treasurer Payment Management**: Comprehensive payment workflow with multi-status tracking, batch operations, and review capabilities
+- **Treasurer Reimbursement Approval**: Comprehensive approval workflow with multi-status tracking, batch operations, and review capabilities
+- **Payment Transfers**: Automatic grouping of approved reimbursements by recipient and budget type for efficient payment execution
 - **Charge Submission**: Track debts owed to circle/group that offset pending reimbursements
 - **Fund Access Control**: Budget-based access control for circle and group funds
 
@@ -22,6 +23,7 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **Funds**: Sub-budget categories for organized spending
 - **Planned Expenses**: Future expense planning and tracking
 - **Reimbursements**: Member expense reimbursement workflow with recipient field support
+- **Payment Transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
 - **Charges**: User debts to circle/group that offset reimbursements
 - **Incomes**: Revenue and income tracking
 - **Reports**: Financial reporting and analytics
@@ -92,9 +94,9 @@ Complete Hebrew language support throughout:
 - Hebrew error messages and confirmations
 - RTL-friendly layout and design
 
-### Treasurer Payment Management (ניהול העברות לגזברים)
+### Treasurer Reimbursement Approval (אישור החזרים לגזברים)
 
-A comprehensive payment management interface for treasurers to efficiently process and track reimbursements through their complete lifecycle.
+A comprehensive reimbursement approval interface for treasurers to efficiently review and approve reimbursements through their complete lifecycle. This page was previously called "ניהול העברות" (Payment Management) and has been renamed to "אישור החזרים" (Reimbursement Approval) to better reflect its purpose.
 
 #### Payment Workflow Statuses
 The system supports five distinct reimbursement statuses:
@@ -160,6 +162,86 @@ The system supports five distinct reimbursement statuses:
 - Count of reimbursements in each status
 - Total amounts pending and approved
 - Quick overview of workload and payment obligations
+
+**Integration with Payment Transfers**
+- Link to Payment Transfers page for executing payments
+- Display payment transfer ID for approved reimbursements
+- Informational note directing treasurers to Payment Transfers page for payment execution
+- Batch "Mark as Paid" functionality removed (replaced by transfer execution)
+
+### Payment Transfers (העברות)
+
+A new payment execution system that groups approved reimbursements by recipient and budget type, allowing treasurers to efficiently execute payments in batches.
+
+#### Key Concepts
+
+**Payment Transfer**: A collection of approved reimbursements for a specific recipient from a specific budget type (circle or group). When a reimbursement is approved, it automatically joins an open payment transfer for that recipient and budget type.
+
+**Automatic Grouping**: The system automatically creates and manages payment transfers. When a treasurer approves a reimbursement, it's associated with an open transfer for the recipient. If no open transfer exists, one is created automatically.
+
+**Budget Type Separation**: Circle budget reimbursements and group budget reimbursements are kept in separate transfers even for the same recipient, ensuring proper budget tracking and access control.
+
+#### Payment Transfer Workflow
+
+1. **Approval**: When a reimbursement is approved in the "אישור החזרים" (Reimbursement Approval) page, it automatically joins an open payment transfer for the recipient and budget type
+2. **Grouping**: All approved reimbursements for the same recipient and budget type are grouped into a single pending transfer
+3. **Execution**: Treasurer navigates to "העברות" (Transfers) page and executes the transfer
+4. **Completion**: All reimbursements in the transfer are automatically marked as "paid" with execution timestamp and executor recorded
+
+#### Key Features
+
+**Automatic Transfer Management**
+- Transfers created automatically when reimbursements are approved
+- No manual transfer creation required
+- Automatic calculation of total amount and reimbursement count
+- Real-time updates as reimbursements are approved
+
+**Transfer Listing and Filtering**
+- Two tabs: Pending (awaiting execution) and Executed (completed)
+- Filter by recipient, date range
+- Sort by recipient name, amount, date, count
+- Summary statistics showing pending and executed transfer counts and amounts
+
+**Transfer Details View**
+- Complete transfer information with all associated reimbursements
+- Submitter and recipient details for each reimbursement
+- Fund and budget information
+- Creation date, execution date, and executing treasurer
+- Execute button for pending transfers (with permission check)
+
+**Access Control**
+- Circle treasurers: See only transfers for circle budget reimbursements
+- Group treasurers: See only transfers for their group budget reimbursements
+- Budget type filtering applied automatically based on treasurer role
+- Execution permission verified before allowing transfer execution
+
+**Audit Trail**
+- Complete history of all transfers (pending and executed)
+- Execution timestamp and executing treasurer recorded
+- Payment transfer ID maintained in reimbursements after execution
+- Clear tracking of when payments were made and by whom
+
+**Integration with Reimbursement Approval**
+- Seamless workflow from approval to payment
+- Link from "אישור החזרים" page to "העברות" page
+- Approved reimbursements show associated transfer ID
+- Automatic status transition from approved to paid when transfer executed
+
+#### Navigation
+
+The system now has two separate treasurer pages:
+
+1. **אישור החזרים (Reimbursement Approval)** - `/payments`
+   - Review and approve/reject reimbursements
+   - Multi-status workflow (pending, under review, approved, rejected)
+   - Batch operations for approval and rejection
+   - Link to Payment Transfers page
+
+2. **העברות (Transfers)** - `/payment-transfers`
+   - Execute payment transfers
+   - View pending and executed transfers
+   - Transfer details with all associated reimbursements
+   - Payment execution with audit trail
 
 ### Target Deployment
 - Development: Docker Compose

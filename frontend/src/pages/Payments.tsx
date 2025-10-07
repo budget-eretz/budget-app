@@ -88,10 +88,7 @@ export default function Payments() {
           showToast(`${targetIds.length} החזרים סומנו לבדיקה`, 'success');
           break;
 
-        case 'mark-paid':
-          await reimbursementsAPI.batchMarkAsPaid(targetIds);
-          showToast(`${targetIds.length} החזרים סומנו כשולמו`, 'success');
-          break;
+        // mark-paid action removed - now handled by payment transfers
 
         case 'return-pending':
           // Return each reimbursement to pending status
@@ -183,9 +180,9 @@ export default function Payments() {
       return ['approve', 'reject', 'return-pending'];
     }
     
-    // If all selected are approved
+    // If all selected are approved - no actions (payment handled via transfers)
     if (statuses.size === 1 && statuses.has('approved')) {
-      return ['mark-paid'];
+      return [];
     }
     
     // Mixed statuses or other statuses - no batch actions available
@@ -236,7 +233,12 @@ export default function Payments() {
       <div style={styles.content}>
         {/* Task 15.1: PageHeader */}
         <div style={styles.pageHeader}>
-          <h1 style={styles.title}>ניהול העברות</h1>
+          <div style={styles.titleRow}>
+            <h1 style={styles.title}>אישור החזרים</h1>
+            <Button onClick={() => navigate('/payment-transfers')} style={styles.transfersButton}>
+              עבור להעברות →
+            </Button>
+          </div>
           <div style={styles.statsContainer}>
             <div style={styles.statCard} className="stat-card">
               <div style={styles.statLabel}>ממתינים לאישור</div>
@@ -322,6 +324,9 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
           </div>
+          <div style={styles.infoNote}>
+            💡 לביצוע תשלומים, עבור לעמוד העברות
+          </div>
           {data.approved.length === 0 ? (
             <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
           ) : (
@@ -331,6 +336,7 @@ export default function Payments() {
               onSelect={handleSelect}
               selectedIds={Array.from(selectedIds)}
               onAction={handleAction}
+              showTransferInfo={true}
             />
           )}
         </div>
@@ -406,11 +412,28 @@ const styles: Record<string, React.CSSProperties> = {
   pageHeader: {
     marginBottom: '32px',
   },
+  titleRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+  },
   title: {
     fontSize: '32px',
     fontWeight: 'bold',
-    margin: '0 0 24px 0',
+    margin: 0,
     color: '#2d3748',
+  },
+  transfersButton: {
+    fontSize: '16px',
+    fontWeight: '600',
+    padding: '12px 24px',
+    background: '#667eea',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   },
   statsContainer: {
     display: 'grid',
@@ -465,6 +488,17 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#718096',
     fontSize: '16px',
     border: '1px solid #e2e8f0',
+  },
+  infoNote: {
+    background: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '16px',
+    color: '#1e40af',
+    fontSize: '14px',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   emptyState: {
     background: 'white',

@@ -29,6 +29,7 @@ backend/
 │   │   ├── fundController.ts
 │   │   ├── groupController.ts
 │   │   ├── incomeController.ts
+│   │   ├── paymentTransferController.ts
 │   │   ├── plannedExpenseController.ts
 │   │   ├── reimbursementController.ts
 │   │   ├── reportController.ts
@@ -39,6 +40,8 @@ backend/
 │   ├── middleware/   # Express middleware (auth, validation)
 │   │   ├── accessControl.ts
 │   │   └── auth.ts
+│   ├── utils/       # Helper functions and utilities
+│   │   └── paymentTransferHelpers.ts
 │   ├── routes/      # API route definitions
 │   │   ├── authRoutes.ts
 │   │   ├── budgetRoutes.ts
@@ -46,6 +49,7 @@ backend/
 │   │   ├── fundRoutes.ts
 │   │   ├── groupRoutes.ts
 │   │   ├── incomeRoutes.ts
+│   │   ├── paymentTransferRoutes.ts
 │   │   ├── plannedExpenseRoutes.ts
 │   │   ├── reimbursementRoutes.ts
 │   │   ├── reportRoutes.ts
@@ -75,6 +79,8 @@ frontend/
 │   │   ├── GroupFormModal.tsx
 │   │   ├── Modal.tsx
 │   │   ├── Navigation.tsx
+│   │   ├── PaymentTransferDetailsModal.tsx
+│   │   ├── PaymentTransferTable.tsx
 │   │   ├── ReimbursementDetailsModal.tsx
 │   │   ├── ReimbursementTable.tsx
 │   │   ├── RejectionModal.tsx
@@ -92,7 +98,8 @@ frontend/
 │   │   ├── NewCharge.tsx
 │   │   ├── NewPlannedExpense.tsx
 │   │   ├── NewReimbursement.tsx
-│   │   ├── Payments.tsx          # Treasurer payment management with multi-status workflow
+│   │   ├── Payments.tsx          # Treasurer reimbursement approval with multi-status workflow (renamed from "ניהול העברות" to "אישור החזרים")
+│   │   ├── PaymentTransfers.tsx  # Payment transfer execution page (העברות)
 │   │   └── UserManagement.tsx
 │   ├── services/    # API client and external services
 │   │   └── api.ts
@@ -115,19 +122,33 @@ frontend/
 - **budgets**: Circle-wide and group-specific budget allocations
 - **funds**: Sub-budget categories within budgets
 - **planned_expenses**: Future expense planning
-- **reimbursements**: Member expense reimbursement requests (enhanced with recipient_user_id)
+- **reimbursements**: Member expense reimbursement requests (enhanced with recipient_user_id and payment_transfer_id)
+- **payment_transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
 - **charges**: User debts to circle/group that offset reimbursements
 - **incomes**: Revenue and income tracking
 
 ### Enhanced Reimbursements Table
 The reimbursements table includes:
 - `recipient_user_id`: Optional field to specify payment recipient (different from submitter)
+- `payment_transfer_id`: Links reimbursement to its payment transfer (set when approved)
 - `under_review_by`: Treasurer who marked reimbursement for review
 - `under_review_at`: Timestamp when marked for review
 - `review_notes`: Optional notes for items under review
 - Supports submitting reimbursements on behalf of others
 - Defaults to submitter if no recipient specified
 - Status includes: pending, under_review, approved, rejected, paid
+
+### Payment Transfers Table
+New table for grouping approved reimbursements by recipient and budget type:
+- `recipient_user_id`: User who will receive the payment
+- `budget_type`: Either 'circle' or 'group' to separate transfers by budget type
+- `group_id`: For group budget transfers, stores the specific group (NULL for circle transfers)
+- `status`: 'pending' (awaiting execution) or 'executed' (completed)
+- `total_amount`: Calculated sum of all associated reimbursements
+- `reimbursement_count`: Number of reimbursements in this transfer
+- `created_at`: Timestamp when transfer was created
+- `executed_at`: Timestamp when transfer was executed
+- `executed_by`: Treasurer who executed the transfer
 
 ### Charges Table
 New table for tracking user debts:
@@ -144,16 +165,21 @@ New table for tracking user debts:
 - `GET /api/reimbursements` - List all reimbursements (includes recipient info)
 - `GET /api/reimbursements/my` - Get user's reimbursements (as submitter or recipient)
 - `GET /api/reimbursements/my/summary` - Get payment summary (reimbursements - charges)
-- `GET /api/reimbursements/treasurer/all` - Get all reimbursements grouped by status (treasurer only)
+- `GET /api/reimbursements/treasurer/all` - Get all reimbursements grouped by status (treasurer only, filtered by budget type)
 - `POST /api/reimbursements` - Create reimbursement (with optional recipientUserId)
 - `POST /api/reimbursements/:id/mark-review` - Mark single reimbursement for review (treasurer only)
 - `POST /api/reimbursements/:id/return-to-pending` - Return reimbursement from review to pending (treasurer only)
-- `POST /api/reimbursements/batch/approve` - Batch approve reimbursements (treasurer only)
+- `POST /api/reimbursements/batch/approve` - Batch approve reimbursements (treasurer only, associates with payment transfer)
 - `POST /api/reimbursements/batch/reject` - Batch reject reimbursements with reason (treasurer only)
 - `POST /api/reimbursements/batch/mark-review` - Batch mark reimbursements for review (treasurer only)
-- `POST /api/reimbursements/batch/mark-paid` - Batch mark reimbursements as paid (treasurer only)
 - `PATCH /api/reimbursements/:id` - Update reimbursement (owner only, pending only)
 - `DELETE /api/reimbursements/:id` - Delete reimbursement (owner only, pending only)
+
+### Payment Transfer Endpoints (New)
+- `GET /api/payment-transfers` - List all payment transfers (with access control filtering by budget type)
+- `GET /api/payment-transfers/stats` - Get transfer statistics (pending/executed counts and amounts)
+- `GET /api/payment-transfers/:id` - Get transfer details with all associated reimbursements
+- `POST /api/payment-transfers/:id/execute` - Execute a payment transfer (marks all reimbursements as paid)
 
 ### Charge Endpoints (New)
 - `GET /api/charges/my` - Get user's charges
@@ -214,8 +240,8 @@ Rejection workflow modal:
 - Confirm/Cancel actions
 - Used for both single and batch rejections
 
-### Payments.tsx (Enhanced)
-Comprehensive treasurer payment management page:
+### Payments.tsx (Reimbursement Approval)
+Comprehensive treasurer reimbursement approval page (renamed from "ניהול העברות" to "אישור החזרים"):
 - Four separate status sections: Pending, Under Review, Approved, Rejected
 - Summary statistics header
 - FilterBar for grouping options
@@ -223,6 +249,40 @@ Comprehensive treasurer payment management page:
 - Multiple ReimbursementTable instances
 - Modal management for details and rejections
 - Real-time updates after actions
+- Link to Payment Transfers page for executing payments
+- Display payment transfer ID for approved reimbursements
+- Batch "Mark as Paid" removed (replaced by transfer execution)
+
+### Payment Transfer Components (New)
+
+#### PaymentTransferTable.tsx
+Table component for displaying payment transfers:
+- Columns: recipient name, budget type, reimbursement count, total amount, creation date, status
+- Sortable columns (click header to sort)
+- Execute button for pending transfers
+- Click handler to open transfer details
+- Hebrew RTL support
+
+#### PaymentTransferDetailsModal.tsx
+Modal for viewing payment transfer details:
+- Transfer summary (recipient, budget type, total, count, dates)
+- List of all associated reimbursements with details
+- Execution information if transfer is executed (executed by, executed at)
+- Execute button for pending transfers (if user has permission)
+- Close button
+- Hebrew RTL support
+
+#### PaymentTransfers.tsx
+Main payment transfer execution page (העברות):
+- Page title: "העברות" (Transfers)
+- Two tabs: "ממתינות לביצוע" (Pending) and "בוצעו" (Executed)
+- Summary statistics at top (pending count, pending amount, executed count, executed amount)
+- PaymentTransferTable component for each tab
+- Filter controls (by recipient, date range)
+- Transfer execution with confirmation dialog
+- Success/error toast messages
+- Loading and error states
+- Access control: circle treasurers see only circle transfers, group treasurers see only their group transfers
 
 ## Key Configuration Files
 

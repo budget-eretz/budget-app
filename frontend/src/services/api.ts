@@ -140,4 +140,16 @@ export const groupsAPI = {
   getMembers: (id: number) => api.get(`/groups/${id}/members`),
 };
 
+// Payment Transfers API
+export const paymentTransfersAPI = {
+  getAll: (params?: { status?: string; recipientUserId?: number; dateFrom?: string; dateTo?: string }) => 
+    api.get('/payment-transfers', { params }),
+  getById: (id: number) => 
+    api.get(`/payment-transfers/${id}`),
+  execute: (id: number) => 
+    api.post(`/payment-transfers/${id}/execute`),
+  getStats: () => 
+    api.get('/payment-transfers/stats'),
+};
+
 export default api;
