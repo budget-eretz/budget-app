@@ -54,7 +54,9 @@ export async function getFunds(req: Request, res: Response) {
     // Calculate available amount for each fund
     const funds = result.rows.map(fund => ({
       ...fund,
-      available_amount: fund.allocated_amount - fund.spent_amount - fund.planned_amount
+      spent_amount: Number(fund.spent_amount || 0),
+      planned_amount: Number(fund.planned_amount || 0),
+      available_amount: Number(fund.allocated_amount || 0) - Number(fund.spent_amount || 0) - Number(fund.planned_amount || 0)
     }));
 
     res.json(funds);
@@ -92,7 +94,9 @@ export async function getFundById(req: Request, res: Response) {
     }
 
     const fund = result.rows[0];
-    fund.available_amount = fund.allocated_amount - fund.spent_amount - fund.planned_amount;
+    fund.spent_amount = Number(fund.spent_amount || 0);
+    fund.planned_amount = Number(fund.planned_amount || 0);
+    fund.available_amount = Number(fund.allocated_amount || 0) - fund.spent_amount - fund.planned_amount;
 
     res.json(fund);
   } catch (error) {
@@ -240,7 +244,9 @@ export async function getAccessibleFunds(req: Request, res: Response) {
       const hasAccess = await validateFundAccess(user.userId, fund.id);
       if (hasAccess) {
         // Calculate available amount
-        fund.available_amount = fund.allocated_amount - fund.spent_amount - fund.planned_amount;
+        fund.spent_amount = Number(fund.spent_amount || 0);
+        fund.planned_amount = Number(fund.planned_amount || 0);
+        fund.available_amount = Number(fund.allocated_amount || 0) - fund.spent_amount - fund.planned_amount;
         accessibleFunds.push(fund);
       }
     }
@@ -264,8 +270,8 @@ export async function getAccessibleFunds(req: Request, res: Response) {
       budgetsMap.get(budgetKey).funds.push({
         id: fund.id,
         name: fund.name,
-        allocated_amount: fund.allocated_amount,
-        available_amount: fund.available_amount,
+        allocated_amount: Number(fund.allocated_amount || 0),
+        available_amount: Number(fund.available_amount || 0),
         description: fund.description,
         created_at: fund.created_at
       });

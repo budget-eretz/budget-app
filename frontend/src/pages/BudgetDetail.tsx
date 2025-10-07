@@ -314,11 +314,11 @@ export default function BudgetDetail() {
   };
 
   const calculateBudgetSummary = () => {
-    const totalAllocated = funds.reduce((sum, fund) => sum + fund.allocated_amount, 0);
-    const totalSpent = funds.reduce((sum, fund) => sum + (fund.spent_amount || 0), 0);
-    const totalPlanned = funds.reduce((sum, fund) => sum + (fund.planned_amount || 0), 0);
-    const totalIncome = budget?.total_income || 0;
-    const available = (budget?.total_amount || 0) + totalIncome - totalAllocated;
+    const totalAllocated = funds.reduce((sum, fund) => sum + Number(fund.allocated_amount || 0), 0);
+    const totalSpent = funds.reduce((sum, fund) => sum + Number(fund.spent_amount || 0), 0);
+    const totalPlanned = funds.reduce((sum, fund) => sum + Number(fund.planned_amount || 0), 0);
+    const totalIncome = Number(budget?.total_income || 0);
+    const available = Number(budget?.total_amount || 0) + totalIncome - totalAllocated;
     
     return {
       totalAllocated,

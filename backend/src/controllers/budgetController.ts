@@ -81,7 +81,10 @@ export async function getBudgetById(req: Request, res: Response) {
       return res.status(404).json({ error: 'Budget not found' });
     }
 
-    res.json(result.rows[0]);
+    const budget = result.rows[0];
+    budget.total_income = Number(budget.total_income || 0);
+
+    res.json(budget);
   } catch (error) {
     console.error('Get budget error:', error);
     res.status(500).json({ error: 'Failed to get budget' });
