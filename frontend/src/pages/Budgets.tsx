@@ -21,14 +21,10 @@ export default function Budgets() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    // Check permissions on mount
-    if (!user?.isCircleTreasurer && !user?.isGroupTreasurer) {
-      showToast('אין לך הרשאה לצפות בדף זה', 'error');
-      navigate('/dashboard');
-      return;
-    }
+    // All authenticated users can view budgets
     loadBudgets();
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadBudgets = async () => {
     try {
@@ -37,7 +33,7 @@ export default function Budgets() {
       setBudgets(response.data);
     } catch (error: any) {
       console.error('Failed to load budgets:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה לצפות בתקציבים', 'error');
@@ -73,7 +69,7 @@ export default function Budgets() {
       await loadBudgets(); // Refresh the list
     } catch (error: any) {
       console.error('Failed to create budget:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה ליצור תקציבים', 'error');
@@ -97,7 +93,7 @@ export default function Budgets() {
 
   const handleEditBudget = async (data: BudgetFormData) => {
     if (!editingBudget) return;
-    
+
     try {
       setSubmitting(true);
       await budgetsAPI.update(editingBudget.id, {
@@ -111,7 +107,7 @@ export default function Budgets() {
       await loadBudgets(); // Refresh the list
     } catch (error: any) {
       console.error('Failed to update budget:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה לערוך תקציב זה', 'error');
@@ -166,7 +162,7 @@ export default function Budgets() {
   return (
     <div style={styles.container}>
       <Navigation />
-      
+
       <div className="budgets-content" style={styles.content}>
         <div className="budgets-header" style={styles.header}>
           <h1 className="budgets-title" style={styles.title}>תקציבים</h1>

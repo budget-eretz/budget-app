@@ -30,13 +30,7 @@ export default function BudgetDetail() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Check permissions on mount
-    if (!user?.isCircleTreasurer && !user?.isGroupTreasurer) {
-      showToast('אין לך הרשאה לצפות בדף זה', 'error');
-      navigate('/dashboard');
-      return;
-    }
-    
+    // All authenticated users can view budget details
     if (id) {
       loadBudgetData();
     }

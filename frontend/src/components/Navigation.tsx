@@ -45,27 +45,25 @@ export default function Navigation() {
             >
               ההחזרים שלי
             </button>
+            <button
+              onClick={() => handleNavigation('/budgets')}
+              style={{
+                ...styles.navLink,
+                ...(isActive('/budgets') || location.pathname.startsWith('/budgets/') ? styles.navLinkActive : {}),
+              }}
+            >
+              תקציבים
+            </button>
             {isTreasurer && (
-              <>
-                <button
-                  onClick={() => handleNavigation('/budgets')}
-                  style={{
-                    ...styles.navLink,
-                    ...(isActive('/budgets') || location.pathname.startsWith('/budgets/') ? styles.navLinkActive : {}),
-                  }}
-                >
-                  תקציבים
-                </button>
-                <button
-                  onClick={() => handleNavigation('/payments')}
-                  style={{
-                    ...styles.navLink,
-                    ...(isActive('/payments') ? styles.navLinkActive : {}),
-                  }}
-                >
-                  העברות
-                </button>
-              </>
+              <button
+                onClick={() => handleNavigation('/payments')}
+                style={{
+                  ...styles.navLink,
+                  ...(isActive('/payments') ? styles.navLinkActive : {}),
+                }}
+              >
+                העברות
+              </button>
             )}
             {user?.isCircleTreasurer && (
               <>
@@ -137,27 +135,25 @@ export default function Navigation() {
           >
             ההחזרים שלי
           </button>
+          <button
+            onClick={() => handleNavigation('/budgets')}
+            style={{
+              ...styles.mobileNavLink,
+              ...(isActive('/budgets') || location.pathname.startsWith('/budgets/') ? styles.mobileNavLinkActive : {}),
+            }}
+          >
+            תקציבים
+          </button>
           {isTreasurer && (
-            <>
-              <button
-                onClick={() => handleNavigation('/budgets')}
-                style={{
-                  ...styles.mobileNavLink,
-                  ...(isActive('/budgets') || location.pathname.startsWith('/budgets/') ? styles.mobileNavLinkActive : {}),
-                }}
-              >
-                תקציבים
-              </button>
-              <button
-                onClick={() => handleNavigation('/payments')}
-                style={{
-                  ...styles.mobileNavLink,
-                  ...(isActive('/payments') ? styles.mobileNavLinkActive : {}),
-                }}
-              >
-                תשלומים
-              </button>
-            </>
+            <button
+              onClick={() => handleNavigation('/payments')}
+              style={{
+                ...styles.mobileNavLink,
+                ...(isActive('/payments') ? styles.mobileNavLinkActive : {}),
+              }}
+            >
+              תשלומים
+            </button>
           )}
           {user?.isCircleTreasurer && (
             <>
