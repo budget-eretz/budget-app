@@ -71,10 +71,13 @@ export default function BudgetDetail() {
       if (user?.isGroupTreasurer && !user?.isCircleTreasurer) {
         const loadedBudget = budgetRes.data;
         // Group treasurer can only view their group's budget or circle budgets
-        if (loadedBudget.group_id && loadedBudget.group_id !== user.groupId) {
-          showToast('אין לך הרשאה לצפות בתקציב של קבוצה אחרת', 'error');
-          navigate('/budgets');
-          return;
+        if (loadedBudget.group_id) {
+          const userGroupIds = user.groups?.map(g => g.id) || [];
+          if (!userGroupIds.includes(loadedBudget.group_id)) {
+            showToast('אין לך הרשאה לצפות בתקציב של קבוצה אחרת', 'error');
+            navigate('/budgets');
+            return;
+          }
         }
       }
     } catch (error: any) {
@@ -299,7 +302,10 @@ export default function BudgetDetail() {
     if (user.isCircleTreasurer) return true;
     
     // Group treasurer can only manage their group's budget
-    if (user.isGroupTreasurer && budget.group_id === user.groupId) return true;
+    if (user.isGroupTreasurer && budget.group_id) {
+      const userGroupIds = user.groups?.map(g => g.id) || [];
+      return userGroupIds.includes(budget.group_id);
+    }
     
     return false;
   };

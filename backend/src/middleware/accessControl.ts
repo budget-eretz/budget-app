@@ -42,6 +42,7 @@ export async function getUserAccessibleGroupIds(userId: number): Promise<number[
 /**
  * Check if a user can access a specific budget
  * Circle Treasurers can access all budgets
+ * Group Treasurers can access budgets from their assigned groups
  * Other users can access circle-level budgets (group_id IS NULL) and budgets from their assigned groups
  */
 export async function canAccessBudget(userId: number, budgetId: number): Promise<boolean> {
@@ -69,7 +70,25 @@ export async function canAccessBudget(userId: number, budgetId: number): Promise
     return true;
   }
   
-  // Check if user is assigned to the budget's group
+  // Check if user is a Group Treasurer and is assigned to the budget's group
+  const userResult = await pool.query(
+    'SELECT is_group_treasurer FROM users WHERE id = $1',
+    [userId]
+  );
+  
+  if (userResult.rows.length > 0 && userResult.rows[0].is_group_treasurer) {
+    // Group Treasurer - check if they're assigned to this budget's group
+    const groupMemberResult = await pool.query(
+      'SELECT 1 FROM user_groups WHERE user_id = $1 AND group_id = $2',
+      [userId, budgetGroupId]
+    );
+    
+    if (groupMemberResult.rows.length > 0) {
+      return true; // Group Treasurer has access to their group's budget
+    }
+  }
+  
+  // Check if user is assigned to the budget's group (for regular members)
   const accessibleGroupIds = await getUserAccessibleGroupIds(userId);
   return accessibleGroupIds.includes(budgetGroupId);
 }
@@ -77,6 +96,7 @@ export async function canAccessBudget(userId: number, budgetId: number): Promise
 /**
  * Check if a user can access a specific fund
  * Circle Treasurers can access all funds
+ * Group Treasurers can access funds from their assigned groups
  * Other users can access funds from budgets they have access to
  */
 export async function canAccessFund(userId: number, fundId: number): Promise<boolean> {
@@ -99,7 +119,7 @@ export async function canAccessFund(userId: number, fundId: number): Promise<boo
   
   const budgetId = fundResult.rows[0].budget_id;
   
-  // Check if user can access the fund's budget
+  // Check if user can access the fund's budget (includes Group Treasurer check)
   return canAccessBudget(userId, budgetId);
 }
 
