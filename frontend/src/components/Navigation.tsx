@@ -54,7 +54,7 @@ export default function Navigation() {
                     ...(isActive('/payments') ? styles.navLinkActive : {}),
                   }}
                 >
-                  תשלומים
+                  העברות
                 </button>
               </>
             )}

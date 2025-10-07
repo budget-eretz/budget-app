@@ -26,23 +26,28 @@ backend/
 │   │   ├── authController.ts
 │   │   ├── budgetController.ts
 │   │   ├── fundController.ts
+│   │   ├── groupController.ts
 │   │   ├── incomeController.ts
 │   │   ├── plannedExpenseController.ts
 │   │   ├── reimbursementController.ts
-│   │   └── reportController.ts
+│   │   ├── reportController.ts
+│   │   └── userController.ts
 │   ├── db/          # Database utilities, migrations, seeds
 │   │   ├── migrate.ts
 │   │   └── seed.ts
 │   ├── middleware/   # Express middleware (auth, validation)
+│   │   ├── accessControl.ts
 │   │   └── auth.ts
 │   ├── routes/      # API route definitions
 │   │   ├── authRoutes.ts
 │   │   ├── budgetRoutes.ts
 │   │   ├── fundRoutes.ts
+│   │   ├── groupRoutes.ts
 │   │   ├── incomeRoutes.ts
 │   │   ├── plannedExpenseRoutes.ts
 │   │   ├── reimbursementRoutes.ts
-│   │   └── reportRoutes.ts
+│   │   ├── reportRoutes.ts
+│   │   └── userRoutes.ts
 │   ├── types/       # TypeScript type definitions
 │   │   └── index.ts
 │   └── server.ts    # Application entry point
@@ -63,19 +68,23 @@ frontend/
 │   │   ├── Button.tsx
 │   │   ├── FundCard.tsx
 │   │   ├── FundForm.tsx
+│   │   ├── GroupFormModal.tsx
 │   │   ├── Modal.tsx
 │   │   ├── Navigation.tsx
-│   │   └── Toast.tsx
+│   │   ├── Toast.tsx
+│   │   └── UserEditModal.tsx
 │   ├── context/     # React context providers (auth, state)
 │   │   └── AuthContext.tsx
 │   ├── pages/       # Route-level page components
 │   │   ├── BudgetDetail.tsx
 │   │   ├── Budgets.tsx
 │   │   ├── Dashboard.tsx
+│   │   ├── GroupManagement.tsx
 │   │   ├── Login.tsx
 │   │   ├── NewPlannedExpense.tsx
 │   │   ├── NewReimbursement.tsx
-│   │   └── Payments.tsx
+│   │   ├── Payments.tsx
+│   │   └── UserManagement.tsx
 │   ├── services/    # API client and external services
 │   │   └── api.ts
 │   ├── types/       # TypeScript interfaces

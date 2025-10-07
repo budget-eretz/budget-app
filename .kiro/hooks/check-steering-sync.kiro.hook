@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Verify Steering Files Sync",
+  "description": "Checks that steering files in .kiro directory match the latest project changes by reviewing the most recent commit",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      ".kiro/**/*",
+      "backend/src/**/*",
+      "frontend/src/**/*",
+      "package.json",
+      "backend/package.json",
+      "frontend/package.json"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Check the latest git commit to understand what changed in the project. Then review the steering files in the .kiro directory to verify they accurately reflect the current project state. If there are discrepancies between the recent changes and the steering documentation, suggest updates to keep them synchronized."
+  }
+}

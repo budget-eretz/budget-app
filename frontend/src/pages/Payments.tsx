@@ -22,22 +22,22 @@ export default function Payments() {
       const response = await reportsAPI.getPaymentsList();
       setPayments(response.data.payments || []);
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בטעינת רשימת התשלומים', 'error');
+      showToast(error.response?.data?.error || 'שגיאה בטעינת רשימת ההעברות', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleMarkAsPaid = async (reimbursementId: number) => {
-    if (!confirm('האם אתה בטוח שהתשלום בוצע?')) return;
+    if (!confirm('האם אתה בטוח שההעברה בוצעה?')) return;
 
     setActionLoading(reimbursementId);
     try {
       await reimbursementsAPI.markAsPaid(reimbursementId);
-      showToast('התשלום סומן כשולם בהצלחה', 'success');
+      showToast('ההעברה סומנה כבוצעה בהצלחה', 'success');
       await loadPayments();
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בסימון התשלום', 'error');
+      showToast(error.response?.data?.error || 'שגיאה בסימון ההעברה', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -64,15 +64,15 @@ export default function Payments() {
       <div style={styles.content}>
         <div style={styles.pageHeader}>
           <div>
-            <h1 style={styles.title}>רשימת תשלומים</h1>
+            <h1 style={styles.title}>רשימת העברות</h1>
             <p style={styles.subtitle}>
-              {payments.length} תשלומים ממתינים | סה"כ: {formatCurrency(totalAmount)}
+              {payments.length} העברות ממתינות | סה"כ: {formatCurrency(totalAmount)}
             </p>
           </div>
         </div>
         {payments.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={styles.emptyText}>אין תשלומים ממתינים</p>
+            <p style={styles.emptyText}>אין העברות ממתינות</p>
             <Button onClick={() => navigate('/dashboard')}>חזרה לדשבורד</Button>
           </div>
         ) : (
@@ -118,7 +118,7 @@ export default function Payments() {
                     isLoading={actionLoading === payment.id}
                     disabled={actionLoading !== null}
                   >
-                    סמן כשולם
+                    סמן כבוצע
                   </Button>
                 </div>
               </div>
