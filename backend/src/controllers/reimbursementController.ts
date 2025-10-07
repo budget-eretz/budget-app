@@ -549,11 +549,12 @@ export async function batchApprove(req: Request, res: Response) {
           [user.userId, notes || null, id]
         );
 
-        // Associate with payment transfer after approval
+        // Associate with payment transfer after approval (pass client for transaction)
         await associateReimbursementWithTransfer(
           id,
           checkResult.rows[0].recipient_user_id,
-          checkResult.rows[0].fund_id
+          checkResult.rows[0].fund_id,
+          client
         );
 
         successes.push(id);

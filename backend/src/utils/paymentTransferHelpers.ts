@@ -1,13 +1,16 @@
 import pool from '../config/database';
 import { JWTPayload } from '../types';
+import { PoolClient } from 'pg';
 
 /**
  * Helper function to determine if a fund is from circle or group budget
  * @param fundId - The fund ID to check
+ * @param client - Optional database client (for use within transactions)
  * @returns Object with budgetType ('circle' or 'group') and groupId (null for circle budgets)
  */
-export async function getBudgetTypeForFund(fundId: number): Promise<{ budgetType: 'circle' | 'group'; groupId: number | null }> {
-  const result = await pool.query(
+export async function getBudgetTypeForFund(fundId: number, client?: PoolClient): Promise<{ budgetType: 'circle' | 'group'; groupId: number | null }> {
+  const db = client || pool;
+  const result = await db.query(
     `SELECT 
       CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
       b.group_id
@@ -66,15 +69,19 @@ export async function canAccessBudgetType(
  * @param recipientUserId - The user who will receive the payment
  * @param budgetType - 'circle' or 'group'
  * @param groupId - Group ID (required for group budgets, null for circle budgets)
+ * @param client - Optional database client (for use within transactions)
  * @returns The payment transfer ID
  */
 export async function getOrCreateOpenTransfer(
   recipientUserId: number,
   budgetType: 'circle' | 'group',
-  groupId: number | null
+  groupId: number | null,
+  client?: PoolClient
 ): Promise<number> {
+  const db = client || pool;
+  
   // Try to find an existing open transfer
-  const findResult = await pool.query(
+  const findResult = await db.query(
     `SELECT id FROM payment_transfers
     WHERE recipient_user_id = $1
       AND budget_type = $2
@@ -89,7 +96,7 @@ export async function getOrCreateOpenTransfer(
   }
 
   // Create a new transfer if none exists
-  const createResult = await pool.query(
+  const createResult = await db.query(
     `INSERT INTO payment_transfers (
       recipient_user_id,
       budget_type,
@@ -108,9 +115,11 @@ export async function getOrCreateOpenTransfer(
 /**
  * Helper function to recalculate and update payment transfer totals
  * @param transferId - The payment transfer ID to update
+ * @param client - Optional database client (for use within transactions)
  */
-export async function updateTransferTotals(transferId: number): Promise<void> {
-  await pool.query(
+export async function updateTransferTotals(transferId: number, client?: PoolClient): Promise<void> {
+  const db = client || pool;
+  await db.query(
     `UPDATE payment_transfers
     SET 
       total_amount = (
@@ -133,20 +142,24 @@ export async function updateTransferTotals(transferId: number): Promise<void> {
  * @param reimbursementId - The reimbursement ID to associate
  * @param recipientUserId - The user who will receive the payment
  * @param fundId - The fund ID to determine budget type
+ * @param client - Optional database client (for use within transactions)
  */
 export async function associateReimbursementWithTransfer(
   reimbursementId: number,
   recipientUserId: number,
-  fundId: number
+  fundId: number,
+  client?: PoolClient
 ): Promise<void> {
+  const db = client || pool;
+  
   // Get budget type for the fund
-  const { budgetType, groupId } = await getBudgetTypeForFund(fundId);
+  const { budgetType, groupId } = await getBudgetTypeForFund(fundId, client);
 
   // Get or create open transfer
-  const transferId = await getOrCreateOpenTransfer(recipientUserId, budgetType, groupId);
+  const transferId = await getOrCreateOpenTransfer(recipientUserId, budgetType, groupId, client);
 
   // Associate reimbursement with transfer
-  await pool.query(
+  await db.query(
     `UPDATE reimbursements
     SET payment_transfer_id = $1
     WHERE id = $2`,
@@ -154,5 +167,5 @@ export async function associateReimbursementWithTransfer(
   );
 
   // Update transfer totals
-  await updateTransferTotals(transferId);
+  await updateTransferTotals(transferId, client);
 }
