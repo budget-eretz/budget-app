@@ -134,7 +134,7 @@ export default function MyReimbursements() {
         {/* Payment Summary Card */}
         {summary && (
           <div style={styles.summaryCard}>
-            <h2 style={styles.summaryTitle}>סיכום תשלומים</h2>
+            <h2 style={styles.summaryTitle}>סיכום</h2>
             <div style={styles.summaryGrid}>
               <div style={styles.summaryItem}>
                 <span style={styles.summaryLabel}>סה"כ החזרים ממתינים:</span>
@@ -213,62 +213,67 @@ export default function MyReimbursements() {
             </button>
           </div>
 
-          {/* Reimbursements List */}
+          {/* Reimbursements Table */}
           {filteredReimbursements.length === 0 ? (
             <div style={styles.emptyState}>
               <p>אין בקשות החזר להצגה</p>
             </div>
           ) : (
-            <div style={styles.cardsList}>
-              {filteredReimbursements.map((reimb) => (
-                <div key={reimb.id} style={styles.reimbursementCard}>
-                  <div style={styles.cardHeader}>
-                    <div>
-                      <h3 style={styles.cardTitle}>{reimb.fund_name}</h3>
-                      <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
-                    </div>
-                    <div style={styles.cardAmount}>{formatCurrency(reimb.amount)}</div>
-                  </div>
-
-                  <div style={styles.cardBody}>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תיאור:</span>
-                      <span>{reimb.description}</span>
-                    </div>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תאריך הוצאה:</span>
-                      <span>{formatDate(reimb.expense_date)}</span>
-                    </div>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תאריך הגשה:</span>
-                      <span>{formatDate(reimb.created_at)}</span>
-                    </div>
-                    {reimb.recipient_user_id && reimb.recipient_user_id !== reimb.user_id && (
-                      <div style={styles.cardRow}>
-                        <span style={styles.cardLabel}>מקבל התשלום:</span>
-                        <span style={{ fontWeight: '600' }}>{reimb.recipient_name}</span>
-                      </div>
-                    )}
-                    {reimb.notes && (
-                      <div style={styles.cardRow}>
-                        <span style={styles.cardLabel}>הערות:</span>
-                        <span>{reimb.notes}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {reimb.status === 'pending' && (
-                    <div style={styles.cardActions}>
-                      <Button variant="secondary" size="sm" onClick={() => handleEdit(reimb)}>
-                        ערוך
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDeleteClick(reimb)}>
-                        מחק
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeaderRow}>
+                    <th style={styles.tableHeader}>קופה</th>
+                    <th style={styles.tableHeader}>תיאור</th>
+                    <th style={styles.tableHeader}>סכום</th>
+                    <th style={styles.tableHeader}>תאריך הוצאה</th>
+                    <th style={styles.tableHeader}>תאריך הגשה</th>
+                    <th style={styles.tableHeader}>מקבל תשלום</th>
+                    <th style={styles.tableHeader}>סטטוס</th>
+                    <th style={styles.tableHeader}>פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReimbursements.map((reimb) => (
+                    <tr key={reimb.id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{reimb.fund_name}</td>
+                      <td style={styles.tableCell}>
+                        <div style={styles.descriptionCell}>
+                          {reimb.description}
+                          {reimb.notes && (
+                            <div style={styles.notesText}>{reimb.notes}</div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ ...styles.tableCell, ...styles.amountCell }}>
+                        {formatCurrency(reimb.amount)}
+                      </td>
+                      <td style={styles.tableCell}>{formatDate(reimb.expense_date)}</td>
+                      <td style={styles.tableCell}>{formatDate(reimb.created_at)}</td>
+                      <td style={styles.tableCell}>
+                        {reimb.recipient_user_id && reimb.recipient_user_id !== reimb.user_id
+                          ? reimb.recipient_name
+                          : '-'}
+                      </td>
+                      <td style={styles.tableCell}>
+                        <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        {reimb.status === 'pending' && (
+                          <div style={styles.tableActions}>
+                            <Button variant="secondary" size="sm" onClick={() => handleEdit(reimb)}>
+                              ערוך
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteClick(reimb)}>
+                              מחק
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
@@ -277,35 +282,31 @@ export default function MyReimbursements() {
         {charges.length > 0 && (
           <section style={styles.section}>
             <h2 style={styles.sectionTitle}>חיובים ({charges.length})</h2>
-            <div style={styles.cardsList}>
-              {charges.map((charge) => (
-                <div key={charge.id} style={styles.chargeCard}>
-                  <div style={styles.cardHeader}>
-                    <div>
-                      <h3 style={styles.cardTitle}>{charge.fund_name}</h3>
-                      <span style={styles.chargeLabel}>חיוב</span>
-                    </div>
-                    <div style={{ ...styles.cardAmount, color: '#e53e3e' }}>
-                      -{formatCurrency(charge.amount)}
-                    </div>
-                  </div>
-
-                  <div style={styles.cardBody}>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תיאור:</span>
-                      <span>{charge.description}</span>
-                    </div>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תאריך חיוב:</span>
-                      <span>{formatDate(charge.charge_date)}</span>
-                    </div>
-                    <div style={styles.cardRow}>
-                      <span style={styles.cardLabel}>תאריך יצירה:</span>
-                      <span>{formatDate(charge.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeaderRow}>
+                    <th style={styles.tableHeader}>קופה</th>
+                    <th style={styles.tableHeader}>תיאור</th>
+                    <th style={styles.tableHeader}>סכום</th>
+                    <th style={styles.tableHeader}>תאריך חיוב</th>
+                    <th style={styles.tableHeader}>תאריך יצירה</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {charges.map((charge) => (
+                    <tr key={charge.id} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{charge.fund_name}</td>
+                      <td style={styles.tableCell}>{charge.description}</td>
+                      <td style={{ ...styles.tableCell, ...styles.chargeAmountCell }}>
+                        -{formatCurrency(charge.amount)}
+                      </td>
+                      <td style={styles.tableCell}>{formatDate(charge.charge_date)}</td>
+                      <td style={styles.tableCell}>{formatDate(charge.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -457,74 +458,60 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
-  cardsList: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '20px',
-  },
-  reimbursementCard: {
+  tableContainer: {
     background: 'white',
     borderRadius: '8px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
-    transition: 'box-shadow 0.2s',
+    overflow: 'auto',
   },
-  chargeCard: {
-    background: 'white',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
-    border: '2px solid #fed7d7',
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '14px',
   },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: '20px',
+  tableHeaderRow: {
+    background: '#f7fafc',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  tableHeader: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    fontWeight: '600',
+    color: '#4a5568',
+    whiteSpace: 'nowrap',
+  },
+  tableRow: {
     borderBottom: '1px solid #e2e8f0',
+    transition: 'background 0.2s',
   },
-  cardTitle: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    margin: '0 0 8px 0',
+  tableCell: {
+    padding: '16px 12px',
+    textAlign: 'right',
     color: '#2d3748',
   },
-  cardAmount: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#667eea',
-  },
-  cardBody: {
-    padding: '20px',
+  descriptionCell: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '4px',
   },
-  cardRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '14px',
-    gap: '12px',
-  },
-  cardLabel: {
+  notesText: {
+    fontSize: '12px',
     color: '#718096',
-    fontWeight: '600',
-    minWidth: '100px',
+    fontStyle: 'italic',
   },
-  cardActions: {
+  amountCell: {
+    fontWeight: '600',
+    color: '#667eea',
+    whiteSpace: 'nowrap',
+  },
+  chargeAmountCell: {
+    fontWeight: '600',
+    color: '#e53e3e',
+    whiteSpace: 'nowrap',
+  },
+  tableActions: {
     display: 'flex',
     gap: '8px',
-    padding: '16px 20px',
-    borderTop: '1px solid #e2e8f0',
-    background: '#f7fafc',
-  },
-  chargeLabel: {
-    padding: '4px 12px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600',
-    background: '#fed7d7',
-    color: '#c53030',
   },
   deleteModalDetails: {
     background: '#f7fafc',
