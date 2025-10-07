@@ -81,6 +81,13 @@ export interface PlannedExpense {
   created_at: string;
 }
 
+export type ReimbursementStatus = 
+  | 'pending' 
+  | 'under_review' 
+  | 'approved' 
+  | 'rejected' 
+  | 'paid';
+
 export interface Reimbursement {
   id: number;
   fund_id: number;
@@ -94,11 +101,14 @@ export interface Reimbursement {
   description: string;
   expense_date: string;
   receipt_url?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  status: ReimbursementStatus;
   reviewed_by?: number;
   reviewer_name?: string;
   reviewed_at?: string;
   notes?: string;
+  under_review_by?: number;
+  under_review_at?: string;
+  review_notes?: string;
   created_at: string;
 }
 
@@ -134,6 +144,25 @@ export interface Income {
   income_date: string;
   created_at: string;
 }
+
+export interface ReimbursementsByStatus {
+  pending: Reimbursement[];
+  under_review: Reimbursement[];
+  approved: Reimbursement[];
+  rejected: Reimbursement[];
+  paid: Reimbursement[];
+  summary: {
+    pendingCount: number;
+    underReviewCount: number;
+    approvedCount: number;
+    rejectedCount: number;
+    paidCount: number;
+    totalPendingAmount: number;
+    totalApprovedAmount: number;
+  };
+}
+
+export type GroupByOption = 'status' | 'user' | 'fund' | 'none';
 
 export interface Dashboard {
   user: User;

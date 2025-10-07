@@ -72,6 +72,21 @@ export const reimbursementsAPI = {
   approve: (id: number, notes?: string) => api.post(`/reimbursements/${id}/approve`, { notes }),
   reject: (id: number, notes?: string) => api.post(`/reimbursements/${id}/reject`, { notes }),
   markAsPaid: (id: number) => api.post(`/reimbursements/${id}/paid`),
+  
+  // Treasurer management functions
+  getTreasurerAll: (groupBy?: string) => api.get('/reimbursements/treasurer/all', { params: { groupBy } }),
+  markForReview: (id: number, notes?: string) => api.post(`/reimbursements/${id}/mark-review`, { notes }),
+  returnToPending: (id: number) => api.post(`/reimbursements/${id}/return-to-pending`),
+  
+  // Batch operations
+  batchMarkForReview: (ids: number[], notes?: string) => 
+    api.post('/reimbursements/batch/mark-review', { reimbursementIds: ids, notes }),
+  batchApprove: (ids: number[], notes?: string) => 
+    api.post('/reimbursements/batch/approve', { reimbursementIds: ids, notes }),
+  batchReject: (ids: number[], rejectionReason: string) => 
+    api.post('/reimbursements/batch/reject', { reimbursementIds: ids, rejectionReason }),
+  batchMarkAsPaid: (ids: number[]) => 
+    api.post('/reimbursements/batch/mark-paid', { reimbursementIds: ids }),
 };
 
 // Incomes API

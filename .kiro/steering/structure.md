@@ -65,14 +65,19 @@ backend/
 frontend/
 ├── src/
 │   ├── components/   # Reusable React components
+│   │   ├── ActionBar.tsx
 │   │   ├── BudgetCard.tsx
 │   │   ├── BudgetForm.tsx
 │   │   ├── Button.tsx
+│   │   ├── FilterBar.tsx
 │   │   ├── FundCard.tsx
 │   │   ├── FundForm.tsx
 │   │   ├── GroupFormModal.tsx
 │   │   ├── Modal.tsx
 │   │   ├── Navigation.tsx
+│   │   ├── ReimbursementDetailsModal.tsx
+│   │   ├── ReimbursementTable.tsx
+│   │   ├── RejectionModal.tsx
 │   │   ├── Toast.tsx
 │   │   └── UserEditModal.tsx
 │   ├── context/     # React context providers (auth, state)
@@ -87,7 +92,7 @@ frontend/
 │   │   ├── NewCharge.tsx
 │   │   ├── NewPlannedExpense.tsx
 │   │   ├── NewReimbursement.tsx
-│   │   ├── Payments.tsx
+│   │   ├── Payments.tsx          # Treasurer payment management with multi-status workflow
 │   │   └── UserManagement.tsx
 │   ├── services/    # API client and external services
 │   │   └── api.ts
@@ -117,8 +122,12 @@ frontend/
 ### Enhanced Reimbursements Table
 The reimbursements table includes:
 - `recipient_user_id`: Optional field to specify payment recipient (different from submitter)
+- `under_review_by`: Treasurer who marked reimbursement for review
+- `under_review_at`: Timestamp when marked for review
+- `review_notes`: Optional notes for items under review
 - Supports submitting reimbursements on behalf of others
 - Defaults to submitter if no recipient specified
+- Status includes: pending, under_review, approved, rejected, paid
 
 ### Charges Table
 New table for tracking user debts:
@@ -135,7 +144,14 @@ New table for tracking user debts:
 - `GET /api/reimbursements` - List all reimbursements (includes recipient info)
 - `GET /api/reimbursements/my` - Get user's reimbursements (as submitter or recipient)
 - `GET /api/reimbursements/my/summary` - Get payment summary (reimbursements - charges)
+- `GET /api/reimbursements/treasurer/all` - Get all reimbursements grouped by status (treasurer only)
 - `POST /api/reimbursements` - Create reimbursement (with optional recipientUserId)
+- `POST /api/reimbursements/:id/mark-review` - Mark single reimbursement for review (treasurer only)
+- `POST /api/reimbursements/:id/return-to-pending` - Return reimbursement from review to pending (treasurer only)
+- `POST /api/reimbursements/batch/approve` - Batch approve reimbursements (treasurer only)
+- `POST /api/reimbursements/batch/reject` - Batch reject reimbursements with reason (treasurer only)
+- `POST /api/reimbursements/batch/mark-review` - Batch mark reimbursements for review (treasurer only)
+- `POST /api/reimbursements/batch/mark-paid` - Batch mark reimbursements as paid (treasurer only)
 - `PATCH /api/reimbursements/:id` - Update reimbursement (owner only, pending only)
 - `DELETE /api/reimbursements/:id` - Delete reimbursement (owner only, pending only)
 
@@ -157,6 +173,56 @@ New table for tracking user debts:
 - Planned Expenses: `/api/planned-expenses/*`
 - Incomes: `/api/incomes/*`
 - Reports: `/api/reports/*`
+
+## Treasurer Payment Management Components
+
+### ReimbursementTable.tsx
+Advanced table component for displaying reimbursements with:
+- Multi-select with checkboxes (individual and select all)
+- Sortable columns (click header to sort ascending/descending)
+- Filterable columns with dropdown filters
+- Status-specific action buttons
+- Receipt access and details modal trigger
+- Responsive grid layout
+
+### ActionBar.tsx
+Batch operations toolbar that appears when items are selected:
+- Selection count and total amount display
+- Context-aware action buttons based on selected items' statuses
+- Sticky positioning for easy access
+- Actions: Approve, Reject, Mark for Review, Mark as Paid, Return to Pending
+
+### FilterBar.tsx
+Global filtering and grouping controls:
+- Group by selector: Show All / By Members / By Fund
+- Applies to all status tables simultaneously
+- Clear and intuitive Hebrew interface
+
+### ReimbursementDetailsModal.tsx
+Full details modal for individual reimbursements:
+- Complete reimbursement information
+- Submitter and recipient details
+- Fund and budget information
+- Status history and timestamps
+- Receipt link if available
+- Review notes display
+
+### RejectionModal.tsx
+Rejection workflow modal:
+- Required rejection reason text field
+- Validation to ensure reason is provided
+- Confirm/Cancel actions
+- Used for both single and batch rejections
+
+### Payments.tsx (Enhanced)
+Comprehensive treasurer payment management page:
+- Four separate status sections: Pending, Under Review, Approved, Rejected
+- Summary statistics header
+- FilterBar for grouping options
+- ActionBar for batch operations
+- Multiple ReimbursementTable instances
+- Modal management for details and rejections
+- Real-time updates after actions
 
 ## Key Configuration Files
 

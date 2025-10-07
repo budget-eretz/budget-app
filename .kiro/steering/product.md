@@ -11,6 +11,7 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **User Management**: Create, edit, and manage users with role assignments and group memberships
 - **Group Management**: Create and manage groups with many-to-many user relationships
 - **Enhanced Reimbursement Management**: Personal reimbursement tracking, editing, deletion, and submission on behalf of others
+- **Treasurer Payment Management**: Comprehensive payment workflow with multi-status tracking, batch operations, and review capabilities
 - **Charge Submission**: Track debts owed to circle/group that offset pending reimbursements
 - **Fund Access Control**: Budget-based access control for circle and group funds
 
@@ -87,9 +88,78 @@ Quick action buttons on fund cards:
 #### Hebrew Language Interface
 Complete Hebrew language support throughout:
 - All labels, buttons, and messages in Hebrew
-- Hebrew status values (ממתין לאישור, אושר, נדחה, שולם)
+- Hebrew status values (ממתין לאישור, לבדיקה, אושר, נדחה, שולם)
 - Hebrew error messages and confirmations
 - RTL-friendly layout and design
+
+### Treasurer Payment Management (ניהול העברות לגזברים)
+
+A comprehensive payment management interface for treasurers to efficiently process and track reimbursements through their complete lifecycle.
+
+#### Payment Workflow Statuses
+The system supports five distinct reimbursement statuses:
+- **ממתין לאישור (Pending)**: Newly submitted reimbursements awaiting treasurer review
+- **לבדיקה (Under Review)**: Reimbursements flagged by treasurer for additional verification or clarification
+- **אושר (Approved)**: Reimbursements approved for payment
+- **נדחה (Rejected)**: Reimbursements that were declined with documented reason
+- **שולם (Paid)**: Reimbursements that have been paid out
+
+#### Key Features
+
+**Multi-Status Organization**
+- Separate tables for each status category (Pending, Under Review, Approved, Rejected)
+- Clear visual separation and status-specific actions
+- Real-time status updates and automatic table transitions
+
+**Review and Flagging System**
+- Mark reimbursements for review when additional verification needed
+- Add optional notes for follow-up tracking
+- Return flagged items back to pending after clarification
+- Track who flagged items and when
+
+**Batch Operations**
+- Select multiple reimbursements across tables
+- Batch approve pending reimbursements
+- Batch reject with shared reason
+- Batch mark as paid for approved items
+- Batch flag for review
+- Visual selection counter with total amount display
+
+**Advanced Filtering and Sorting**
+- Sort by any column (submitter, recipient, fund, amount, date)
+- Filter by submitter, recipient, or fund
+- Multiple simultaneous filters with AND logic
+- Clear all filters option
+- Group display options: by status (default), by member, by fund, or show all
+
+**Detailed Information Display**
+- Submitter and recipient information (with distinction when different)
+- Fund and budget association
+- Expense description and amount
+- Expense date and submission date
+- Receipt attachment access
+- Full reimbursement details modal
+
+**Action Bar**
+- Sticky action bar appears when items selected
+- Shows selection count and total amount
+- Context-aware actions based on selected items' statuses
+- Quick access to common batch operations
+
+**Access Control**
+- Circle treasurers: Full access to all reimbursements
+- Group treasurers: Access limited to their groups' reimbursements
+- Automatic filtering based on treasurer role and permissions
+
+**Rejection Workflow**
+- Required rejection reason for declined reimbursements
+- Rejection reason visible to submitter
+- Documented audit trail for all decisions
+
+**Summary Statistics**
+- Count of reimbursements in each status
+- Total amounts pending and approved
+- Quick overview of workload and payment obligations
 
 ### Target Deployment
 - Development: Docker Compose

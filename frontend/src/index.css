@@ -31,3 +31,731 @@ input:focus {
   border-color: #667eea !important;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
+
+/* ActionBar Component Styles */
+.action-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 1rem 2rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.action-bar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.action-bar-info {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  color: white;
+  font-weight: 500;
+}
+
+.selected-count {
+  font-size: 1.1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+}
+
+.total-amount {
+  font-size: 1.1rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+}
+
+.action-bar-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-approve {
+  background: #10b981;
+  color: white;
+}
+
+.action-approve:hover {
+  background: #059669;
+}
+
+.action-reject {
+  background: #ef4444;
+  color: white;
+}
+
+.action-reject:hover {
+  background: #dc2626;
+}
+
+.action-review {
+  background: #f59e0b;
+  color: white;
+}
+
+.action-review:hover {
+  background: #d97706;
+}
+
+.action-paid {
+  background: #3b82f6;
+  color: white;
+}
+
+.action-paid:hover {
+  background: #2563eb;
+}
+
+.action-return {
+  background: #6b7280;
+  color: white;
+}
+
+.action-return:hover {
+  background: #4b5563;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .action-bar {
+    padding: 1rem;
+  }
+
+  .action-bar-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .action-bar-info {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .action-bar-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .action-button {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+/* FilterBar Component Styles */
+.filter-bar {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.25rem 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-bar-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.filter-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.filter-select {
+  padding: 0.75rem 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 200px;
+}
+
+.filter-select:hover {
+  border-color: #667eea;
+  background: #f9fafb;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .filter-bar {
+    padding: 1rem;
+  }
+
+  .filter-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .filter-label {
+    text-align: center;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+}
+
+/* Table Styling - Task 16.1 */
+.table-container {
+  overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.table-container:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive grid layout for tables */
+@media (max-width: 1200px) {
+  .table-container {
+    overflow-x: scroll;
+  }
+}
+
+/* Status-specific colors */
+.status-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-under-review {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-approved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-paid {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+/* Table row hover effects */
+.table-row {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.table-row:hover {
+  background-color: #f7fafc !important;
+  transform: translateX(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.table-row:active {
+  transform: translateX(0);
+}
+
+/* Alternating row colors for better readability */
+.table-row:nth-child(even) {
+  background-color: #fafafa;
+}
+
+/* Button and Action Styling - Task 16.2 */
+/* Action buttons with icons and clear colors */
+.action-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.action-btn:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Approve button - Green */
+.approve-btn {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%) !important;
+  box-shadow: 0 2px 4px rgba(72, 187, 120, 0.3);
+}
+
+.approve-btn:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%) !important;
+  box-shadow: 0 4px 8px rgba(72, 187, 120, 0.4);
+}
+
+.approve-btn:disabled {
+  background: #cbd5e0 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Reject button - Red */
+.reject-btn {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
+  box-shadow: 0 2px 4px rgba(229, 62, 62, 0.3);
+}
+
+.reject-btn:hover {
+  background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%) !important;
+  box-shadow: 0 4px 8px rgba(229, 62, 62, 0.4);
+}
+
+.reject-btn:disabled {
+  background: #cbd5e0 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Review button - Yellow/Orange */
+.review-btn {
+  background: linear-gradient(135deg, #ecc94b 0%, #d69e2e 100%) !important;
+  box-shadow: 0 2px 4px rgba(236, 201, 75, 0.3);
+}
+
+.review-btn:hover {
+  background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%) !important;
+  box-shadow: 0 4px 8px rgba(236, 201, 75, 0.4);
+}
+
+.review-btn:disabled {
+  background: #cbd5e0 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Return button - Blue */
+.return-btn {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%) !important;
+  box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
+}
+
+.return-btn:hover {
+  background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%) !important;
+  box-shadow: 0 4px 8px rgba(66, 153, 225, 0.4);
+}
+
+.return-btn:disabled {
+  background: #cbd5e0 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Paid button - Green (similar to approve) */
+.paid-btn {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%) !important;
+  box-shadow: 0 2px 4px rgba(72, 187, 120, 0.3);
+}
+
+.paid-btn:hover {
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%) !important;
+  box-shadow: 0 4px 8px rgba(72, 187, 120, 0.4);
+}
+
+.paid-btn:disabled {
+  background: #cbd5e0 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Details button - Gray */
+.details-btn {
+  background: linear-gradient(135deg, #718096 0%, #4a5568 100%) !important;
+  box-shadow: 0 2px 4px rgba(113, 128, 150, 0.3);
+}
+
+.details-btn:hover {
+  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+  box-shadow: 0 4px 8px rgba(113, 128, 150, 0.4);
+}
+
+/* Receipt button - Purple */
+.receipt-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.receipt-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #5a3a7a 100%) !important;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* Action bar buttons */
+.action-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.action-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.action-button:active::after {
+  width: 200px;
+  height: 200px;
+}
+
+/* Disabled state for all buttons */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none !important;
+}
+
+button:disabled:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Animations and Transitions - Task 16.3 */
+
+/* Fade in animation for page content */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide in from right animation */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide in from left animation */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Scale in animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Pulse animation for important elements */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Apply fade in to sections */
+.section-animate {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Stagger animation for multiple sections */
+.section-animate:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.section-animate:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.section-animate:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.section-animate:nth-child(4) {
+  animation-delay: 0.4s;
+}
+
+/* Modal animations */
+.modal-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Loading state */
+.loading-spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Prevent transition on page load */
+.no-transition {
+  transition: none !important;
+}
+
+/* Table row stagger animation */
+.table-row {
+  animation: slideInRight 0.3s ease-out;
+  animation-fill-mode: both;
+}
+
+.table-row:nth-child(1) { animation-delay: 0.05s; }
+.table-row:nth-child(2) { animation-delay: 0.1s; }
+.table-row:nth-child(3) { animation-delay: 0.15s; }
+.table-row:nth-child(4) { animation-delay: 0.2s; }
+.table-row:nth-child(5) { animation-delay: 0.25s; }
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Modal close button hover effect */
+.modal-close-btn:hover {
+  background: #f7fafc !important;
+  color: #2d3748 !important;
+  transform: rotate(90deg);
+}
+
+/* Empty state animation */
+.empty-message {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Stat card hover effect */
+.stat-card {
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal details content animation */
+.modal-details-content {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* Receipt button animation */
+.receipt-button {
+  transition: all 0.3s ease;
+}
+
+.receipt-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+/* Timeline animation */
+.timeline-item {
+  animation: slideInLeft 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.timeline-item:nth-child(1) { animation-delay: 0.1s; }
+.timeline-item:nth-child(2) { animation-delay: 0.2s; }
+.timeline-item:nth-child(3) { animation-delay: 0.3s; }
+.timeline-item:nth-child(4) { animation-delay: 0.4s; }
+
+/* Rejection Modal Styles */
+.rejection-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rejection-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rejection-modal-description {
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
+  padding: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  margin: 0;
+}
+
+.form-label.required::after {
+  content: ' *';
+  color: #ef4444;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+  direction: rtl;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.form-textarea.error {
+  border-color: #ef4444;
+}
+
+.form-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.error-message {
+  display: block;
+  color: #ef4444;
+  font-size: 13px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}

@@ -415,3 +415,495 @@ export async function getMySummary(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to get summary' });
   }
 }
+
+export async function markForReview(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Check reimbursement exists and is pending
+    const existing = await pool.query(
+      'SELECT status FROM reimbursements WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
+    }
+
+    if (existing.rows[0].status !== 'pending') {
+      return res.status(400).json({ error: 'ניתן לסמן לבדיקה רק בקשות ממתינות' });
+    }
+
+    // Update status to under_review
+    const result = await pool.query(
+      `UPDATE reimbursements
+       SET status = 'under_review',
+           under_review_by = $1,
+           under_review_at = NOW(),
+           review_notes = $2,
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [user.userId, notes || null, id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Mark for review error:', error);
+    res.status(500).json({ error: 'שגיאה בסימון לבדיקה' });
+  }
+}
+
+export async function returnToPending(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Check reimbursement exists and is under_review
+    const existing = await pool.query(
+      'SELECT status FROM reimbursements WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
+    }
+
+    if (existing.rows[0].status !== 'under_review') {
+      return res.status(400).json({ error: 'ניתן להחזיר לממתין רק בקשות שבבדיקה' });
+    }
+
+    // Update status back to pending and clear under_review fields
+    const result = await pool.query(
+      `UPDATE reimbursements
+       SET status = 'pending',
+           under_review_by = NULL,
+           under_review_at = NULL,
+           review_notes = NULL,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Return to pending error:', error);
+    res.status(500).json({ error: 'שגיאה בהחזרה לממתין' });
+  }
+}
+
+export async function batchApprove(req: Request, res: Response) {
+  const client = await pool.connect();
+  
+  try {
+    const { reimbursementIds, notes } = req.body;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Validate input
+    if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
+      return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    await client.query('BEGIN');
+
+    const successes: number[] = [];
+    const errors: Array<{ id: number; error: string }> = [];
+
+    // Process each reimbursement
+    for (const id of reimbursementIds) {
+      try {
+        // Check if reimbursement exists and is in valid status
+        const checkResult = await client.query(
+          'SELECT id, status FROM reimbursements WHERE id = $1',
+          [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+          errors.push({ id, error: 'בקשת החזר לא נמצאה' });
+          continue;
+        }
+
+        const status = checkResult.rows[0].status;
+        if (status !== 'pending' && status !== 'under_review') {
+          errors.push({ id, error: 'ניתן לאשר רק בקשות ממתינות או בבדיקה' });
+          continue;
+        }
+
+        // Approve the reimbursement
+        await client.query(
+          `UPDATE reimbursements
+           SET status = 'approved',
+               reviewed_by = $1,
+               reviewed_at = NOW(),
+               notes = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [user.userId, notes || null, id]
+        );
+
+        successes.push(id);
+      } catch (error) {
+        console.error(`Error approving reimbursement ${id}:`, error);
+        errors.push({ id, error: 'שגיאה באישור בקשה' });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      updated: successes.length,
+      successIds: successes,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Batch approve error:', error);
+    res.status(500).json({ error: 'שגיאה באישור מרובה' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function batchReject(req: Request, res: Response) {
+  const client = await pool.connect();
+  
+  try {
+    const { reimbursementIds, rejectionReason } = req.body;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Validate input
+    if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
+      return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      return res.status(400).json({ error: 'יש לספק סיבת דחייה' });
+    }
+
+    await client.query('BEGIN');
+
+    const successes: number[] = [];
+    const errors: Array<{ id: number; error: string }> = [];
+
+    // Process each reimbursement
+    for (const id of reimbursementIds) {
+      try {
+        // Check if reimbursement exists and is in valid status
+        const checkResult = await client.query(
+          'SELECT id, status FROM reimbursements WHERE id = $1',
+          [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+          errors.push({ id, error: 'בקשת החזר לא נמצאה' });
+          continue;
+        }
+
+        const status = checkResult.rows[0].status;
+        if (status !== 'pending' && status !== 'under_review') {
+          errors.push({ id, error: 'ניתן לדחות רק בקשות ממתינות או בבדיקה' });
+          continue;
+        }
+
+        // Reject the reimbursement
+        await client.query(
+          `UPDATE reimbursements
+           SET status = 'rejected',
+               reviewed_by = $1,
+               reviewed_at = NOW(),
+               notes = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [user.userId, rejectionReason, id]
+        );
+
+        successes.push(id);
+      } catch (error) {
+        console.error(`Error rejecting reimbursement ${id}:`, error);
+        errors.push({ id, error: 'שגיאה בדחיית בקשה' });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      updated: successes.length,
+      successIds: successes,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Batch reject error:', error);
+    res.status(500).json({ error: 'שגיאה בדחייה מרובה' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function batchMarkForReview(req: Request, res: Response) {
+  const client = await pool.connect();
+  
+  try {
+    const { reimbursementIds, notes } = req.body;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Validate input
+    if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
+      return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    await client.query('BEGIN');
+
+    const successes: number[] = [];
+    const errors: Array<{ id: number; error: string }> = [];
+
+    // Process each reimbursement
+    for (const id of reimbursementIds) {
+      try {
+        // Check if reimbursement exists and is pending
+        const checkResult = await client.query(
+          'SELECT id, status FROM reimbursements WHERE id = $1',
+          [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+          errors.push({ id, error: 'בקשת החזר לא נמצאה' });
+          continue;
+        }
+
+        const status = checkResult.rows[0].status;
+        if (status !== 'pending') {
+          errors.push({ id, error: 'ניתן לסמן לבדיקה רק בקשות ממתינות' });
+          continue;
+        }
+
+        // Mark for review
+        await client.query(
+          `UPDATE reimbursements
+           SET status = 'under_review',
+               under_review_by = $1,
+               under_review_at = NOW(),
+               review_notes = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [user.userId, notes || null, id]
+        );
+
+        successes.push(id);
+      } catch (error) {
+        console.error(`Error marking reimbursement ${id} for review:`, error);
+        errors.push({ id, error: 'שגיאה בסימון לבדיקה' });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      updated: successes.length,
+      successIds: successes,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Batch mark for review error:', error);
+    res.status(500).json({ error: 'שגיאה בסימון מרובה לבדיקה' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function batchMarkAsPaid(req: Request, res: Response) {
+  const client = await pool.connect();
+  
+  try {
+    const { reimbursementIds } = req.body;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Validate input
+    if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
+      return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    await client.query('BEGIN');
+
+    const successes: number[] = [];
+    const errors: Array<{ id: number; error: string }> = [];
+
+    // Process each reimbursement
+    for (const id of reimbursementIds) {
+      try {
+        // Check if reimbursement exists and is approved
+        const checkResult = await client.query(
+          'SELECT id, status FROM reimbursements WHERE id = $1',
+          [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+          errors.push({ id, error: 'בקשת החזר לא נמצאה' });
+          continue;
+        }
+
+        const status = checkResult.rows[0].status;
+        if (status !== 'approved') {
+          errors.push({ id, error: 'ניתן לסמן כשולם רק בקשות מאושרות' });
+          continue;
+        }
+
+        // Mark as paid
+        await client.query(
+          `UPDATE reimbursements
+           SET status = 'paid',
+               updated_at = NOW()
+           WHERE id = $1`,
+          [id]
+        );
+
+        successes.push(id);
+      } catch (error) {
+        console.error(`Error marking reimbursement ${id} as paid:`, error);
+        errors.push({ id, error: 'שגיאה בסימון כשולם' });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      updated: successes.length,
+      successIds: successes,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Batch mark as paid error:', error);
+    res.status(500).json({ error: 'שגיאה בסימון מרובה כשולם' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function getTreasurerReimbursements(req: Request, res: Response) {
+  try {
+    const { groupBy } = req.query;
+    const user = req.user!;
+
+    // Check treasurer permissions
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
+    }
+
+    // Base query with all necessary joins
+    let baseQuery = `
+      SELECT r.*, 
+             f.name as fund_name, 
+             f.budget_id,
+             b.name as budget_name,
+             CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
+             submitter.full_name as user_name, 
+             submitter.email as user_email,
+             recipient.full_name as recipient_name, 
+             recipient.email as recipient_email,
+             reviewer.full_name as reviewer_name,
+             under_reviewer.full_name as under_review_by_name
+      FROM reimbursements r
+      JOIN funds f ON r.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      JOIN users submitter ON r.user_id = submitter.id
+      LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
+      LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
+      LEFT JOIN users under_reviewer ON r.under_review_by = under_reviewer.id
+    `;
+
+    // Apply access control for group treasurers
+    if (!user.isCircleTreasurer && user.isGroupTreasurer) {
+      // Group treasurer: only see reimbursements from their groups' budgets
+      baseQuery += `
+        WHERE b.id IN (
+          SELECT id 
+          FROM budgets 
+          WHERE group_id IS NULL
+          UNION
+          SELECT id 
+          FROM budgets 
+          WHERE group_id IN (
+            SELECT group_id 
+            FROM user_groups 
+            WHERE user_id = ${user.userId}
+          )
+        )
+      `;
+    }
+
+    baseQuery += ' ORDER BY r.created_at DESC';
+
+    // Fetch all reimbursements
+    const result = await pool.query(baseQuery);
+    const allReimbursements = result.rows;
+
+    // Group by status
+    const pending = allReimbursements.filter(r => r.status === 'pending');
+    const under_review = allReimbursements.filter(r => r.status === 'under_review');
+    const approved = allReimbursements.filter(r => r.status === 'approved');
+    const rejected = allReimbursements.filter(r => r.status === 'rejected');
+    const paid = allReimbursements.filter(r => r.status === 'paid');
+
+    // Calculate summary
+    const summary = {
+      pendingCount: pending.length,
+      underReviewCount: under_review.length,
+      approvedCount: approved.length,
+      rejectedCount: rejected.length,
+      paidCount: paid.length,
+      totalPendingAmount: pending.reduce((sum, r) => sum + parseFloat(r.amount), 0),
+      totalApprovedAmount: approved.reduce((sum, r) => sum + parseFloat(r.amount), 0)
+    };
+
+    res.json({
+      pending,
+      under_review,
+      approved,
+      rejected,
+      paid,
+      summary
+    });
+  } catch (error) {
+    console.error('Get treasurer reimbursements error:', error);
+    res.status(500).json({ error: 'שגיאה בטעינת החזרים' });
+  }
+}
