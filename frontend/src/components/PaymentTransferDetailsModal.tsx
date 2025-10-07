@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
-import { PaymentTransferDetails, Reimbursement } from '../types';
+import { PaymentTransferDetails } from '../types';
 
 interface PaymentTransferDetailsModalProps {
   isOpen: boolean;
@@ -112,15 +112,52 @@ export default function PaymentTransferDetailsModal({
           <h3 style={styles.sectionTitle}>
             החזרים משויכים ({transfer.reimbursements.length})
           </h3>
-          <div style={styles.reimbursementsList}>
-            {transfer.reimbursements.map((reimbursement) => (
-              <ReimbursementCard
-                key={reimbursement.id}
-                reimbursement={reimbursement}
-                formatDate={formatDate}
-                formatCurrency={formatCurrency}
-              />
-            ))}
+          <div style={styles.tableContainer}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.tableHeaderRow}>
+                  <th style={styles.tableHeader}>#</th>
+                  <th style={styles.tableHeader}>תיאור</th>
+                  <th style={styles.tableHeader}>קופה</th>
+                  <th style={styles.tableHeader}>מגיש</th>
+                  <th style={styles.tableHeader}>תאריך הוצאה</th>
+                  <th style={styles.tableHeader}>סכום</th>
+                  <th style={styles.tableHeader}>סטטוס</th>
+                  <th style={styles.tableHeader}>קבלה</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transfer.reimbursements.map((reimbursement) => (
+                  <tr key={reimbursement.id} style={styles.tableRow}>
+                    <td style={styles.tableCell}>#{reimbursement.id}</td>
+                    <td style={styles.tableCell}>{reimbursement.description}</td>
+                    <td style={styles.tableCell}>{reimbursement.fund_name || '-'}</td>
+                    <td style={styles.tableCell}>{reimbursement.user_name || '-'}</td>
+                    <td style={styles.tableCell}>{formatDate(reimbursement.expense_date)}</td>
+                    <td style={{...styles.tableCell, ...styles.amountCell}}>
+                      {formatCurrency(reimbursement.amount)}
+                    </td>
+                    <td style={styles.tableCell}>
+                      {reimbursementStatusLabels[reimbursement.status]}
+                    </td>
+                    <td style={styles.tableCell}>
+                      {reimbursement.receipt_url ? (
+                        <a
+                          href={reimbursement.receipt_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.receiptLink}
+                        >
+                          📄
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -163,66 +200,7 @@ function DetailRow({ label, value, highlight }: DetailRowProps) {
   );
 }
 
-interface ReimbursementCardProps {
-  reimbursement: Reimbursement;
-  formatDate: (date: string) => string;
-  formatCurrency: (amount: number) => string;
-}
 
-function ReimbursementCard({
-  reimbursement,
-  formatDate,
-  formatCurrency,
-}: ReimbursementCardProps) {
-  return (
-    <div style={styles.reimbursementCard} className="reimbursement-card">
-      <div style={styles.reimbursementHeader}>
-        <div style={styles.reimbursementId}>#{reimbursement.id}</div>
-        <div style={styles.reimbursementAmount}>
-          {formatCurrency(reimbursement.amount)}
-        </div>
-      </div>
-      <div style={styles.reimbursementBody}>
-        <div style={styles.reimbursementRow}>
-          <span style={styles.reimbursementLabel}>תיאור:</span>
-          <span style={styles.reimbursementValue}>{reimbursement.description}</span>
-        </div>
-        <div style={styles.reimbursementRow}>
-          <span style={styles.reimbursementLabel}>קופה:</span>
-          <span style={styles.reimbursementValue}>{reimbursement.fund_name || '-'}</span>
-        </div>
-        <div style={styles.reimbursementRow}>
-          <span style={styles.reimbursementLabel}>מגיש:</span>
-          <span style={styles.reimbursementValue}>{reimbursement.user_name || '-'}</span>
-        </div>
-        <div style={styles.reimbursementRow}>
-          <span style={styles.reimbursementLabel}>תאריך הוצאה:</span>
-          <span style={styles.reimbursementValue}>
-            {formatDate(reimbursement.expense_date)}
-          </span>
-        </div>
-        <div style={styles.reimbursementRow}>
-          <span style={styles.reimbursementLabel}>סטטוס:</span>
-          <span style={styles.reimbursementValue}>
-            {reimbursementStatusLabels[reimbursement.status]}
-          </span>
-        </div>
-        {reimbursement.receipt_url && (
-          <div style={styles.reimbursementRow}>
-            <a
-              href={reimbursement.receipt_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.receiptLink}
-            >
-              📄 קבלה
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -280,65 +258,49 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     fontSize: '18px',
   },
-  reimbursementsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
+  tableContainer: {
     maxHeight: '400px',
     overflowY: 'auto',
-    padding: '4px',
-  },
-  reimbursementCard: {
+    overflowX: 'auto',
     border: '1px solid #e2e8f0',
     borderRadius: '8px',
-    padding: '16px',
-    backgroundColor: '#f7fafc',
-    transition: 'box-shadow 0.2s',
   },
-  reimbursementHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '12px',
-    paddingBottom: '8px',
-    borderBottom: '1px solid #e2e8f0',
-  },
-  reimbursementId: {
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
     fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#718096',
   },
-  reimbursementAmount: {
-    fontSize: '18px',
+  tableHeaderRow: {
+    backgroundColor: '#f7fafc',
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 1,
+  },
+  tableHeader: {
+    padding: '12px 16px',
+    textAlign: 'right' as const,
+    fontWeight: 'bold',
+    color: '#1a202c',
+    borderBottom: '2px solid #e2e8f0',
+    whiteSpace: 'nowrap' as const,
+  },
+  tableRow: {
+    borderBottom: '1px solid #e2e8f0',
+    transition: 'background-color 0.2s',
+  },
+  tableCell: {
+    padding: '12px 16px',
+    textAlign: 'right' as const,
+    color: '#1a202c',
+  },
+  amountCell: {
     fontWeight: 'bold',
     color: '#10b981',
   },
-  reimbursementBody: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  reimbursementRow: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'baseline',
-  },
-  reimbursementLabel: {
-    fontSize: '14px',
-    color: '#718096',
-    fontWeight: '500',
-    minWidth: '80px',
-  },
-  reimbursementValue: {
-    fontSize: '14px',
-    color: '#1a202c',
-    flex: 1,
-  },
   receiptLink: {
-    fontSize: '14px',
-    color: '#3b82f6',
+    fontSize: '18px',
     textDecoration: 'none',
-    fontWeight: '500',
+    cursor: 'pointer',
   },
   actionSection: {
     display: 'flex',

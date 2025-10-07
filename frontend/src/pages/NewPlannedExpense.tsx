@@ -1,13 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fundsAPI, plannedExpensesAPI } from '../services/api';
-import { Fund } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 
+interface Budget {
+  id: number;
+  name: string;
+  type: 'circle' | 'group';
+  groupName?: string;
+  funds: {
+    id: number;
+    name: string;
+    allocated_amount: number;
+    available_amount: number;
+    description?: string;
+  }[];
+}
+
 export default function NewPlannedExpense() {
-  const [funds, setFunds] = useState<Fund[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -22,7 +35,7 @@ export default function NewPlannedExpense() {
   });
 
   useEffect(() => {
-    loadFunds();
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -33,10 +46,10 @@ export default function NewPlannedExpense() {
     }
   }, [location.state]);
 
-  const loadFunds = async () => {
+  const loadData = async () => {
     try {
-      const response = await fundsAPI.getAll();
-      setFunds(response.data.funds || []);
+      const fundsResponse = await fundsAPI.getAccessible();
+      setBudgets(fundsResponse.data.budgets || []);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת הקופות', 'error');
     } finally {
@@ -108,10 +121,14 @@ export default function NewPlannedExpense() {
                 style={styles.select}
               >
                 <option value="">-- בחר קופה --</option>
-                {funds.map((fund) => (
-                  <option key={fund.id} value={fund.id}>
-                    {fund.name} - זמין: {formatCurrency(fund.available_amount || 0)}
-                  </option>
+                {budgets.map((budget) => (
+                  <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
+                    {budget.funds.map((fund) => (
+                      <option key={fund.id} value={fund.id}>
+                        {fund.name} - זמין: {formatCurrency(fund.available_amount || 0)}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
@@ -175,39 +192,34 @@ export default function NewPlannedExpense() {
           </form>
         </div>
 
-        {funds.length > 0 && (
+        {budgets.length > 0 && (
           <div style={styles.sidebar}>
             <h3 style={styles.sidebarTitle}>קופות זמינות</h3>
             <div style={styles.fundsList}>
-              {funds.map((fund) => (
-                <div key={fund.id} style={styles.fundCard}>
-                  <h4 style={styles.fundName}>{fund.name}</h4>
-                  <div style={styles.fundDetails}>
-                    <div style={styles.fundRow}>
-                      <span>מקורי:</span>
-                      <span>{formatCurrency(fund.allocated_amount)}</span>
+              {budgets.map((budget) => (
+                <div key={budget.id}>
+                  <h4 style={styles.budgetTitle}>
+                    {budget.name} ({budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})
+                  </h4>
+                  {budget.funds.map((fund) => (
+                    <div key={fund.id} style={styles.fundCard}>
+                      <h5 style={styles.fundName}>{fund.name}</h5>
+                      <div style={styles.fundDetails}>
+                        <div style={styles.fundRow}>
+                          <span>מקורי:</span>
+                          <span>{formatCurrency(fund.allocated_amount)}</span>
+                        </div>
+                        <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
+                          <span>
+                            <strong>זמין:</strong>
+                          </span>
+                          <span style={{ color: '#38a169' }}>
+                            <strong>{formatCurrency(fund.available_amount || 0)}</strong>
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={styles.fundRow}>
-                      <span>יצא:</span>
-                      <span style={{ color: '#e53e3e' }}>
-                        {formatCurrency(fund.spent_amount || 0)}
-                      </span>
-                    </div>
-                    <div style={styles.fundRow}>
-                      <span>מתוכנן:</span>
-                      <span style={{ color: '#dd6b20' }}>
-                        {formatCurrency(fund.planned_amount || 0)}
-                      </span>
-                    </div>
-                    <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
-                      <span>
-                        <strong>זמין:</strong>
-                      </span>
-                      <span style={{ color: '#38a169' }}>
-                        <strong>{formatCurrency(fund.available_amount || 0)}</strong>
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -314,18 +326,25 @@ const styles: Record<string, React.CSSProperties> = {
   fundsList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '20px',
   },
-  fundCard: {
-    background: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  },
-  fundName: {
+  budgetTitle: {
     fontSize: '16px',
     fontWeight: 'bold',
     margin: '0 0 12px 0',
+    color: '#2d3748',
+  },
+  fundCard: {
+    background: 'white',
+    padding: '16px',
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    marginBottom: '12px',
+  },
+  fundName: {
+    fontSize: '15px',
+    fontWeight: '600',
+    margin: '0 0 10px 0',
   },
   fundDetails: {
     display: 'flex',

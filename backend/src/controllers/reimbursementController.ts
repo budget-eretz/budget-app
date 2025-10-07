@@ -488,7 +488,7 @@ export async function returnToPending(req: Request, res: Response) {
 }
 
 export async function batchApprove(req: Request, res: Response) {
-  const client = await pool.connect();
+  let client;
   
   try {
     const { reimbursementIds, notes } = req.body;
@@ -502,6 +502,14 @@ export async function batchApprove(req: Request, res: Response) {
     // Validate input
     if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
       return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    // Get client from pool with timeout handling
+    try {
+      client = await pool.connect();
+    } catch (connError) {
+      console.error('Failed to get database connection:', connError);
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
 
     await client.query('BEGIN');
@@ -563,17 +571,36 @@ export async function batchApprove(req: Request, res: Response) {
       successIds: successes,
       errors: errors.length > 0 ? errors : undefined
     });
-  } catch (error) {
-    await client.query('ROLLBACK');
+  } catch (error: any) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+    
     console.error('Batch approve error:', error);
+    
+    // Handle specific database connection errors
+    if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
+    }
+    
     res.status(500).json({ error: 'שגיאה באישור מרובה' });
   } finally {
-    client.release();
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('Error releasing client:', releaseError);
+      }
+    }
   }
 }
 
 export async function batchReject(req: Request, res: Response) {
-  const client = await pool.connect();
+  let client;
   
   try {
     const { reimbursementIds, rejectionReason } = req.body;
@@ -591,6 +618,13 @@ export async function batchReject(req: Request, res: Response) {
 
     if (!rejectionReason || rejectionReason.trim() === '') {
       return res.status(400).json({ error: 'יש לספק סיבת דחייה' });
+    }
+
+    try {
+      client = await pool.connect();
+    } catch (connError) {
+      console.error('Failed to get database connection:', connError);
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
 
     await client.query('BEGIN');
@@ -645,17 +679,35 @@ export async function batchReject(req: Request, res: Response) {
       successIds: successes,
       errors: errors.length > 0 ? errors : undefined
     });
-  } catch (error) {
-    await client.query('ROLLBACK');
+  } catch (error: any) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+    
     console.error('Batch reject error:', error);
+    
+    if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
+    }
+    
     res.status(500).json({ error: 'שגיאה בדחייה מרובה' });
   } finally {
-    client.release();
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('Error releasing client:', releaseError);
+      }
+    }
   }
 }
 
 export async function batchMarkForReview(req: Request, res: Response) {
-  const client = await pool.connect();
+  let client;
   
   try {
     const { reimbursementIds, notes } = req.body;
@@ -669,6 +721,13 @@ export async function batchMarkForReview(req: Request, res: Response) {
     // Validate input
     if (!Array.isArray(reimbursementIds) || reimbursementIds.length === 0) {
       return res.status(400).json({ error: 'יש לספק מערך של מזהי החזרים' });
+    }
+
+    try {
+      client = await pool.connect();
+    } catch (connError) {
+      console.error('Failed to get database connection:', connError);
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
 
     await client.query('BEGIN');
@@ -723,12 +782,30 @@ export async function batchMarkForReview(req: Request, res: Response) {
       successIds: successes,
       errors: errors.length > 0 ? errors : undefined
     });
-  } catch (error) {
-    await client.query('ROLLBACK');
+  } catch (error: any) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+    
     console.error('Batch mark for review error:', error);
+    
+    if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
+    }
+    
     res.status(500).json({ error: 'שגיאה בסימון מרובה לבדיקה' });
   } finally {
-    client.release();
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('Error releasing client:', releaseError);
+      }
+    }
   }
 }
 
