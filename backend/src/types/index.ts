@@ -4,7 +4,6 @@ export interface User {
   password_hash: string;
   full_name: string;
   phone?: string;
-  group_id?: number;
   is_circle_treasurer: boolean;
   is_group_treasurer: boolean;
   created_at: Date;
@@ -16,6 +15,20 @@ export interface Group {
   name: string;
   description?: string;
   created_at: Date;
+}
+
+export interface UserWithGroups extends Omit<User, 'password_hash'> {
+  groups: Group[];
+}
+
+export interface UserGroup {
+  user_id: number;
+  group_id: number;
+  assigned_at: Date;
+}
+
+export interface GroupWithMemberCount extends Group {
+  member_count: number;
 }
 
 export interface Budget {
@@ -92,5 +105,5 @@ export interface JWTPayload {
   email: string;
   isCircleTreasurer: boolean;
   isGroupTreasurer: boolean;
-  groupId?: number;
+  groupIds: number[];
 }

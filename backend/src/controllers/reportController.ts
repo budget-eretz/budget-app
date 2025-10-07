@@ -11,7 +11,7 @@ export async function getDashboard(req: Request, res: Response) {
         email: user.email,
         isCircleTreasurer: user.isCircleTreasurer,
         isGroupTreasurer: user.isGroupTreasurer,
-        groupId: user.groupId
+        groupIds: user.groupIds || []
       }
     };
 
@@ -27,16 +27,16 @@ export async function getDashboard(req: Request, res: Response) {
         FROM budgets b
         ORDER BY b.created_at DESC
       `;
-    } else if (user.groupId) {
+    } else if (user.groupIds && user.groupIds.length > 0) {
       budgetQuery = `
         SELECT b.id, b.name, b.total_amount, b.group_id,
                (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE budget_id = b.id) as total_income,
                (SELECT COALESCE(SUM(allocated_amount), 0) FROM funds WHERE budget_id = b.id) as allocated_to_funds
         FROM budgets b
-        WHERE b.group_id = $1 OR b.group_id IS NULL
+        WHERE b.group_id = ANY($1) OR b.group_id IS NULL
         ORDER BY b.created_at DESC
       `;
-      budgetParams.push(user.groupId);
+      budgetParams.push(user.groupIds);
     }
 
     const budgets = await pool.query(budgetQuery, budgetParams);
@@ -52,16 +52,16 @@ export async function getDashboard(req: Request, res: Response) {
       FROM funds f
     `;
 
-    if (!user.isCircleTreasurer && user.groupId) {
+    if (!user.isCircleTreasurer && user.groupIds && user.groupIds.length > 0) {
       fundsQuery += `
         JOIN budgets b ON f.budget_id = b.id
-        WHERE b.group_id = $1 OR b.group_id IS NULL
+        WHERE b.group_id = ANY($1) OR b.group_id IS NULL
       `;
     }
 
     const funds = await pool.query(
       fundsQuery + ' ORDER BY f.created_at DESC',
-      !user.isCircleTreasurer && user.groupId ? [user.groupId] : []
+      !user.isCircleTreasurer && user.groupIds && user.groupIds.length > 0 ? [user.groupIds] : []
     );
 
     dashboard.funds = funds.rows.map(fund => ({

@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export async function register(req: Request, res: Response) {
-  const { email, password, fullName, phone, groupId } = req.body;
+  const { email, password, fullName, phone, groupIds } = req.body;
 
   try {
     // Validate input
@@ -31,13 +31,35 @@ export async function register(req: Request, res: Response) {
 
     // Create user
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, full_name, phone, group_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, email, full_name, phone, group_id, is_circle_treasurer, is_group_treasurer`,
-      [email, passwordHash, fullName, phone || null, groupId || null]
+      `INSERT INTO users (email, password_hash, full_name, phone)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, full_name, phone, is_circle_treasurer, is_group_treasurer`,
+      [email, passwordHash, fullName, phone || null]
     );
 
     const user = result.rows[0];
+
+    // Handle initial group assignments if provided
+    if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
+      const groupAssignments = groupIds.map((groupId: number) => 
+        `(${user.id}, ${groupId})`
+      ).join(', ');
+      
+      await pool.query(
+        `INSERT INTO user_groups (user_id, group_id) VALUES ${groupAssignments}`
+      );
+    }
+
+    // Fetch user's groups
+    const groupsResult = await pool.query(
+      `SELECT g.id, g.name, g.description, g.created_at
+       FROM groups g
+       INNER JOIN user_groups ug ON g.id = ug.group_id
+       WHERE ug.user_id = $1`,
+      [user.id]
+    );
+
+    const userGroupIds = groupsResult.rows.map(g => g.id);
 
     // Generate token
     const payload: JWTPayload = {
@@ -45,7 +67,7 @@ export async function register(req: Request, res: Response) {
       email: user.email,
       isCircleTreasurer: user.is_circle_treasurer,
       isGroupTreasurer: user.is_group_treasurer,
-      groupId: user.group_id
+      groupIds: userGroupIds
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -57,7 +79,7 @@ export async function register(req: Request, res: Response) {
         email: user.email,
         fullName: user.full_name,
         phone: user.phone,
-        groupId: user.group_id,
+        groups: groupsResult.rows,
         isCircleTreasurer: user.is_circle_treasurer,
         isGroupTreasurer: user.is_group_treasurer
       },
@@ -96,13 +118,24 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate token
+    // Fetch all user groups from user_groups table
+    const groupsResult = await pool.query(
+      `SELECT g.id, g.name, g.description, g.created_at
+       FROM groups g
+       INNER JOIN user_groups ug ON g.id = ug.group_id
+       WHERE ug.user_id = $1`,
+      [user.id]
+    );
+
+    const userGroupIds = groupsResult.rows.map(g => g.id);
+
+    // Generate token with groupIds array
     const payload: JWTPayload = {
       userId: user.id,
       email: user.email,
       isCircleTreasurer: user.is_circle_treasurer,
       isGroupTreasurer: user.is_group_treasurer,
-      groupId: user.group_id
+      groupIds: userGroupIds
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -114,7 +147,7 @@ export async function login(req: Request, res: Response) {
         email: user.email,
         fullName: user.full_name,
         phone: user.phone,
-        groupId: user.group_id,
+        groups: groupsResult.rows,
         isCircleTreasurer: user.is_circle_treasurer,
         isGroupTreasurer: user.is_group_treasurer
       },
@@ -131,7 +164,7 @@ export async function getMe(req: Request, res: Response) {
     const userId = req.user?.userId;
 
     const result = await pool.query(
-      `SELECT id, email, full_name, phone, group_id, is_circle_treasurer, is_group_treasurer
+      `SELECT id, email, full_name, phone, is_circle_treasurer, is_group_treasurer
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -142,12 +175,21 @@ export async function getMe(req: Request, res: Response) {
 
     const user = result.rows[0];
 
+    // Fetch user's groups
+    const groupsResult = await pool.query(
+      `SELECT g.id, g.name, g.description, g.created_at
+       FROM groups g
+       INNER JOIN user_groups ug ON g.id = ug.group_id
+       WHERE ug.user_id = $1`,
+      [userId]
+    );
+
     res.json({
       id: user.id,
       email: user.email,
       fullName: user.full_name,
       phone: user.phone,
-      groupId: user.group_id,
+      groups: groupsResult.rows,
       isCircleTreasurer: user.is_circle_treasurer,
       isGroupTreasurer: user.is_group_treasurer
     });

@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { getUserAccessibleGroupIds, isCircleTreasurer, canAccessFund } from '../middleware/accessControl';
 
 export async function getFunds(req: Request, res: Response) {
   try {
     const { budgetId } = req.query;
+    const user = req.user!;
+
+    // Check if user is Circle Treasurer (can see all funds)
+    const isCircleTreas = await isCircleTreasurer(user.userId);
 
     let query = `
       SELECT f.*,
@@ -12,13 +17,34 @@ export async function getFunds(req: Request, res: Response) {
              (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
               WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f
+      JOIN budgets b ON f.budget_id = b.id
     `;
 
     const params: any[] = [];
+    const conditions: string[] = [];
+
+    // Apply access control filter for non-Circle Treasurers
+    if (!isCircleTreas) {
+      const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
+
+      if (accessibleGroupIds.length === 0) {
+        // User has no group assignments, can only see circle-level budgets
+        conditions.push('b.group_id IS NULL');
+      } else {
+        // User can see circle-level budgets and budgets from their assigned groups
+        const groupIdPlaceholders = accessibleGroupIds.map((_, idx) => `$${params.length + idx + 1}`).join(', ');
+        conditions.push(`(b.group_id IS NULL OR b.group_id IN (${groupIdPlaceholders}))`);
+        params.push(...accessibleGroupIds);
+      }
+    }
 
     if (budgetId) {
-      query += ' WHERE f.budget_id = $1';
+      conditions.push(`f.budget_id = $${params.length + 1}`);
       params.push(budgetId);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
 
     query += ' ORDER BY f.created_at DESC';
@@ -41,6 +67,14 @@ export async function getFunds(req: Request, res: Response) {
 export async function getFundById(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(id));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
 
     const result = await pool.query(
       `SELECT f.*,
@@ -93,7 +127,7 @@ export async function createFund(req: Request, res: Response) {
       return res.status(403).json({ error: 'Treasurer access required' });
     }
 
-    if (budgetGroupId !== null && user.isGroupTreasurer && budgetGroupId !== user.groupId) {
+    if (budgetGroupId !== null && user.isGroupTreasurer && !user.groupIds.includes(budgetGroupId)) {
       return res.status(403).json({ error: 'Cannot manage funds for other groups' });
     }
 
@@ -115,6 +149,14 @@ export async function updateFund(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { name, allocatedAmount, description } = req.body;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(id));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
 
     const result = await pool.query(
       `UPDATE funds
@@ -140,6 +182,14 @@ export async function updateFund(req: Request, res: Response) {
 export async function deleteFund(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(id));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
 
     const result = await pool.query(
       'DELETE FROM funds WHERE id = $1 RETURNING id',

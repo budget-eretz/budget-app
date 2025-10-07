@@ -8,6 +8,8 @@ import plannedExpenseRoutes from './routes/plannedExpenseRoutes';
 import reimbursementRoutes from './routes/reimbursementRoutes';
 import incomeRoutes from './routes/incomeRoutes';
 import reportRoutes from './routes/reportRoutes';
+import userRoutes from './routes/userRoutes';
+import groupRoutes from './routes/groupRoutes';
 
 dotenv.config();
 
@@ -32,6 +34,8 @@ app.use('/api/planned-expenses', plannedExpenseRoutes);
 app.use('/api/reimbursements', reimbursementRoutes);
 app.use('/api/incomes', incomeRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/groups', groupRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

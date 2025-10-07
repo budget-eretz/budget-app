@@ -58,6 +58,28 @@ export default function Navigation() {
                 </button>
               </>
             )}
+            {user?.isCircleTreasurer && (
+              <>
+                <button
+                  onClick={() => handleNavigation('/users')}
+                  style={{
+                    ...styles.navLink,
+                    ...(isActive('/users') ? styles.navLinkActive : {}),
+                  }}
+                >
+                  ניהול משתמשים
+                </button>
+                <button
+                  onClick={() => handleNavigation('/groups')}
+                  style={{
+                    ...styles.navLink,
+                    ...(isActive('/groups') ? styles.navLinkActive : {}),
+                  }}
+                >
+                  ניהול קבוצות
+                </button>
+              </>
+            )}
           </div>
         </div>
         <div style={styles.rightSection} className="nav-right">
@@ -116,6 +138,28 @@ export default function Navigation() {
                 }}
               >
                 תשלומים
+              </button>
+            </>
+          )}
+          {user?.isCircleTreasurer && (
+            <>
+              <button
+                onClick={() => handleNavigation('/users')}
+                style={{
+                  ...styles.mobileNavLink,
+                  ...(isActive('/users') ? styles.mobileNavLinkActive : {}),
+                }}
+              >
+                ניהול משתמשים
+              </button>
+              <button
+                onClick={() => handleNavigation('/groups')}
+                style={{
+                  ...styles.mobileNavLink,
+                  ...(isActive('/groups') ? styles.mobileNavLinkActive : {}),
+                }}
+              >
+                ניהול קבוצות
               </button>
             </>
           )}

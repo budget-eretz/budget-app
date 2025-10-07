@@ -3,9 +3,23 @@ export interface User {
   email: string;
   fullName: string;
   phone?: string;
-  groupId?: number;
   isCircleTreasurer: boolean;
   isGroupTreasurer: boolean;
+  groups?: Group[];
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: string;
+  memberCount?: number;
+}
+
+export interface UserGroup {
+  userId: number;
+  groupId: number;
+  assignedAt: string;
 }
 
 export interface Budget {

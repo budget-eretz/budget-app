@@ -85,4 +85,29 @@ export const reportsAPI = {
   getBudgetReport: (id: number) => api.get(`/reports/budget/${id}`),
 };
 
+// Users API
+export const usersAPI = {
+  getAll: () => api.get('/users'),
+  getById: (id: number) => api.get(`/users/${id}`),
+  updateRole: (id: number, data: { isCircleTreasurer: boolean; isGroupTreasurer: boolean }) =>
+    api.patch(`/users/${id}/role`, data),
+  assignToGroup: (userId: number, groupId: number) =>
+    api.post(`/users/${userId}/groups`, { groupId }),
+  removeFromGroup: (userId: number, groupId: number) =>
+    api.delete(`/users/${userId}/groups/${groupId}`),
+  getUserGroups: (userId: number) => api.get(`/users/${userId}/groups`),
+};
+
+// Groups API
+export const groupsAPI = {
+  getAll: () => api.get('/groups'),
+  getById: (id: number) => api.get(`/groups/${id}`),
+  create: (data: { name: string; description?: string }) =>
+    api.post('/groups', data),
+  update: (id: number, data: { name?: string; description?: string }) =>
+    api.patch(`/groups/${id}`, data),
+  delete: (id: number) => api.delete(`/groups/${id}`),
+  getMembers: (id: number) => api.get(`/groups/${id}/members`),
+};
+
 export default api;

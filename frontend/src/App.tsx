@@ -8,6 +8,8 @@ import BudgetDetail from './pages/BudgetDetail';
 import Payments from './pages/Payments';
 import NewReimbursement from './pages/NewReimbursement';
 import NewPlannedExpense from './pages/NewPlannedExpense';
+import UserManagement from './pages/UserManagement';
+import GroupManagement from './pages/GroupManagement';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -37,6 +39,24 @@ function TreasurerRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function CircleTreasurerRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>טוען...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (!user.isCircleTreasurer) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -50,6 +70,8 @@ function App() {
             <Route path="/payments" element={<TreasurerRoute><Payments /></TreasurerRoute>} />
             <Route path="/reimbursements/new" element={<PrivateRoute><NewReimbursement /></PrivateRoute>} />
             <Route path="/planned-expenses/new" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
+            <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />
+            <Route path="/groups" element={<CircleTreasurerRoute><GroupManagement /></CircleTreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </BrowserRouter>

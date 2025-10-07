@@ -1,0 +1,29 @@
+import { Router } from 'express';
+import * as userController from '../controllers/userController';
+import { authenticateToken, requireCircleTreasurer } from '../middleware/auth';
+
+const router = Router();
+
+// All user management routes require authentication and Circle Treasurer role
+router.use(authenticateToken);
+router.use(requireCircleTreasurer);
+
+// Get all users with their groups
+router.get('/', userController.getAllUsers);
+
+// Get single user by ID with their groups
+router.get('/:id', userController.getUserById);
+
+// Update user role (Circle Treasurer, Group Treasurer, or Member)
+router.patch('/:id/role', userController.updateUserRole);
+
+// Assign user to a group
+router.post('/:id/groups', userController.assignUserToGroup);
+
+// Remove user from a group
+router.delete('/:id/groups/:groupId', userController.removeUserFromGroup);
+
+// Get all groups for a specific user
+router.get('/:id/groups', userController.getUserGroups);
+
+export default router;

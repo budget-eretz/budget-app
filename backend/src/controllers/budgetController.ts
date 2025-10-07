@@ -1,51 +1,51 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { getUserAccessibleGroupIds, canAccessBudget, isCircleTreasurer } from '../middleware/accessControl';
 
 export async function getBudgets(req: Request, res: Response) {
   try {
     const user = req.user!;
+    
+    // Check if user is Circle Treasurer (can see all budgets)
+    const isCircleTreas = await isCircleTreasurer(user.userId);
+    
+    if (isCircleTreas) {
+      // Circle treasurer can see all budgets
+      const result = await pool.query(
+        `SELECT b.*, g.name as group_name
+         FROM budgets b
+         LEFT JOIN groups g ON b.group_id = g.id
+         ORDER BY b.created_at DESC`
+      );
+      return res.json(result.rows);
+    }
+    
+    // For non-Circle Treasurers, get their accessible group IDs
+    const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
+    
+    // Build query to show circle-level budgets and budgets from accessible groups
     let query = '';
     let params: any[] = [];
-
-    if (user.isCircleTreasurer) {
-      // Circle treasurer can see all budgets
+    
+    if (accessibleGroupIds.length > 0) {
+      // User has group assignments - show circle budgets + their group budgets
       query = `
         SELECT b.*, g.name as group_name
         FROM budgets b
         LEFT JOIN groups g ON b.group_id = g.id
+        WHERE b.group_id IS NULL OR b.group_id = ANY($1)
         ORDER BY b.created_at DESC
       `;
-    } else if (user.isGroupTreasurer && user.groupId) {
-      // Group treasurer can see their group's budgets
-      query = `
-        SELECT b.*, g.name as group_name
-        FROM budgets b
-        LEFT JOIN groups g ON b.group_id = g.id
-        WHERE b.group_id = $1
-        ORDER BY b.created_at DESC
-      `;
-      params = [user.groupId];
+      params = [accessibleGroupIds];
     } else {
-      // Regular members can see budgets related to their group
-      if (user.groupId) {
-        query = `
-          SELECT b.*, g.name as group_name
-          FROM budgets b
-          LEFT JOIN groups g ON b.group_id = g.id
-          WHERE b.group_id = $1 OR b.group_id IS NULL
-          ORDER BY b.created_at DESC
-        `;
-        params = [user.groupId];
-      } else {
-        // Circle member without group sees only circle budgets
-        query = `
-          SELECT b.*, g.name as group_name
-          FROM budgets b
-          LEFT JOIN groups g ON b.group_id = g.id
-          WHERE b.group_id IS NULL
-          ORDER BY b.created_at DESC
-        `;
-      }
+      // User has no group assignments - show only circle-level budgets
+      query = `
+        SELECT b.*, g.name as group_name
+        FROM budgets b
+        LEFT JOIN groups g ON b.group_id = g.id
+        WHERE b.group_id IS NULL
+        ORDER BY b.created_at DESC
+      `;
     }
 
     const result = await pool.query(query, params);
@@ -59,6 +59,14 @@ export async function getBudgets(req: Request, res: Response) {
 export async function getBudgetById(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this budget
+    const hasAccess = await canAccessBudget(user.userId, parseInt(id));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this budget' });
+    }
 
     const result = await pool.query(
       `SELECT b.*, g.name as group_name,
@@ -112,6 +120,14 @@ export async function updateBudget(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { name, totalAmount, fiscalYear } = req.body;
+    const user = req.user!;
+
+    // Check if user has access to this budget
+    const hasAccess = await canAccessBudget(user.userId, parseInt(id));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this budget' });
+    }
 
     const result = await pool.query(
       `UPDATE budgets
@@ -197,6 +213,13 @@ export async function deleteBudget(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const user = req.user!;
+
+    // Check if user has access to this budget
+    const hasAccess = await canAccessBudget(user.userId, parseInt(id));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this budget' });
+    }
 
     // Check if budget exists
     const budgetResult = await pool.query(
