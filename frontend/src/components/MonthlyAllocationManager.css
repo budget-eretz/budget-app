@@ -1,0 +1,318 @@
+.monthly-allocation-manager {
+  max-width: 800px;
+  width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  direction: rtl;
+}
+
+.monthly-allocation-manager .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.monthly-allocation-manager .modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.monthly-allocation-manager .close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.monthly-allocation-manager .close-button:hover {
+  color: #333;
+}
+
+.monthly-allocation-manager .modal-body {
+  padding: 1.5rem;
+}
+
+.monthly-allocation-manager .fund-info {
+  margin-bottom: 2rem;
+}
+
+.monthly-allocation-manager .fund-info h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #2c5282;
+}
+
+.monthly-allocation-manager .allocation-summary {
+  background-color: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.monthly-allocation-manager .summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.monthly-allocation-manager .summary-item .label {
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.monthly-allocation-manager .summary-item .value {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #2d3748;
+}
+
+.monthly-allocation-manager .summary-item .value.error {
+  color: #e53e3e;
+}
+
+.monthly-allocation-manager .summary-item .value.success {
+  color: #38a169;
+}
+
+.monthly-allocation-manager .allocation-type-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  background-color: #edf2f7;
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.monthly-allocation-manager .toggle-button {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background-color: transparent;
+  color: #4a5568;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.monthly-allocation-manager .toggle-button:hover {
+  background-color: #e2e8f0;
+}
+
+.monthly-allocation-manager .toggle-button.active {
+  background-color: #fff;
+  color: #2c5282;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.monthly-allocation-manager .section-description {
+  color: #718096;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.monthly-allocation-manager .fixed-allocation-section {
+  margin-bottom: 1.5rem;
+}
+
+.monthly-allocation-manager .input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.monthly-allocation-manager .input-group label {
+  font-weight: 500;
+  color: #4a5568;
+  min-width: 100px;
+}
+
+.monthly-allocation-manager .amount-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  text-align: right;
+  direction: ltr;
+}
+
+.monthly-allocation-manager .amount-input:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.monthly-allocation-manager .currency {
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.monthly-allocation-manager .calculation-info {
+  padding: 0.75rem;
+  background-color: #ebf8ff;
+  border-radius: 6px;
+  color: #2c5282;
+  font-weight: 500;
+}
+
+.monthly-allocation-manager .variable-allocation-section {
+  margin-bottom: 1.5rem;
+}
+
+.monthly-allocation-manager .months-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.monthly-allocation-manager .month-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.monthly-allocation-manager .month-input-group label {
+  font-weight: 500;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.monthly-allocation-manager .input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.monthly-allocation-manager .month-input-group .amount-input {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 0.5rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  text-align: right;
+  direction: ltr;
+}
+
+.monthly-allocation-manager .currency-small {
+  position: absolute;
+  right: 0.5rem;
+  color: #718096;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.monthly-allocation-manager .message {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+.monthly-allocation-manager .error-message {
+  background-color: #fff5f5;
+  color: #c53030;
+  border: 1px solid #feb2b2;
+}
+
+.monthly-allocation-manager .success-message {
+  background-color: #f0fff4;
+  color: #276749;
+  border: 1px solid #9ae6b4;
+}
+
+.monthly-allocation-manager .modal-footer {
+  display: flex;
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.monthly-allocation-manager .button {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.monthly-allocation-manager .button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.monthly-allocation-manager .button-primary {
+  background-color: #3182ce;
+  color: white;
+}
+
+.monthly-allocation-manager .button-primary:hover:not(:disabled) {
+  background-color: #2c5282;
+}
+
+.monthly-allocation-manager .button-secondary {
+  background-color: #e2e8f0;
+  color: #4a5568;
+}
+
+.monthly-allocation-manager .button-secondary:hover:not(:disabled) {
+  background-color: #cbd5e0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .monthly-allocation-manager {
+    width: 95vw;
+    max-height: 95vh;
+  }
+
+  .monthly-allocation-manager .months-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .monthly-allocation-manager .modal-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .monthly-allocation-manager .input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .monthly-allocation-manager .input-group label {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .monthly-allocation-manager .months-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .monthly-allocation-manager .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .monthly-allocation-manager .button {
+    width: 100%;
+  }
+}

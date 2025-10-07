@@ -257,3 +257,99 @@ export async function deleteBudget(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to delete budget' });
   }
 }
+
+export async function getBudgetMonthlyStatus(req: Request, res: Response) {
+  try {
+    const { budgetId, year, month } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this budget
+    const hasAccess = await canAccessBudget(user.userId, parseInt(budgetId));
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this budget' });
+    }
+
+    // Check if budget exists
+    const budgetResult = await pool.query(
+      'SELECT id FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+
+    if (budgetResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    // Get all funds in this budget
+    const fundsResult = await pool.query(
+      'SELECT id, name FROM funds WHERE budget_id = $1 ORDER BY name',
+      [budgetId]
+    );
+
+    // For each fund, get monthly status
+    const monthlyStatuses = await Promise.all(
+      fundsResult.rows.map(async (fund) => {
+        // Get monthly allocation
+        const allocationResult = await pool.query(
+          `SELECT allocated_amount, allocation_type
+           FROM fund_monthly_allocations
+           WHERE fund_id = $1 AND year = $2 AND month = $3`,
+          [fund.id, year, month]
+        );
+
+        const allocatedAmount = allocationResult.rows.length > 0 
+          ? Number(allocationResult.rows[0].allocated_amount) 
+          : 0;
+        const allocationType = allocationResult.rows.length > 0 
+          ? allocationResult.rows[0].allocation_type 
+          : undefined;
+
+        // Calculate spent amount (approved and paid reimbursements)
+        const spentResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as spent_amount
+           FROM reimbursements
+           WHERE fund_id = $1
+             AND EXTRACT(YEAR FROM expense_date) = $2
+             AND EXTRACT(MONTH FROM expense_date) = $3
+             AND status IN ('approved', 'paid')`,
+          [fund.id, year, month]
+        );
+
+        const spentAmount = Number(spentResult.rows[0].spent_amount);
+
+        // Calculate planned amount
+        const plannedResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as planned_amount
+           FROM planned_expenses
+           WHERE fund_id = $1
+             AND EXTRACT(YEAR FROM planned_date) = $2
+             AND EXTRACT(MONTH FROM planned_date) = $3
+             AND status = 'planned'`,
+          [fund.id, year, month]
+        );
+
+        const plannedAmount = Number(plannedResult.rows[0].planned_amount);
+
+        // Calculate remaining amount
+        const remainingAmount = allocatedAmount - spentAmount;
+
+        return {
+          fund_id: fund.id,
+          fund_name: fund.name,
+          year: parseInt(year),
+          month: parseInt(month),
+          allocated_amount: allocatedAmount,
+          spent_amount: spentAmount,
+          planned_amount: plannedAmount,
+          remaining_amount: remainingAmount,
+          allocation_type: allocationType
+        };
+      })
+    );
+
+    res.json(monthlyStatuses);
+  } catch (error) {
+    console.error('Get budget monthly status error:', error);
+    res.status(500).json({ error: 'Failed to get budget monthly status' });
+  }
+}

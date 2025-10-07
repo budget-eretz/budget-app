@@ -1,0 +1,107 @@
+.allocation-history-modal {
+  min-height: 300px;
+}
+
+.allocation-history-modal .loading,
+.allocation-history-modal .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  font-size: 16px;
+}
+
+.allocation-history-modal .error-message {
+  background-color: #fee;
+  color: #c33;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.history-table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.history-table thead {
+  background-color: #f5f5f5;
+}
+
+.history-table th {
+  padding: 12px;
+  text-align: right;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.history-table td {
+  padding: 10px 12px;
+  text-align: right;
+  border-bottom: 1px solid #eee;
+}
+
+.history-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.history-table tbody tr.change-type-deleted {
+  background-color: #fff5f5;
+}
+
+.history-table tbody tr.change-type-created {
+  background-color: #f0fff4;
+}
+
+.change-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.change-badge.change-created {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.change-badge.change-updated {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.change-badge.change-deleted {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}

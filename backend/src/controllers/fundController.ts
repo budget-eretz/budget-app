@@ -286,3 +286,347 @@ export async function getAccessibleFunds(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to get accessible funds' });
   }
 }
+
+export async function getMonthlyStatus(req: Request, res: Response) {
+  try {
+    const { fundId, year, month } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(fundId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    // Get fund details
+    const fundResult = await pool.query(
+      'SELECT id, name FROM funds WHERE id = $1',
+      [fundId]
+    );
+
+    if (fundResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    const fund = fundResult.rows[0];
+
+    // Get monthly allocation
+    const allocationResult = await pool.query(
+      `SELECT allocated_amount, allocation_type
+       FROM fund_monthly_allocations
+       WHERE fund_id = $1 AND year = $2 AND month = $3`,
+      [fundId, year, month]
+    );
+
+    const allocatedAmount = allocationResult.rows.length > 0 
+      ? Number(allocationResult.rows[0].allocated_amount) 
+      : 0;
+    const allocationType = allocationResult.rows.length > 0 
+      ? allocationResult.rows[0].allocation_type 
+      : undefined;
+
+    // Calculate spent amount (approved and paid reimbursements)
+    const spentResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as spent_amount
+       FROM reimbursements
+       WHERE fund_id = $1
+         AND EXTRACT(YEAR FROM expense_date) = $2
+         AND EXTRACT(MONTH FROM expense_date) = $3
+         AND status IN ('approved', 'paid')`,
+      [fundId, year, month]
+    );
+
+    const spentAmount = Number(spentResult.rows[0].spent_amount);
+
+    // Calculate planned amount
+    const plannedResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) as planned_amount
+       FROM planned_expenses
+       WHERE fund_id = $1
+         AND EXTRACT(YEAR FROM planned_date) = $2
+         AND EXTRACT(MONTH FROM planned_date) = $3
+         AND status = 'planned'`,
+      [fundId, year, month]
+    );
+
+    const plannedAmount = Number(plannedResult.rows[0].planned_amount);
+
+    // Calculate remaining amount
+    const remainingAmount = allocatedAmount - spentAmount;
+
+    res.json({
+      fund_id: parseInt(fundId),
+      fund_name: fund.name,
+      year: parseInt(year),
+      month: parseInt(month),
+      allocated_amount: allocatedAmount,
+      spent_amount: spentAmount,
+      planned_amount: plannedAmount,
+      remaining_amount: remainingAmount,
+      allocation_type: allocationType
+    });
+  } catch (error) {
+    console.error('Get monthly status error:', error);
+    res.status(500).json({ error: 'Failed to get monthly status' });
+  }
+}
+
+export async function getMonthlyExpenses(req: Request, res: Response) {
+  try {
+    const { fundId, year, month } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(fundId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    // Get all reimbursements for the fund in the specified month
+    const result = await pool.query(
+      `SELECT 
+         r.id,
+         r.fund_id,
+         r.user_id as submitter_id,
+         u_submitter.full_name as submitter_name,
+         r.recipient_user_id,
+         u_recipient.full_name as recipient_name,
+         r.amount,
+         r.description,
+         r.expense_date,
+         r.status,
+         r.receipt_url
+       FROM reimbursements r
+       JOIN users u_submitter ON r.user_id = u_submitter.id
+       LEFT JOIN users u_recipient ON r.recipient_user_id = u_recipient.id
+       WHERE r.fund_id = $1
+         AND EXTRACT(YEAR FROM r.expense_date) = $2
+         AND EXTRACT(MONTH FROM r.expense_date) = $3
+       ORDER BY r.expense_date DESC, r.created_at DESC`,
+      [fundId, year, month]
+    );
+
+    const expenses = result.rows.map(row => ({
+      id: row.id,
+      fund_id: row.fund_id,
+      submitter_id: row.submitter_id,
+      submitter_name: row.submitter_name,
+      recipient_id: row.recipient_user_id || row.submitter_id,
+      recipient_name: row.recipient_name || row.submitter_name,
+      amount: Number(row.amount),
+      description: row.description,
+      expense_date: row.expense_date,
+      status: row.status,
+      receipt_url: row.receipt_url
+    }));
+
+    res.json(expenses);
+  } catch (error) {
+    console.error('Get monthly expenses error:', error);
+    res.status(500).json({ error: 'Failed to get monthly expenses' });
+  }
+}
+
+export async function getMonthlyPlannedExpenses(req: Request, res: Response) {
+  try {
+    const { fundId, year, month } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(fundId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    // Get all planned expenses for the fund in the specified month
+    const result = await pool.query(
+      `SELECT 
+         pe.id,
+         pe.fund_id,
+         pe.user_id,
+         u.full_name as user_name,
+         pe.amount,
+         pe.description,
+         pe.planned_date,
+         pe.status
+       FROM planned_expenses pe
+       JOIN users u ON pe.user_id = u.id
+       WHERE pe.fund_id = $1
+         AND EXTRACT(YEAR FROM pe.planned_date) = $2
+         AND EXTRACT(MONTH FROM pe.planned_date) = $3
+       ORDER BY pe.planned_date DESC, pe.created_at DESC`,
+      [fundId, year, month]
+    );
+
+    const plannedExpenses = result.rows.map(row => ({
+      id: row.id,
+      fund_id: row.fund_id,
+      user_id: row.user_id,
+      user_name: row.user_name,
+      amount: Number(row.amount),
+      description: row.description,
+      planned_date: row.planned_date,
+      status: row.status
+    }));
+
+    res.json(plannedExpenses);
+  } catch (error) {
+    console.error('Get monthly planned expenses error:', error);
+    res.status(500).json({ error: 'Failed to get monthly planned expenses' });
+  }
+}
+
+export async function getDashboardMonthlyStatus(req: Request, res: Response) {
+  try {
+    const user = req.user!;
+    
+    // Get current year and month
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed
+
+    // Check if user is Circle Treasurer (can see all funds)
+    const isCircleTreas = await isCircleTreasurer(user.userId);
+
+    // Build query to get all accessible funds
+    let fundQuery = `
+      SELECT f.id, f.name
+      FROM funds f
+      JOIN budgets b ON f.budget_id = b.id
+    `;
+
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    // Apply access control filter for non-Circle Treasurers
+    if (!isCircleTreas) {
+      const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
+
+      if (accessibleGroupIds.length === 0) {
+        // User has no group assignments, can only see circle-level budgets
+        conditions.push('b.group_id IS NULL');
+      } else {
+        // User can see circle-level budgets and budgets from their assigned groups
+        const groupIdPlaceholders = accessibleGroupIds.map((_, idx) => `$${idx + 1}`).join(', ');
+        conditions.push(`(b.group_id IS NULL OR b.group_id IN (${groupIdPlaceholders}))`);
+        params.push(...accessibleGroupIds);
+      }
+    }
+
+    if (conditions.length > 0) {
+      fundQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    fundQuery += ' ORDER BY f.name';
+
+    const fundsResult = await pool.query(fundQuery, params);
+
+    // For each fund, get monthly status
+    const monthlyStatuses = await Promise.all(
+      fundsResult.rows.map(async (fund) => {
+        // Get monthly allocation
+        const allocationResult = await pool.query(
+          `SELECT allocated_amount, allocation_type
+           FROM fund_monthly_allocations
+           WHERE fund_id = $1 AND year = $2 AND month = $3`,
+          [fund.id, currentYear, currentMonth]
+        );
+
+        const allocatedAmount = allocationResult.rows.length > 0 
+          ? Number(allocationResult.rows[0].allocated_amount) 
+          : 0;
+        const allocationType = allocationResult.rows.length > 0 
+          ? allocationResult.rows[0].allocation_type 
+          : undefined;
+
+        // Calculate spent amount (approved and paid reimbursements)
+        const spentResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as spent_amount
+           FROM reimbursements
+           WHERE fund_id = $1
+             AND EXTRACT(YEAR FROM expense_date) = $2
+             AND EXTRACT(MONTH FROM expense_date) = $3
+             AND status IN ('approved', 'paid')`,
+          [fund.id, currentYear, currentMonth]
+        );
+
+        const spentAmount = Number(spentResult.rows[0].spent_amount);
+
+        // Calculate planned amount
+        const plannedResult = await pool.query(
+          `SELECT COALESCE(SUM(amount), 0) as planned_amount
+           FROM planned_expenses
+           WHERE fund_id = $1
+             AND EXTRACT(YEAR FROM planned_date) = $2
+             AND EXTRACT(MONTH FROM planned_date) = $3
+             AND status = 'planned'`,
+          [fund.id, currentYear, currentMonth]
+        );
+
+        const plannedAmount = Number(plannedResult.rows[0].planned_amount);
+
+        // Calculate remaining amount
+        const remainingAmount = allocatedAmount - spentAmount;
+
+        return {
+          fund_id: fund.id,
+          fund_name: fund.name,
+          year: currentYear,
+          month: currentMonth,
+          allocated_amount: allocatedAmount,
+          spent_amount: spentAmount,
+          planned_amount: plannedAmount,
+          remaining_amount: remainingAmount,
+          allocation_type: allocationType
+        };
+      })
+    );
+
+    res.json(monthlyStatuses);
+  } catch (error) {
+    console.error('Get dashboard monthly status error:', error);
+    res.status(500).json({ error: 'Failed to get dashboard monthly status' });
+  }
+}
+
+export async function getAllocationHistory(req: Request, res: Response) {
+  try {
+    const { fundId } = req.params;
+    const user = req.user!;
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, parseInt(fundId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    // Get allocation history with user names
+    const result = await pool.query(
+      `SELECT 
+        fah.id,
+        fah.fund_id,
+        fah.year,
+        fah.month,
+        fah.allocated_amount,
+        fah.allocation_type,
+        fah.changed_by,
+        fah.changed_at,
+        fah.change_type,
+        u.full_name as changed_by_name
+       FROM fund_allocation_history fah
+       LEFT JOIN users u ON fah.changed_by = u.id
+       WHERE fah.fund_id = $1
+       ORDER BY fah.changed_at DESC`,
+      [fundId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get allocation history error:', error);
+    res.status(500).json({ error: 'Failed to get allocation history' });
+  }
+}

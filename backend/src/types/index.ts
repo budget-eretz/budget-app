@@ -176,3 +176,73 @@ export interface PaymentTransferStats {
   executedTotalAmount: number;
   recentExecutions: PaymentTransfer[];
 }
+
+export interface FundMonthlyAllocation {
+  id: number;
+  fund_id: number;
+  year: number;
+  month: number;
+  allocated_amount: number;
+  allocation_type: 'fixed' | 'variable';
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface MonthlyFundStatus {
+  fund_id: number;
+  fund_name: string;
+  year: number;
+  month: number;
+  allocated_amount: number;
+  spent_amount: number;
+  planned_amount: number;
+  remaining_amount: number;
+  allocation_type?: 'fixed' | 'variable';
+}
+
+export interface FundAllocationSummary {
+  fund_id: number;
+  total_fund_allocation: number;
+  total_monthly_allocations: number;
+  remaining_unallocated: number;
+  monthly_allocations: FundMonthlyAllocation[];
+}
+
+export interface MonthlyExpenseDetail {
+  id: number;
+  fund_id: number;
+  submitter_id: number;
+  submitter_name: string;
+  recipient_id: number;
+  recipient_name: string;
+  amount: number;
+  description: string;
+  expense_date: Date;
+  status: string;
+  receipt_url?: string;
+}
+
+export interface MonthlyPlannedExpenseDetail {
+  id: number;
+  fund_id: number;
+  user_id: number;
+  user_name: string;
+  amount: number;
+  description: string;
+  planned_date: Date;
+  status: string;
+}
+
+export interface FundAllocationHistory {
+  id: number;
+  fund_id: number;
+  year: number;
+  month: number;
+  allocated_amount: number;
+  allocation_type: 'fixed' | 'variable';
+  changed_by: number;
+  changed_at: Date;
+  change_type: 'created' | 'updated' | 'deleted';
+  changed_by_name?: string;
+}

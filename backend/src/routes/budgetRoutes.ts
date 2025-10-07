@@ -8,6 +8,7 @@ router.use(authenticateToken);
 
 router.get('/', budgetController.getBudgets);
 router.get('/:id', budgetController.getBudgetById);
+router.get('/:budgetId/monthly-status/:year/:month', budgetController.getBudgetMonthlyStatus);
 router.post('/', requireCircleTreasurer, budgetController.createBudget);
 router.patch('/:id', requireCircleTreasurer, budgetController.updateBudget);
 router.delete('/:id', requireCircleTreasurer, budgetController.deleteBudget);

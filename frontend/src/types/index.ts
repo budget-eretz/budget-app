@@ -203,3 +203,73 @@ export interface PaymentTransferStats {
   executedTotalAmount: number;
   recentExecutions: PaymentTransfer[];
 }
+
+export interface FundMonthlyAllocation {
+  id: number;
+  fundId: number;
+  year: number;
+  month: number;
+  allocatedAmount: number;
+  allocationType: 'fixed' | 'variable';
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyFundStatus {
+  fundId: number;
+  fundName: string;
+  year: number;
+  month: number;
+  allocatedAmount: number;
+  spentAmount: number;
+  plannedAmount: number;
+  remainingAmount: number;
+  allocationType?: 'fixed' | 'variable';
+}
+
+export interface FundAllocationSummary {
+  fundId: number;
+  totalFundAllocation: number;
+  totalMonthlyAllocations: number;
+  remainingUnallocated: number;
+  monthlyAllocations: FundMonthlyAllocation[];
+}
+
+export interface MonthlyExpenseDetail {
+  id: number;
+  fundId: number;
+  submitterId: number;
+  submitterName: string;
+  recipientId: number;
+  recipientName: string;
+  amount: number;
+  description: string;
+  expenseDate: string;
+  status: string;
+  receiptUrl?: string;
+}
+
+export interface MonthlyPlannedExpenseDetail {
+  id: number;
+  fundId: number;
+  userId: number;
+  userName: string;
+  amount: number;
+  description: string;
+  plannedDate: string;
+  status: string;
+}
+
+export interface FundAllocationHistory {
+  id: number;
+  fundId: number;
+  year: number;
+  month: number;
+  allocatedAmount: number;
+  allocationType: 'fixed' | 'variable';
+  changedBy: number;
+  changedAt: string;
+  changeType: 'created' | 'updated' | 'deleted';
+  changedByName?: string;
+}

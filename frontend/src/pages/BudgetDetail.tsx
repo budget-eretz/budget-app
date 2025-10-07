@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { budgetsAPI, fundsAPI, incomesAPI } from '../services/api';
-import { Budget, Fund, Income } from '../types';
+import { budgetsAPI, fundsAPI, incomesAPI, monthlyAllocationsAPI } from '../services/api';
+import { Budget, Fund, Income, MonthlyFundStatus } from '../types';
 import { useToast } from '../components/Toast';
 import Navigation from '../components/Navigation';
 import FundCard from '../components/FundCard';
 import FundForm, { FundFormData } from '../components/FundForm';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import MonthlyFundStatusCard from '../components/MonthlyFundStatusCard';
 
 export default function BudgetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +20,9 @@ export default function BudgetDetail() {
   const [budget, setBudget] = useState<Budget | null>(null);
   const [funds, setFunds] = useState<Fund[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
+  const [monthlyStatuses, setMonthlyStatuses] = useState<MonthlyFundStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMonthlyStatus, setLoadingMonthlyStatus] = useState(false);
   
   const [showCreateFundModal, setShowCreateFundModal] = useState(false);
   const [editingFund, setEditingFund] = useState<Fund | null>(null);
@@ -33,6 +36,7 @@ export default function BudgetDetail() {
     // All authenticated users can view budget details
     if (id) {
       loadBudgetData();
+      loadMonthlyStatus();
     }
   }, [id, user, navigate]);
 
@@ -94,6 +98,49 @@ export default function BudgetDetail() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMonthlyStatus = async () => {
+    if (!id) return;
+    
+    try {
+      setLoadingMonthlyStatus(true);
+      const budgetId = parseInt(id);
+      
+      // Validate budget ID
+      if (isNaN(budgetId) || budgetId <= 0) {
+        return;
+      }
+      
+      // Get current month and year
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      // Fetch monthly status for all funds in the budget
+      const response = await monthlyAllocationsAPI.getBudgetMonthlyStatus(budgetId, year, month);
+      
+      // Transform snake_case to camelCase
+      const transformedStatuses: MonthlyFundStatus[] = response.data.map((status: any) => ({
+        fundId: status.fund_id,
+        fundName: status.fund_name,
+        year: status.year,
+        month: status.month,
+        allocatedAmount: status.allocated_amount,
+        spentAmount: status.spent_amount,
+        plannedAmount: status.planned_amount,
+        remainingAmount: status.remaining_amount,
+        allocationType: status.allocation_type,
+      }));
+      
+      setMonthlyStatuses(transformedStatuses);
+    } catch (error: any) {
+      console.error('Failed to load monthly status:', error);
+      // Don't show error toast for monthly status - it's optional data
+      // Just log the error and continue
+    } finally {
+      setLoadingMonthlyStatus(false);
     }
   };
 
@@ -441,6 +488,38 @@ export default function BudgetDetail() {
           </div>
         </div>
 
+        {/* Monthly Status Section */}
+        {monthlyStatuses.length > 0 && (
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
+              {hasPermission && (
+                <Button 
+                  variant="secondary" 
+                  onClick={() => {
+                    // Navigate to first fund's monthly detail page
+                    if (funds.length > 0) {
+                      navigate(`/funds/${funds[0].id}/monthly`);
+                    }
+                  }}
+                >
+                  ⚙️ ניהול הקצאות
+                </Button>
+              )}
+            </div>
+            
+            {loadingMonthlyStatus ? (
+              <div style={styles.loadingMonthly}>טוען מצב חודשי...</div>
+            ) : (
+              <div className="monthly-status-grid" style={styles.monthlyStatusGrid}>
+                {monthlyStatuses.map(status => (
+                  <MonthlyFundStatusCard key={status.fundId} status={status} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Funds Section */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
@@ -635,6 +714,10 @@ styleSheet.textContent = `
       grid-template-columns: 1fr !important;
       gap: 16px !important;
     }
+    .monthly-status-grid {
+      grid-template-columns: 1fr !important;
+      gap: 16px !important;
+    }
     .budget-detail-content h1 {
       font-size: 24px !important;
     }
@@ -654,6 +737,9 @@ styleSheet.textContent = `
       grid-template-columns: repeat(3, 1fr) !important;
     }
     .funds-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .monthly-status-grid {
       grid-template-columns: repeat(2, 1fr) !important;
     }
   }
@@ -796,6 +882,20 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
     gap: '24px',
+  },
+  monthlyStatusGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '24px',
+  },
+  loadingMonthly: {
+    background: 'white',
+    padding: '40px',
+    borderRadius: '8px',
+    textAlign: 'center',
+    color: '#718096',
+    fontSize: '16px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   emptyState: {
     background: 'white',

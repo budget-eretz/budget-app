@@ -1,19 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { reportsAPI, reimbursementsAPI, plannedExpensesAPI } from '../services/api';
-import { Dashboard as DashboardType, Reimbursement } from '../types';
+import { reportsAPI, reimbursementsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
+import { Dashboard as DashboardType, Reimbursement, MonthlyFundStatus } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
 import FundCard from '../components/FundCard';
+import MonthlyFundStatusCard from '../components/MonthlyFundStatusCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<DashboardType | null>(null);
+  const [monthlyStatus, setMonthlyStatus] = useState<MonthlyFundStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [monthlyStatusLoading, setMonthlyStatusLoading] = useState(true);
+  const [monthlyStatusError, setMonthlyStatusError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectModal, setRejectModal] = useState<{ isOpen: boolean; reimbursement: Reimbursement | null }>({ isOpen: false, reimbursement: null });
   const [rejectNotes, setRejectNotes] = useState('');
@@ -22,6 +26,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
+    loadMonthlyStatus();
   }, []);
 
   const loadDashboard = async () => {
@@ -32,6 +37,32 @@ export default function Dashboard() {
       console.error('Failed to load dashboard:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMonthlyStatus = async () => {
+    setMonthlyStatusLoading(true);
+    setMonthlyStatusError(null);
+    try {
+      const response = await monthlyAllocationsAPI.getDashboardMonthlyStatus();
+      // Transform snake_case to camelCase
+      const transformedData = response.data.map((item: any) => ({
+        fundId: item.fund_id,
+        fundName: item.fund_name,
+        year: item.year,
+        month: item.month,
+        allocatedAmount: item.allocated_amount,
+        spentAmount: item.spent_amount,
+        plannedAmount: item.planned_amount,
+        remainingAmount: item.remaining_amount,
+        allocationType: item.allocation_type
+      }));
+      setMonthlyStatus(transformedData);
+    } catch (error: any) {
+      console.error('Failed to load monthly status:', error);
+      setMonthlyStatusError(error.response?.data?.error || 'שגיאה בטעינת מצב חודשי');
+    } finally {
+      setMonthlyStatusLoading(false);
     }
   };
 
@@ -158,6 +189,31 @@ export default function Dashboard() {
               />
             ))}
           </div>
+        </section>
+
+        {/* Monthly Fund Status */}
+        <section style={styles.section}>
+          <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
+          {monthlyStatusLoading ? (
+            <div style={styles.loadingState}>טוען מצב חודשי...</div>
+          ) : monthlyStatusError ? (
+            <div style={styles.errorState}>
+              <p>{monthlyStatusError}</p>
+              <Button variant="primary" size="sm" onClick={loadMonthlyStatus}>
+                נסה שוב
+              </Button>
+            </div>
+          ) : monthlyStatus.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p>אין הקצאות חודשיות מוגדרות לקופות</p>
+            </div>
+          ) : (
+            <div style={styles.grid}>
+              {monthlyStatus.map(status => (
+                <MonthlyFundStatusCard key={status.fundId} status={status} />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Pending Reimbursements (for treasurers) */}
@@ -507,5 +563,25 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '16px',
+  },
+  loadingState: {
+    background: 'white',
+    padding: '40px 20px',
+    borderRadius: '8px',
+    textAlign: 'center',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    color: '#718096',
+  },
+  errorState: {
+    background: 'white',
+    padding: '40px 20px',
+    borderRadius: '8px',
+    textAlign: 'center',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '16px',
+    color: '#e53e3e',
   },
 };

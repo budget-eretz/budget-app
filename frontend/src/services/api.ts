@@ -152,4 +152,30 @@ export const paymentTransfersAPI = {
     api.get('/payment-transfers/stats'),
 };
 
+// Monthly Allocations API
+export const monthlyAllocationsAPI = {
+  setFixedAllocation: (fundId: number, data: { amount: number; startYear: number; startMonth: number }) =>
+    api.post(`/funds/${fundId}/monthly-allocations/fixed`, data),
+  setVariableAllocations: (fundId: number, data: { allocations: Array<{ year: number; month: number; amount: number }> }) =>
+    api.post(`/funds/${fundId}/monthly-allocations/variable`, data),
+  getAllocations: (fundId: number) =>
+    api.get(`/funds/${fundId}/monthly-allocations`),
+  getMonthAllocation: (fundId: number, year: number, month: number) =>
+    api.get(`/funds/${fundId}/monthly-allocations/${year}/${month}`),
+  deleteMonthAllocation: (fundId: number, year: number, month: number) =>
+    api.delete(`/funds/${fundId}/monthly-allocations/${year}/${month}`),
+  getMonthlyStatus: (fundId: number, year: number, month: number) =>
+    api.get(`/funds/${fundId}/monthly-status/${year}/${month}`),
+  getMonthlyExpenses: (fundId: number, year: number, month: number) =>
+    api.get(`/funds/${fundId}/monthly-expenses/${year}/${month}`),
+  getMonthlyPlannedExpenses: (fundId: number, year: number, month: number) =>
+    api.get(`/funds/${fundId}/monthly-planned/${year}/${month}`),
+  getDashboardMonthlyStatus: () =>
+    api.get('/dashboard/monthly-status'),
+  getBudgetMonthlyStatus: (budgetId: number, year: number, month: number) =>
+    api.get(`/budgets/${budgetId}/monthly-status/${year}/${month}`),
+  getAllocationHistory: (fundId: number) =>
+    api.get(`/funds/${fundId}/allocation-history`),
+};
+
 export default api;
