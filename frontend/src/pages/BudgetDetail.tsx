@@ -470,6 +470,7 @@ export default function BudgetDetail() {
                   onEdit={() => openEditFundModal(fund)}
                   onDelete={() => openDeleteFundConfirm(fund)}
                   showActions={hasPermission}
+                  showQuickActions={true}
                 />
               ))}
             </div>

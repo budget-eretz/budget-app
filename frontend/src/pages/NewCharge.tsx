@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fundsAPI, reimbursementsAPI, usersAPI } from '../services/api';
-import { BudgetWithFunds, BasicUser } from '../types';
+import { fundsAPI, chargesAPI } from '../services/api';
+import { BudgetWithFunds } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 
-export default function NewReimbursement() {
+export default function NewCharge() {
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
-  const [users, setUsers] = useState<BasicUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -19,9 +18,7 @@ export default function NewReimbursement() {
     fundId: '',
     amount: '',
     description: '',
-    expenseDate: new Date().toISOString().split('T')[0],
-    receiptUrl: '',
-    recipientUserId: '',
+    chargeDate: new Date().toISOString().split('T')[0],
   });
 
   useEffect(() => {
@@ -42,13 +39,8 @@ export default function NewReimbursement() {
 
   const loadData = async () => {
     try {
-      const [fundsResponse, usersResponse] = await Promise.all([
-        fundsAPI.getAccessible(),
-        usersAPI.getBasic(),
-      ]);
-      
+      const fundsResponse = await fundsAPI.getAccessible();
       setBudgets(fundsResponse.data.budgets || []);
-      setUsers(usersResponse.data || []);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת הנתונים', 'error');
     } finally {
@@ -76,19 +68,17 @@ export default function NewReimbursement() {
 
     setSubmitting(true);
     try {
-      await reimbursementsAPI.create({
+      await chargesAPI.create({
         fundId: parseInt(formData.fundId),
         amount: parseFloat(formData.amount),
         description: formData.description,
-        expenseDate: formData.expenseDate,
-        receiptUrl: formData.receiptUrl || undefined,
-        recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
+        chargeDate: formData.chargeDate,
       });
 
-      showToast('בקשת ההחזר הוגשה בהצלחה', 'success');
+      showToast('החיוב הוגש בהצלחה', 'success');
       navigate('/my-reimbursements');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בהגשת הבקשה', 'error');
+      showToast(error.response?.data?.error || 'שגיאה בהגשת החיוב', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +98,10 @@ export default function NewReimbursement() {
 
       <div style={styles.content}>
         <div style={styles.pageHeader}>
-          <h1 style={styles.title}>הגשת בקשת החזר</h1>
+          <h1 style={styles.title}>הגשת חיוב</h1>
+          <p style={styles.explanation}>
+            חיוב הוא סכום שאתה חייב למעגל. החיוב יקוזז מסך ההחזרים שלך ויפחית את הסכום הנטו שמגיע לך.
+          </p>
         </div>
         <div style={styles.formCard}>
           <form onSubmit={handleSubmit} style={styles.form}>
@@ -144,27 +137,6 @@ export default function NewReimbursement() {
 
             <div style={styles.field}>
               <label style={styles.label}>
-                שלח תשלום ל (אופציונלי)
-              </label>
-              <select
-                value={formData.recipientUserId}
-                onChange={(e) => setFormData({ ...formData, recipientUserId: e.target.value })}
-                style={styles.select}
-              >
-                <option value="">-- אני (ברירת מחדל) --</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName}
-                  </option>
-                ))}
-              </select>
-              <small style={{ color: '#718096', fontSize: '13px' }}>
-                אם ההחזר מיועד למישהו אחר, בחר את שמו כאן
-              </small>
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>
                 סכום <span style={{ color: '#e53e3e' }}>*</span>
               </label>
               <input
@@ -189,49 +161,35 @@ export default function NewReimbursement() {
                 required
                 rows={4}
                 style={styles.textarea}
-                placeholder="תאר את ההוצאה..."
+                placeholder="תאר את החיוב..."
               />
             </div>
 
             <div style={styles.field}>
               <label style={styles.label}>
-                תאריך הוצאה <span style={{ color: '#e53e3e' }}>*</span>
+                תאריך חיוב <span style={{ color: '#e53e3e' }}>*</span>
               </label>
               <input
                 type="date"
-                value={formData.expenseDate}
-                onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                value={formData.chargeDate}
+                onChange={(e) => setFormData({ ...formData, chargeDate: e.target.value })}
                 required
                 style={styles.input}
                 max={new Date().toISOString().split('T')[0]}
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>קישור לקבלה (אופציונלי)</label>
-              <input
-                type="url"
-                value={formData.receiptUrl}
-                onChange={(e) => setFormData({ ...formData, receiptUrl: e.target.value })}
-                style={styles.input}
-                placeholder="https://..."
-              />
-              <small style={{ color: '#718096', fontSize: '13px' }}>
-                ניתן להעלות קבלה לשירות חיצוני ולהדביק כאן את הקישור
-              </small>
-            </div>
-
             <div style={styles.actions}>
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/my-reimbursements')}
                 disabled={submitting}
               >
                 ביטול
               </Button>
               <Button type="submit" variant="primary" isLoading={submitting}>
-                הגש בקשה
+                הגש חיוב
               </Button>
             </div>
           </form>
@@ -295,7 +253,13 @@ const styles: Record<string, React.CSSProperties> = {
   title: {
     fontSize: '24px',
     fontWeight: 'bold',
+    margin: '0 0 8px 0',
+  },
+  explanation: {
+    fontSize: '14px',
+    color: '#718096',
     margin: 0,
+    lineHeight: '1.5',
   },
   content: {
     padding: '40px',

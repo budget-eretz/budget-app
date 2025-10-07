@@ -92,11 +92,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
     setLoading(true);
     try {
       // Update role
-      const roleData = {
-        isCircleTreasurer: selectedRole === 'circle_treasurer',
-        isGroupTreasurer: selectedRole === 'group_treasurer',
-      };
-      await usersAPI.updateRole(user.id, roleData);
+      await usersAPI.updateRole(user.id, { role: selectedRole });
 
       // Update group assignments
       const currentGroupIds = user.groups?.map(g => g.id) || [];

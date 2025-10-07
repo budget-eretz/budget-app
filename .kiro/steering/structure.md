@@ -25,6 +25,7 @@ backend/
 │   ├── controllers/  # Route handlers and business logic
 │   │   ├── authController.ts
 │   │   ├── budgetController.ts
+│   │   ├── chargeController.ts
 │   │   ├── fundController.ts
 │   │   ├── groupController.ts
 │   │   ├── incomeController.ts
@@ -41,6 +42,7 @@ backend/
 │   ├── routes/      # API route definitions
 │   │   ├── authRoutes.ts
 │   │   ├── budgetRoutes.ts
+│   │   ├── chargeRoutes.ts
 │   │   ├── fundRoutes.ts
 │   │   ├── groupRoutes.ts
 │   │   ├── incomeRoutes.ts
@@ -81,6 +83,8 @@ frontend/
 │   │   ├── Dashboard.tsx
 │   │   ├── GroupManagement.tsx
 │   │   ├── Login.tsx
+│   │   ├── MyReimbursements.tsx
+│   │   ├── NewCharge.tsx
 │   │   ├── NewPlannedExpense.tsx
 │   │   ├── NewReimbursement.tsx
 │   │   ├── Payments.tsx
@@ -96,6 +100,63 @@ frontend/
 ├── Dockerfile       # Container configuration
 └── package.json     # Frontend dependencies and scripts
 ```
+
+## Database Schema
+
+### Core Tables
+- **users**: System users with authentication and roles
+- **groups**: User groups for organizing members
+- **user_groups**: Many-to-many relationship between users and groups
+- **budgets**: Circle-wide and group-specific budget allocations
+- **funds**: Sub-budget categories within budgets
+- **planned_expenses**: Future expense planning
+- **reimbursements**: Member expense reimbursement requests (enhanced with recipient_user_id)
+- **charges**: User debts to circle/group that offset reimbursements
+- **incomes**: Revenue and income tracking
+
+### Enhanced Reimbursements Table
+The reimbursements table includes:
+- `recipient_user_id`: Optional field to specify payment recipient (different from submitter)
+- Supports submitting reimbursements on behalf of others
+- Defaults to submitter if no recipient specified
+
+### Charges Table
+New table for tracking user debts:
+- `fund_id`: Associated fund for the charge
+- `user_id`: User who owes the money
+- `amount`: Charge amount (positive value)
+- `description`: Charge description
+- `charge_date`: Date of the charge
+- `status`: active/settled/cancelled
+
+## API Endpoints
+
+### Reimbursement Endpoints (Enhanced)
+- `GET /api/reimbursements` - List all reimbursements (includes recipient info)
+- `GET /api/reimbursements/my` - Get user's reimbursements (as submitter or recipient)
+- `GET /api/reimbursements/my/summary` - Get payment summary (reimbursements - charges)
+- `POST /api/reimbursements` - Create reimbursement (with optional recipientUserId)
+- `PATCH /api/reimbursements/:id` - Update reimbursement (owner only, pending only)
+- `DELETE /api/reimbursements/:id` - Delete reimbursement (owner only, pending only)
+
+### Charge Endpoints (New)
+- `GET /api/charges/my` - Get user's charges
+- `POST /api/charges` - Create new charge
+- `PATCH /api/charges/:id` - Update charge (owner only, active only)
+- `DELETE /api/charges/:id` - Delete charge (owner only, active only)
+
+### Fund Endpoints (Enhanced)
+- `GET /api/funds` - List all funds
+- `GET /api/funds/accessible` - Get funds grouped by budget with access control
+
+### Other Endpoints
+- Authentication: `/api/auth/*`
+- Budgets: `/api/budgets/*`
+- Groups: `/api/groups/*`
+- Users: `/api/users/*`
+- Planned Expenses: `/api/planned-expenses/*`
+- Incomes: `/api/incomes/*`
+- Reports: `/api/reports/*`
 
 ## Key Configuration Files
 

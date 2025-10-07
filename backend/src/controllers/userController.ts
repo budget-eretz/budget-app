@@ -3,6 +3,30 @@ import pool from '../config/database';
 import { UserWithGroups, Group } from '../types';
 
 /**
+ * Get basic user list (id, fullName only) for reimbursement recipient selection
+ * Available to all authenticated users
+ */
+export async function getBasicUsers(req: Request, res: Response) {
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name
+       FROM users
+       ORDER BY full_name`
+    );
+
+    const users = result.rows.map(row => ({
+      id: row.id,
+      fullName: row.full_name
+    }));
+
+    res.json(users);
+  } catch (error) {
+    console.error('Get basic users error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+}
+
+/**
  * Get all users with their groups
  * Requirements: 1.1, 1.2, 1.3
  */

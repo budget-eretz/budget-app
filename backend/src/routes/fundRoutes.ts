@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authenticateToken);
 
+router.get('/accessible', fundController.getAccessibleFunds);
 router.get('/', fundController.getFunds);
 router.get('/:id', fundController.getFundById);
 router.post('/', requireTreasurer, fundController.createFund);

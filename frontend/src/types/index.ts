@@ -8,6 +8,11 @@ export interface User {
   groups?: Group[];
 }
 
+export interface BasicUser {
+  id: number;
+  fullName: string;
+}
+
 export interface Group {
   id: number;
   name: string;
@@ -46,6 +51,23 @@ export interface Fund {
   created_at: string;
 }
 
+export interface FundWithBudget {
+  id: number;
+  name: string;
+  allocated_amount: number;
+  available_amount: number;
+  description?: string;
+  created_at: string;
+}
+
+export interface BudgetWithFunds {
+  id: number;
+  name: string;
+  type: 'circle' | 'group';
+  groupName?: string;
+  funds: FundWithBudget[];
+}
+
 export interface PlannedExpense {
   id: number;
   fund_id: number;
@@ -66,6 +88,8 @@ export interface Reimbursement {
   user_id: number;
   user_name?: string;
   user_email?: string;
+  recipient_user_id?: number;
+  recipient_name?: string;
   amount: number;
   description: string;
   expense_date: string;
@@ -76,6 +100,26 @@ export interface Reimbursement {
   reviewed_at?: string;
   notes?: string;
   created_at: string;
+}
+
+export interface Charge {
+  id: number;
+  fund_id: number;
+  fund_name?: string;
+  user_id: number;
+  amount: number;
+  description: string;
+  charge_date: string;
+  status: 'active' | 'settled' | 'cancelled';
+  created_at: string;
+}
+
+export interface PaymentSummary {
+  totalReimbursements: number;
+  totalCharges: number;
+  netAmount: number;
+  pendingCount: number;
+  approvedCount: number;
 }
 
 export interface Income {

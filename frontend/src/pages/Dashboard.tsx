@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
+import FundCard from '../components/FundCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -149,27 +150,12 @@ export default function Dashboard() {
           <h2 style={styles.sectionTitle}>קופות</h2>
           <div style={styles.grid}>
             {dashboard.funds.map(fund => (
-              <div key={fund.id} style={styles.card}>
-                <h3 style={styles.cardTitle}>{fund.name}</h3>
-                <div style={styles.fundDetails}>
-                  <div style={styles.fundRow}>
-                    <span>מקורי:</span>
-                    <span>{formatCurrency(fund.allocated_amount)}</span>
-                  </div>
-                  <div style={styles.fundRow}>
-                    <span>יצא:</span>
-                    <span style={{ color: '#e53e3e' }}>{formatCurrency(fund.spent_amount || 0)}</span>
-                  </div>
-                  <div style={styles.fundRow}>
-                    <span>מתוכנן:</span>
-                    <span style={{ color: '#dd6b20' }}>{formatCurrency(fund.planned_amount || 0)}</span>
-                  </div>
-                  <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
-                    <span><strong>זמין:</strong></span>
-                    <span style={{ color: '#38a169' }}><strong>{formatCurrency(fund.available_amount || 0)}</strong></span>
-                  </div>
-                </div>
-              </div>
+              <FundCard
+                key={fund.id}
+                fund={fund}
+                showActions={false}
+                showQuickActions={true}
+              />
             ))}
           </div>
         </section>

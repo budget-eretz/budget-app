@@ -4,7 +4,10 @@ import { authenticateToken, requireCircleTreasurer } from '../middleware/auth';
 
 const router = Router();
 
-// All user management routes require authentication and Circle Treasurer role
+// Public endpoint for basic user list (for reimbursement recipient selection)
+router.get('/basic', authenticateToken, userController.getBasicUsers);
+
+// All other user management routes require authentication and Circle Treasurer role
 router.use(authenticateToken);
 router.use(requireCircleTreasurer);
 

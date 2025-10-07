@@ -102,3 +102,55 @@ export async function canAccessFund(userId: number, fundId: number): Promise<boo
   // Check if user can access the fund's budget
   return canAccessBudget(userId, budgetId);
 }
+
+/**
+ * Validate if a user has access to a specific fund
+ * Checks if fund belongs to circle budget (accessible to all) or user's group budgets
+ * Returns boolean indicating access permission
+ */
+export async function validateFundAccess(userId: number, fundId: number): Promise<boolean> {
+  // Get the fund's budget information
+  const result = await pool.query(`
+    SELECT b.group_id 
+    FROM funds f
+    JOIN budgets b ON f.budget_id = b.id
+    WHERE f.id = $1
+  `, [fundId]);
+  
+  if (result.rows.length === 0) {
+    return false; // Fund doesn't exist
+  }
+  
+  const groupId = result.rows[0].group_id;
+  
+  // Circle budget (group_id IS NULL) - accessible to all users
+  if (!groupId) {
+    return true;
+  }
+  
+  // Group budget - check if user is a member of that group
+  const memberCheck = await pool.query(`
+    SELECT 1 FROM user_groups 
+    WHERE user_id = $1 AND group_id = $2
+  `, [userId, groupId]);
+  
+  return memberCheck.rows.length > 0;
+}
+
+/**
+ * Validate if a user owns a specific reimbursement
+ * Checks if the reimbursement's user_id matches the authenticated user
+ * Returns boolean for ownership validation
+ */
+export async function validateReimbursementOwnership(userId: number, reimbursementId: number): Promise<boolean> {
+  const result = await pool.query(
+    'SELECT user_id FROM reimbursements WHERE id = $1',
+    [reimbursementId]
+  );
+  
+  if (result.rows.length === 0) {
+    return false; // Reimbursement doesn't exist
+  }
+  
+  return result.rows[0].user_id === userId;
+}

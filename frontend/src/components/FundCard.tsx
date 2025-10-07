@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Fund } from '../types';
 
 interface FundCardProps {
@@ -6,6 +7,7 @@ interface FundCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   showActions: boolean;
+  showQuickActions?: boolean;
 }
 
 // Add hover effect and responsive styles using CSS-in-JS approach
@@ -20,6 +22,14 @@ styleSheet.textContent = `
   }
   .fund-action-btn:hover {
     opacity: 1;
+  }
+  .fund-card button[style*="backgroundColor: rgb(102, 126, 234)"]:hover {
+    background-color: #5568d3 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  }
+  .fund-card button[style*="backgroundColor: rgb(102, 126, 234)"]:active {
+    transform: translateY(0);
   }
   
   @media (max-width: 768px) {
@@ -42,7 +52,9 @@ if (!document.head.querySelector('style[data-fund-card-responsive]')) {
   document.head.appendChild(styleSheet);
 }
 
-const FundCard: React.FC<FundCardProps> = ({ fund, onEdit, onDelete, showActions }) => {
+const FundCard: React.FC<FundCardProps> = ({ fund, onEdit, onDelete, showActions, showQuickActions = false }) => {
+  const navigate = useNavigate();
+  
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('he-IL', {
       style: 'currency',
@@ -50,6 +62,16 @@ const FundCard: React.FC<FundCardProps> = ({ fund, onEdit, onDelete, showActions
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const handleSubmitReimbursement = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate('/reimbursements/new', { state: { fundId: fund.id } });
+  };
+
+  const handleAddPlannedExpense = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate('/planned-expenses/new', { state: { fundId: fund.id } });
   };
 
   const spentAmount = fund.spent_amount || 0;
@@ -141,6 +163,25 @@ const FundCard: React.FC<FundCardProps> = ({ fund, onEdit, onDelete, showActions
           {usagePercent.toFixed(0)}% בשימוש
         </span>
       </div>
+
+      {showQuickActions && (
+        <div style={styles.quickActionsContainer}>
+          <button
+            onClick={handleSubmitReimbursement}
+            style={styles.quickActionButton}
+            title="הגש החזר"
+          >
+            💰 הגש החזר
+          </button>
+          <button
+            onClick={handleAddPlannedExpense}
+            style={styles.quickActionButton}
+            title="הוסף תכנון"
+          >
+            📋 הוסף תכנון
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -231,6 +272,29 @@ const styles: { [key: string]: React.CSSProperties } = {
   progressText: {
     fontSize: '12px',
     color: '#a0aec0',
+  },
+  quickActionsContainer: {
+    display: 'flex',
+    gap: '8px',
+    marginTop: '16px',
+    paddingTop: '16px',
+    borderTop: '1px solid #e2e8f0',
+  },
+  quickActionButton: {
+    flex: 1,
+    padding: '10px 16px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#ffffff',
+    backgroundColor: '#667eea',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
   },
 };
 

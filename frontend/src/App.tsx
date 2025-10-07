@@ -8,6 +8,8 @@ import BudgetDetail from './pages/BudgetDetail';
 import Payments from './pages/Payments';
 import NewReimbursement from './pages/NewReimbursement';
 import NewPlannedExpense from './pages/NewPlannedExpense';
+import MyReimbursements from './pages/MyReimbursements';
+import NewCharge from './pages/NewCharge';
 import UserManagement from './pages/UserManagement';
 import GroupManagement from './pages/GroupManagement';
 
@@ -70,6 +72,8 @@ function App() {
             <Route path="/payments" element={<TreasurerRoute><Payments /></TreasurerRoute>} />
             <Route path="/reimbursements/new" element={<PrivateRoute><NewReimbursement /></PrivateRoute>} />
             <Route path="/planned-expenses/new" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
+            <Route path="/my-reimbursements" element={<PrivateRoute><MyReimbursements /></PrivateRoute>} />
+            <Route path="/charges/new" element={<PrivateRoute><NewCharge /></PrivateRoute>} />
             <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />
             <Route path="/groups" element={<CircleTreasurerRoute><GroupManagement /></CircleTreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />

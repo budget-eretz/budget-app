@@ -1,0 +1,16 @@
+{
+  "enabled": false,
+  "name": "Test Tasks on Edit",
+  "description": "Monitors tasks.md file for changes, restarts Docker environment, and runs Playwright tests to verify implemented functionality is working correctly",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "**/tasks.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The tasks.md file has been edited. Please:\n\n1. Find the most recently edited tasks.md file in the workspace\n2. Restart Docker using: docker-compose restart (or make restart if available), And Run all migration\n3. Use the Playwright MCP to test that all implemented functionality is working correctly based on the tasks in the file\n4. Report the results:\n   - If everything works as planned: Report \"הכל עובד מצוין!\" (Everything works great!)\n   - If something doesn't work: List what is not working with specific details\n\nPlease provide a comprehensive test report in Hebrew."
+  }
+}

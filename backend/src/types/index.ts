@@ -67,6 +67,7 @@ export interface Reimbursement {
   id: number;
   fund_id: number;
   user_id: number;
+  recipient_user_id?: number;
   amount: number;
   description: string;
   expense_date: Date;
@@ -77,6 +78,13 @@ export interface Reimbursement {
   notes?: string;
   created_at: Date;
   updated_at: Date;
+  
+  // Joined fields
+  fund_name?: string;
+  budget_id?: number;
+  user_name?: string;
+  recipient_name?: string;
+  reviewer_name?: string;
 }
 
 export interface Income {
@@ -98,6 +106,36 @@ export interface BudgetTransfer {
   transferred_by: number;
   description?: string;
   created_at: Date;
+}
+
+export interface Charge {
+  id: number;
+  fund_id: number;
+  user_id: number;
+  amount: number;
+  description: string;
+  charge_date: Date;
+  status: 'active' | 'settled' | 'cancelled';
+  created_at: Date;
+  updated_at: Date;
+  
+  // Joined fields
+  fund_name?: string;
+  budget_id?: number;
+}
+
+export interface PaymentSummary {
+  totalReimbursements: number;
+  totalCharges: number;
+  netAmount: number;
+  pendingCount: number;
+  approvedCount: number;
+}
+
+export interface FundWithBudget extends Fund {
+  budget_name: string;
+  budget_type: 'circle' | 'group';
+  group_name?: string;
 }
 
 export interface JWTPayload {

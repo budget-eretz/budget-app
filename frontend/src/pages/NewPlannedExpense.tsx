@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { fundsAPI, plannedExpensesAPI } from '../services/api';
 import { Fund } from '../types';
 import { useToast } from '../components/Toast';
@@ -12,6 +12,7 @@ export default function NewPlannedExpense() {
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [formData, setFormData] = useState({
     fundId: '',
@@ -23,6 +24,14 @@ export default function NewPlannedExpense() {
   useEffect(() => {
     loadFunds();
   }, []);
+
+  useEffect(() => {
+    // Pre-select fund if passed via navigation state
+    const state = location.state as { fundId?: number } | null;
+    if (state?.fundId !== undefined) {
+      setFormData(prev => ({ ...prev, fundId: state.fundId!.toString() }));
+    }
+  }, [location.state]);
 
   const loadFunds = async () => {
     try {

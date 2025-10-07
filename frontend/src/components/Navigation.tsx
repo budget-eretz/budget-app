@@ -36,6 +36,15 @@ export default function Navigation() {
             >
               לוח בקרה
             </button>
+            <button
+              onClick={() => handleNavigation('/my-reimbursements')}
+              style={{
+                ...styles.navLink,
+                ...(isActive('/my-reimbursements') ? styles.navLinkActive : {}),
+              }}
+            >
+              ההחזרים שלי
+            </button>
             {isTreasurer && (
               <>
                 <button
@@ -118,6 +127,15 @@ export default function Navigation() {
             }}
           >
             לוח בקרה
+          </button>
+          <button
+            onClick={() => handleNavigation('/my-reimbursements')}
+            style={{
+              ...styles.mobileNavLink,
+              ...(isActive('/my-reimbursements') ? styles.mobileNavLinkActive : {}),
+            }}
+          >
+            ההחזרים שלי
           </button>
           {isTreasurer && (
             <>
