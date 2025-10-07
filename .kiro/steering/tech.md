@@ -5,7 +5,7 @@
 ### Backend
 - **Runtime**: Node.js 18+
 - **Framework**: Express.js with TypeScript
-- **Database**: PostgreSQL 14+ with `pg` driver
+- **Database**: PostgreSQL 15+ with `pg` driver
 - **Authentication**: JWT with bcrypt password hashing
 - **Validation**: Zod for request/response validation
 - **Migration**: node-pg-migrate for database schema management

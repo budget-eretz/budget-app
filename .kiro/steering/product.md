@@ -15,7 +15,7 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **Planned Expenses**: Future expense planning and tracking
 - **Reimbursements**: Member expense reimbursement workflow
 - **Incomes**: Revenue and income tracking
-- **Budget Transfers**: Inter-group budget movement
+- **Reports**: Financial reporting and analytics
 
 ### User Roles
 - Circle Treasurer (full system access)

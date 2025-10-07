@@ -21,11 +21,30 @@ budgetAPP/
 backend/
 ├── src/
 │   ├── config/       # Database and app configuration
+│   │   └── database.ts
 │   ├── controllers/  # Route handlers and business logic
+│   │   ├── authController.ts
+│   │   ├── budgetController.ts
+│   │   ├── fundController.ts
+│   │   ├── incomeController.ts
+│   │   ├── plannedExpenseController.ts
+│   │   ├── reimbursementController.ts
+│   │   └── reportController.ts
 │   ├── db/          # Database utilities, migrations, seeds
+│   │   ├── migrate.ts
+│   │   └── seed.ts
 │   ├── middleware/   # Express middleware (auth, validation)
+│   │   └── auth.ts
 │   ├── routes/      # API route definitions
+│   │   ├── authRoutes.ts
+│   │   ├── budgetRoutes.ts
+│   │   ├── fundRoutes.ts
+│   │   ├── incomeRoutes.ts
+│   │   ├── plannedExpenseRoutes.ts
+│   │   ├── reimbursementRoutes.ts
+│   │   └── reportRoutes.ts
 │   ├── types/       # TypeScript type definitions
+│   │   └── index.ts
 │   └── server.ts    # Application entry point
 ├── migrations/       # Database schema migrations
 ├── .env.example     # Environment variables template
@@ -39,11 +58,30 @@ backend/
 frontend/
 ├── src/
 │   ├── components/   # Reusable React components
+│   │   ├── BudgetCard.tsx
+│   │   ├── BudgetForm.tsx
+│   │   ├── Button.tsx
+│   │   ├── FundCard.tsx
+│   │   ├── FundForm.tsx
+│   │   ├── Modal.tsx
+│   │   ├── Navigation.tsx
+│   │   └── Toast.tsx
 │   ├── context/     # React context providers (auth, state)
+│   │   └── AuthContext.tsx
 │   ├── pages/       # Route-level page components
+│   │   ├── BudgetDetail.tsx
+│   │   ├── Budgets.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── Login.tsx
+│   │   ├── NewPlannedExpense.tsx
+│   │   ├── NewReimbursement.tsx
+│   │   └── Payments.tsx
 │   ├── services/    # API client and external services
+│   │   └── api.ts
 │   ├── types/       # TypeScript interfaces
+│   │   └── index.ts
 │   ├── App.tsx      # Main application component
+│   ├── index.css    # Global styles
 │   └── main.tsx     # React application entry point
 ├── public/          # Static assets
 ├── Dockerfile       # Container configuration
