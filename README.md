@@ -9,6 +9,7 @@
 - חלוקת תקציב לקופות מעגליות
 - העברת תקציבים לקבוצות
 - אישור/דחיית בקשות החזר
+- ניהול משתמשים וקבוצות
 - דוחות ורשימות תשלום
 
 ### גזבר קבוצתי
@@ -18,21 +19,33 @@
 
 ### חבר מעגל/קבוצה
 - רישום תכנונים (הוצאות עתידיות)
-- הגשת בקשות להחזר
+- הגשת בקשות להחזר (כולל בשם אחרים)
+- הגשת חיובים (חובות למעגל)
 - רישום הכנסות
 - מעקב אחר סטטוס בקשות
+- עריכה ומחיקה של בקשות ממתינות
+- צפייה בסיכום תשלומים (החזרים - חיובים)
+
+### תכונות מתקדמות
+- **בקרת גישה לקופות**: קופות מעגליות זמינות לכולם, קופות קבוצתיות רק לחברי הקבוצה
+- **החזרים בשם אחרים**: אפשרות לשלוח תשלום למקבל שונה מהמגיש
+- **ניהול חיובים**: מעקב אחר חובות שמקוזזים מההחזרים
+- **סיכום תשלומים**: חישוב אוטומטי של נטו לתשלום (החזרים - חיובים)
+- **הגשה מהירה**: כפתורי הגשה ישירה מדפי הקופות
 
 ## 🗄️ מבנה Database
 
-המערכת כוללת 8 טבלאות:
+המערכת כוללת 10 טבלאות:
 1. **groups** - קבוצות במעגל
 2. **users** - משתמשים (חברים וגזברים)
-3. **budgets** - תקציבים (מעגליים וקבוצתיים)
-4. **funds** - קופות (חלוקת תקציב)
-5. **planned_expenses** - תכנונים עתידיים
-6. **reimbursements** - בקשות החזר
-7. **incomes** - הכנסות
-8. **budget_transfers** - העברות תקציב
+3. **user_groups** - קשרים רבים-לרבים בין משתמשים לקבוצות
+4. **budgets** - תקציבים (מעגליים וקבוצתיים)
+5. **funds** - קופות (חלוקת תקציב)
+6. **planned_expenses** - תכנונים עתידיים
+7. **reimbursements** - בקשות החזר (כולל שדה recipient_user_id)
+8. **charges** - חיובים (חובות למעגל/קבוצה)
+9. **incomes** - הכנסות
+10. **budget_transfers** - העברות תקציב
 
 ## 🚀 התחלה
 
@@ -204,12 +217,14 @@ npm run dev
 
 לאחר הרצת ה-seed, ניתן להיכנס עם:
 
-| תפקיד | אימייל | סיסמה |
-|------|--------|-------|
-| גזבר מעגלי | treasurer@circle.com | password123 |
-| גזבר קבוצה (צפון) | treasurer@north.com | password123 |
-| גזבר קבוצה (מרכז) | treasurer@center.com | password123 |
-| חבר | member1@circle.com | password123 |
+| תפקיד | אימייל | סיסמה | קבוצות |
+|------|--------|-------|--------|
+| גזבר מעגלי | treasurer@circle.com | password123 | - |
+| גזבר קבוצה (צפון) | treasurer@north.com | password123 | צפון |
+| גזבר קבוצה (מרכז) | treasurer@center.com | password123 | מרכז |
+| חבר | member1@circle.com | password123 | צפון |
+| חבר | member2@circle.com | password123 | מרכז |
+| חבר | member3@circle.com | password123 | צפון, מרכז |
 
 ## 📡 API Endpoints
 
@@ -238,15 +253,42 @@ npm run dev
 
 ### Reimbursements
 - `GET /api/reimbursements` - רשימת החזרים
-- `POST /api/reimbursements` - יצירת בקשת החזר
+- `GET /api/reimbursements/my` - ההחזרים שלי (כמגיש או מקבל)
+- `GET /api/reimbursements/my/summary` - סיכום תשלומים (החזרים - חיובים)
+- `POST /api/reimbursements` - יצירת בקשת החזר (כולל recipientUserId אופציונלי)
+- `PATCH /api/reimbursements/:id` - עדכון בקשה (רק ממתינות)
+- `DELETE /api/reimbursements/:id` - מחיקת בקשה (רק ממתינות)
 - `POST /api/reimbursements/:id/approve` - אישור (גזבר)
 - `POST /api/reimbursements/:id/reject` - דחייה (גזבר)
 - `POST /api/reimbursements/:id/paid` - סימון כשולם (גזבר)
+
+### Charges (חדש!)
+- `GET /api/charges/my` - החיובים שלי
+- `POST /api/charges` - יצירת חיוב חדש
+- `PATCH /api/charges/:id` - עדכון חיוב (רק פעילים)
+- `DELETE /api/charges/:id` - מחיקת חיוב (רק פעילים)
+
+### Funds
+- `GET /api/funds` - רשימת קופות
+- `GET /api/funds/accessible` - קופות נגישות (מקובצות לפי תקציב עם בקרת גישה)
+- `POST /api/funds` - יצירת קופה (גזבר)
+- `PATCH /api/funds/:id` - עדכון קופה
+- `DELETE /api/funds/:id` - מחיקת קופה
 
 ### Incomes
 - `GET /api/incomes` - רשימת הכנסות
 - `POST /api/incomes` - רישום הכנסה
 - `DELETE /api/incomes/:id` - מחיקת הכנסה
+
+### Users & Groups
+- `GET /api/users` - רשימת משתמשים (גזבר מעגלי)
+- `POST /api/users` - יצירת משתמש (גזבר מעגלי)
+- `PATCH /api/users/:id` - עדכון משתמש (גזבר מעגלי)
+- `DELETE /api/users/:id` - מחיקת משתמש (גזבר מעגלי)
+- `GET /api/groups` - רשימת קבוצות
+- `POST /api/groups` - יצירת קבוצה (גזבר מעגלי)
+- `PATCH /api/groups/:id` - עדכון קבוצה (גזבר מעגלי)
+- `DELETE /api/groups/:id` - מחיקת קבוצה (גזבר מעגלי)
 
 ### Reports
 - `GET /api/reports/dashboard` - דשבורד מותאם אישית
@@ -280,9 +322,10 @@ cd backend && npm run migrate && npm run seed
 **Frontend:**
 - React 18
 - TypeScript
-- React Router
+- React Router v6
 - Axios
 - Vite
+- Context API (AuthContext)
 
 ## 📝 רישיון
 
