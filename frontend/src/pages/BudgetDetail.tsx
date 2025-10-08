@@ -5,12 +5,10 @@ import { budgetsAPI, fundsAPI, incomesAPI, monthlyAllocationsAPI } from '../serv
 import { Budget, Fund, Income, MonthlyFundStatus } from '../types';
 import { useToast } from '../components/Toast';
 import Navigation from '../components/Navigation';
-import FundCard from '../components/FundCard';
 import FundForm, { FundFormData } from '../components/FundForm';
-import BudgetForm, { BudgetFormData } from '../components/BudgetForm';
+import BudgetForm from '../components/BudgetForm';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
-import MonthlyFundStatusCard from '../components/MonthlyFundStatusCard';
 
 export default function BudgetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -410,6 +408,14 @@ export default function BudgetDetail() {
     }).format(amount);
   };
 
+  const getHebrewMonth = (month: number): string => {
+    const hebrewMonths = [
+      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
+    return hebrewMonths[month - 1] || '';
+  };
+
   const calculateBudgetSummary = () => {
     const totalAllocated = funds.reduce((sum, fund) => sum + Number(fund.allocated_amount || 0), 0);
     const totalSpent = funds.reduce((sum, fund) => sum + Number(fund.spent_amount || 0), 0);
@@ -538,11 +544,13 @@ export default function BudgetDetail() {
           </div>
         </div>
 
-        {/* Monthly Status Section */}
+        {/* Monthly Status Table */}
         {monthlyStatuses.length > 0 && (
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
+              <h2 style={styles.sectionTitle}>
+                מצב קופות חודשי - {getHebrewMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
+              </h2>
               {hasPermission && (
                 <Button
                   variant="secondary"
@@ -561,19 +569,66 @@ export default function BudgetDetail() {
             {loadingMonthlyStatus ? (
               <div style={styles.loadingMonthly}>טוען מצב חודשי...</div>
             ) : (
-              <div className="monthly-status-grid" style={styles.monthlyStatusGrid}>
-                {monthlyStatuses.map(status => (
-                  <MonthlyFundStatusCard key={status.fundId} status={status} />
-                ))}
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>שם הקופה</th>
+                      <th style={styles.th}>מוקצה</th>
+                      <th style={styles.th}>הוצא</th>
+                      <th style={styles.th}>מתוכנן</th>
+                      <th style={styles.th}>נותר</th>
+                      <th style={styles.th}>% שימוש</th>
+                      <th style={styles.th}>פעולות</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyStatuses.map(status => {
+                      const usagePercent = status.allocatedAmount > 0
+                        ? (status.spentAmount / status.allocatedAmount) * 100
+                        : 0;
+                      const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+
+                      return (
+                        <tr key={status.fundId} style={styles.tableRow}>
+                          <td style={styles.td}>
+                            <strong>{status.fundName}</strong>
+                          </td>
+                          <td style={styles.td}>{formatAmount(status.allocatedAmount)}</td>
+                          <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.spentAmount)}</td>
+                          <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.plannedAmount)}</td>
+                          <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
+                            {formatAmount(status.remainingAmount)}
+                          </td>
+                          <td style={styles.td}>
+                            <div style={styles.progressContainer}>
+                              <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
+                              <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                          <td style={styles.td}>
+                            <Button
+                              variant="secondary"
+                              onClick={() => navigate(`/funds/${status.fundId}/monthly`)}
+                              style={styles.smallButton}
+                            >
+                              פרטים
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
-        {/* Funds Section */}
+        {/* Annual Funds Overview Table */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>קופות</h2>
+            <h2 style={styles.sectionTitle}>תמונת מצב שנתית - קופות</h2>
             {hasPermission && (
               <Button variant="primary" onClick={openCreateFundModal}>
                 + צור קופה
@@ -591,17 +646,84 @@ export default function BudgetDetail() {
               )}
             </div>
           ) : (
-            <div className="funds-grid" style={styles.fundsGrid}>
-              {funds.map(fund => (
-                <FundCard
-                  key={fund.id}
-                  fund={fund}
-                  onEdit={() => openEditFundModal(fund)}
-                  onDelete={() => openDeleteFundConfirm(fund)}
-                  showActions={hasPermission}
-                  showQuickActions={true}
-                />
-              ))}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>שם הקופה</th>
+                    <th style={styles.th}>תקציב מוקצה</th>
+                    <th style={styles.th}>הוצא</th>
+                    <th style={styles.th}>מתוכנן</th>
+                    <th style={styles.th}>נותר</th>
+                    <th style={styles.th}>% שימוש</th>
+                    <th style={styles.th}>פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {funds.map(fund => {
+                    const allocated = Number(fund.allocated_amount || 0);
+                    const spent = Number(fund.spent_amount || 0);
+                    const planned = Number(fund.planned_amount || 0);
+                    const remaining = allocated - spent;
+                    const usagePercent = allocated > 0 ? (spent / allocated) * 100 : 0;
+                    const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+
+                    return (
+                      <tr key={fund.id} style={styles.tableRow}>
+                        <td style={styles.td}>
+                          <div style={styles.fundNameCell}>
+                            <strong>{fund.name}</strong>
+                            {fund.description && (
+                              <span style={styles.fundDescription}>{fund.description}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={styles.td}>{formatAmount(allocated)}</td>
+                        <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(spent)}</td>
+                        <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(planned)}</td>
+                        <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
+                          {formatAmount(remaining)}
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.progressContainer}>
+                            <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
+                            <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.actionButtons}>
+                            <Button
+                              variant="secondary"
+                              onClick={() => navigate(`/funds/${fund.id}/monthly`)}
+                              style={styles.smallButton}
+                            >
+                              פרטים
+                            </Button>
+                            {hasPermission && (
+                              <>
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => openEditFundModal(fund)}
+                                  style={styles.smallButton}
+                                >
+                                  ✏️
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  onClick={() => openDeleteFundConfirm(fund)}
+                                  style={styles.smallButton}
+                                >
+                                  🗑️
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -756,9 +878,13 @@ export default function BudgetDetail() {
   );
 }
 
-// Add responsive styles
+// Add responsive styles and table hover effects
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
+  tbody tr:hover {
+    background-color: #f7fafc !important;
+  }
+  
   @media (max-width: 768px) {
     .budget-detail-content {
       padding: 20px !important;
@@ -787,6 +913,13 @@ styleSheet.textContent = `
     .budget-detail-content button {
       min-height: 48px !important;
       font-size: 16px !important;
+    }
+    .budget-detail-content table {
+      font-size: 12px !important;
+    }
+    .budget-detail-content th,
+    .budget-detail-content td {
+      padding: 8px !important;
     }
   }
   @media (min-width: 769px) and (max-width: 1024px) {
@@ -980,6 +1113,13 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     overflowX: 'auto',
   },
+  tableContainer: {
+    background: 'white',
+    borderRadius: '8px',
+    padding: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    overflowX: 'auto',
+  },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
@@ -991,6 +1131,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     fontWeight: 600,
     color: '#4a5568',
+    background: '#f7fafc',
   },
   td: {
     textAlign: 'right',
@@ -998,6 +1139,54 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid #e2e8f0',
     fontSize: '14px',
     color: '#2d3748',
+  },
+  tableRow: {
+    transition: 'background-color 0.2s',
+    cursor: 'default',
+  },
+  fundNameCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  fundDescription: {
+    fontSize: '12px',
+    color: '#718096',
+  },
+  progressContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '24px',
+    background: '#e2e8f0',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    height: '100%',
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#2d3748',
+    zIndex: 1,
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'flex-start',
+  },
+  smallButton: {
+    padding: '6px 12px',
+    fontSize: '13px',
+    minWidth: 'auto',
   },
   deleteModal: {
     padding: '0',

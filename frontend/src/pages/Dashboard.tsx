@@ -2,13 +2,23 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { reportsAPI, reimbursementsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
-import { Dashboard as DashboardType, Reimbursement, MonthlyFundStatus } from '../types';
+import { Dashboard as DashboardType, Reimbursement, MonthlyFundStatus, Fund } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
-import FundCard from '../components/FundCard';
-import MonthlyFundStatusCard from '../components/MonthlyFundStatusCard';
+
+// Add hover effects for table rows
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  tbody tr:hover {
+    background-color: #f7fafc !important;
+  }
+`;
+if (!document.head.querySelector('style[data-dashboard-table-hover]')) {
+  styleSheet.setAttribute('data-dashboard-table-hover', 'true');
+  document.head.appendChild(styleSheet);
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -16,12 +26,9 @@ export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardType | null>(null);
   const [monthlyStatus, setMonthlyStatus] = useState<MonthlyFundStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [monthlyStatusLoading, setMonthlyStatusLoading] = useState(true);
-  const [monthlyStatusError, setMonthlyStatusError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [rejectModal, setRejectModal] = useState<{ isOpen: boolean; reimbursement: Reimbursement | null }>({ isOpen: false, reimbursement: null });
   const [rejectNotes, setRejectNotes] = useState('');
-  const [hoveredBudgetId, setHoveredBudgetId] = useState<number | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -41,8 +48,6 @@ export default function Dashboard() {
   };
 
   const loadMonthlyStatus = async () => {
-    setMonthlyStatusLoading(true);
-    setMonthlyStatusError(null);
     try {
       const response = await monthlyAllocationsAPI.getDashboardMonthlyStatus();
       // Transform snake_case to camelCase
@@ -60,9 +65,7 @@ export default function Dashboard() {
       setMonthlyStatus(transformedData);
     } catch (error: any) {
       console.error('Failed to load monthly status:', error);
-      setMonthlyStatusError(error.response?.data?.error || 'שגיאה בטעינת מצב חודשי');
-    } finally {
-      setMonthlyStatusLoading(false);
+      // Don't show error - monthly status is optional
     }
   };
 
@@ -139,81 +142,228 @@ export default function Dashboard() {
     return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
   };
 
+  const getHebrewMonth = (month: number): string => {
+    const hebrewMonths = [
+      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
+    return hebrewMonths[month - 1] || '';
+  };
+
+  // Group funds by budget
+  const fundsByBudget = dashboard.funds.reduce((acc, fund) => {
+    const budgetId = fund.budget_id;
+    if (!acc[budgetId]) {
+      acc[budgetId] = [];
+    }
+    acc[budgetId].push(fund);
+    return acc;
+  }, {} as Record<number, Fund[]>);
+
+  // Group monthly status by budget
+  const monthlyStatusByBudget = monthlyStatus.reduce((acc, status) => {
+    // Find the fund to get its budget_id
+    const fund = dashboard.funds.find(f => f.id === status.fundId);
+    if (fund) {
+      const budgetId = fund.budget_id;
+      if (!acc[budgetId]) {
+        acc[budgetId] = [];
+      }
+      acc[budgetId].push(status);
+    }
+    return acc;
+  }, {} as Record<number, MonthlyFundStatus[]>);
+
   return (
     <div style={styles.container}>
       <Navigation />
 
       <div style={styles.content}>
-        {/* Budgets Overview */}
+        {/* Budgets and Funds Overview */}
         <section style={styles.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>תקציבים</h2>
+            <h2 style={styles.sectionTitle}>תקציבים וקופות</h2>
             {(user?.isCircleTreasurer || user?.isGroupTreasurer) && (
               <Button variant="primary" size="sm" onClick={() => navigate('/budgets')}>
                 ניהול תקציבים
               </Button>
             )}
           </div>
-          <div style={styles.grid}>
-            {dashboard.budgets.map(budget => (
-              <div 
-                key={budget.id} 
-                style={{
-                  ...styles.budgetCard,
-                  ...(hoveredBudgetId === budget.id ? styles.budgetCardHover : {})
-                }}
-                onClick={() => navigate(`/budgets/${budget.id}`)}
-                onMouseEnter={() => setHoveredBudgetId(budget.id)}
-                onMouseLeave={() => setHoveredBudgetId(null)}
-              >
-                <h3 style={styles.cardTitle}>{budget.name}</h3>
-                <p style={styles.cardSubtitle}>
-                  {budget.group_name || 'תקציב מעגלי'}
-                </p>
-                <div style={styles.amount}>{formatCurrency(budget.total_amount)}</div>
+
+          {dashboard.budgets.map(budget => {
+            const budgetFunds = fundsByBudget[budget.id] || [];
+            const budgetMonthlyStatus = monthlyStatusByBudget[budget.id] || [];
+            
+            return (
+              <div key={budget.id} style={styles.budgetSection}>
+                {/* Budget Header */}
+                <div style={styles.budgetHeader}>
+                  <div style={styles.budgetHeaderLeft}>
+                    <h3 style={styles.budgetTitle}>{budget.name}</h3>
+                    <span style={styles.budgetSubtitle}>
+                      {budget.group_name || 'תקציב מעגלי'}
+                    </span>
+                  </div>
+                  <div style={styles.budgetHeaderRight}>
+                    <span style={styles.budgetAmount}>{formatCurrency(budget.total_amount)}</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => navigate(`/budgets/${budget.id}`)}
+                      style={styles.viewBudgetButton}
+                    >
+                      פרטים
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Monthly Status Table */}
+                {budgetMonthlyStatus.length > 0 && (
+                  <div style={styles.tableSection}>
+                    <h4 style={styles.tableSectionTitle}>
+                      מצב חודשי - {getHebrewMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
+                    </h4>
+                    <div style={styles.tableContainer}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>קופה</th>
+                            <th style={styles.th}>מוקצה</th>
+                            <th style={styles.th}>הוצא</th>
+                            <th style={styles.th}>מתוכנן</th>
+                            <th style={styles.th}>נותר</th>
+                            <th style={styles.th}>% שימוש</th>
+                            <th style={styles.th}>פעולות</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {budgetMonthlyStatus.map(status => {
+                            const usagePercent = status.allocatedAmount > 0 
+                              ? (status.spentAmount / status.allocatedAmount) * 100 
+                              : 0;
+                            const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+                            
+                            return (
+                              <tr key={status.fundId} style={styles.tableRow}>
+                                <td style={styles.td}>
+                                  <strong>{status.fundName}</strong>
+                                </td>
+                                <td style={styles.td}>{formatCurrency(status.allocatedAmount)}</td>
+                                <td style={{ ...styles.td, color: '#e53e3e' }}>{formatCurrency(status.spentAmount)}</td>
+                                <td style={{ ...styles.td, color: '#dd6b20' }}>{formatCurrency(status.plannedAmount)}</td>
+                                <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
+                                  {formatCurrency(status.remainingAmount)}
+                                </td>
+                                <td style={styles.td}>
+                                  <div style={styles.progressContainer}>
+                                    <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
+                                    <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => navigate(`/funds/${status.fundId}/monthly`)}
+                                    style={styles.smallButton}
+                                  >
+                                    פרטים
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Annual Funds Table */}
+                {budgetFunds.length > 0 && (
+                  <div style={styles.tableSection}>
+                    <h4 style={styles.tableSectionTitle}>תמונת מצב שנתית</h4>
+                    <div style={styles.tableContainer}>
+                      <table style={styles.table}>
+                        <thead>
+                          <tr>
+                            <th style={styles.th}>קופה</th>
+                            <th style={styles.th}>תקציב מוקצה</th>
+                            <th style={styles.th}>הוצא</th>
+                            <th style={styles.th}>מתוכנן</th>
+                            <th style={styles.th}>נותר</th>
+                            <th style={styles.th}>% שימוש</th>
+                            <th style={styles.th}>פעולות</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {budgetFunds.map(fund => {
+                            const allocated = Number(fund.allocated_amount || 0);
+                            const spent = Number(fund.spent_amount || 0);
+                            const planned = Number(fund.planned_amount || 0);
+                            const remaining = allocated - spent;
+                            const usagePercent = allocated > 0 ? (spent / allocated) * 100 : 0;
+                            const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+                            
+                            return (
+                              <tr key={fund.id} style={styles.tableRow}>
+                                <td style={styles.td}>
+                                  <div style={styles.fundNameCell}>
+                                    <strong>{fund.name}</strong>
+                                    {fund.description && (
+                                      <span style={styles.fundDescription}>{fund.description}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={styles.td}>{formatCurrency(allocated)}</td>
+                                <td style={{ ...styles.td, color: '#e53e3e' }}>{formatCurrency(spent)}</td>
+                                <td style={{ ...styles.td, color: '#dd6b20' }}>{formatCurrency(planned)}</td>
+                                <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
+                                  {formatCurrency(remaining)}
+                                </td>
+                                <td style={styles.td}>
+                                  <div style={styles.progressContainer}>
+                                    <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
+                                    <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <div style={styles.actionButtons}>
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() => navigate(`/funds/${fund.id}/monthly`)}
+                                      style={styles.smallButton}
+                                    >
+                                      פרטים
+                                    </Button>
+                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      onClick={() => navigate(`/reimbursements/new?fundId=${fund.id}`)}
+                                      style={styles.smallButton}
+                                    >
+                                      החזר
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {budgetFunds.length === 0 && (
+                  <div style={styles.emptyBudgetState}>
+                    <p>אין קופות בתקציב זה</p>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Funds Overview */}
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>קופות</h2>
-          <div style={styles.grid}>
-            {dashboard.funds.map(fund => (
-              <FundCard
-                key={fund.id}
-                fund={fund}
-                showActions={false}
-                showQuickActions={true}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Monthly Fund Status */}
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
-          {monthlyStatusLoading ? (
-            <div style={styles.loadingState}>טוען מצב חודשי...</div>
-          ) : monthlyStatusError ? (
-            <div style={styles.errorState}>
-              <p>{monthlyStatusError}</p>
-              <Button variant="primary" size="sm" onClick={loadMonthlyStatus}>
-                נסה שוב
-              </Button>
-            </div>
-          ) : monthlyStatus.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p>אין הקצאות חודשיות מוגדרות לקופות</p>
-            </div>
-          ) : (
-            <div style={styles.grid}>
-              {monthlyStatus.map(status => (
-                <MonthlyFundStatusCard key={status.fundId} status={status} />
-              ))}
-            </div>
-          )}
+            );
+          })}
         </section>
 
         {/* Pending Reimbursements (for treasurers) */}
@@ -446,76 +596,140 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '40px',
   },
   sectionTitle: {
-    fontSize: '20px',
+    fontSize: '24px',
     fontWeight: 'bold',
     marginBottom: '20px',
     color: '#2d3748',
   },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '20px',
-  },
-  card: {
+  budgetSection: {
     background: 'white',
-    padding: '24px',
     borderRadius: '8px',
+    padding: '24px',
+    marginBottom: '24px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
-  budgetCard: {
-    background: 'white',
-    padding: '24px',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
+  budgetHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+    paddingBottom: '16px',
+    borderBottom: '2px solid #e2e8f0',
   },
-  budgetCardHover: {
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    transform: 'translateY(-2px)',
+  budgetHeaderLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
   },
-  cardTitle: {
-    fontSize: '18px',
+  budgetHeaderRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+  },
+  budgetTitle: {
+    fontSize: '20px',
     fontWeight: 'bold',
-    margin: '0 0 4px 0',
+    color: '#2d3748',
+    margin: 0,
   },
-  cardSubtitle: {
+  budgetSubtitle: {
     fontSize: '14px',
     color: '#718096',
-    margin: '0 0 16px 0',
   },
-  amount: {
+  budgetAmount: {
     fontSize: '24px',
     fontWeight: 'bold',
     color: '#667eea',
   },
-  fundDetails: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
+  viewBudgetButton: {
+    minWidth: 'auto',
   },
-  fundRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '14px',
+  tableSection: {
+    marginBottom: '24px',
   },
-  fundRowTotal: {
-    marginTop: '8px',
-    paddingTop: '8px',
-    borderTop: '1px solid #e2e8f0',
+  tableSectionTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#4a5568',
+    marginBottom: '12px',
+  },
+  tableContainer: {
+    overflowX: 'auto',
+    borderRadius: '6px',
+    border: '1px solid #e2e8f0',
   },
   table: {
-    background: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  th: {
+    textAlign: 'right',
+    padding: '12px',
+    borderBottom: '2px solid #e2e8f0',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#4a5568',
+    background: '#f7fafc',
+  },
+  td: {
+    textAlign: 'right',
+    padding: '12px',
+    borderBottom: '1px solid #e2e8f0',
+    fontSize: '14px',
+    color: '#2d3748',
   },
   tableRow: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 3fr 1fr 1fr',
-    padding: '16px 20px',
-    borderBottom: '1px solid #e2e8f0',
-    gap: '16px',
+    transition: 'background-color 0.2s',
+  },
+  fundNameCell: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  fundDescription: {
+    fontSize: '12px',
+    color: '#718096',
+  },
+  progressContainer: {
+    position: 'relative',
+    width: '100%',
+    height: '24px',
+    background: '#e2e8f0',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    height: '100%',
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#2d3748',
+    zIndex: 1,
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'flex-start',
+  },
+  smallButton: {
+    padding: '6px 12px',
+    fontSize: '13px',
+    minWidth: 'auto',
+  },
+  emptyBudgetState: {
+    padding: '20px',
+    textAlign: 'center',
+    color: '#718096',
+    fontSize: '14px',
   },
   reimbursementRow: {
     display: 'grid',
@@ -537,15 +751,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-  },
-  statusPending: {
-    padding: '4px 12px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600',
-    background: '#fef5e7',
-    color: '#d68910',
-    display: 'inline-block',
   },
   actionsCell: {
     display: 'flex',
