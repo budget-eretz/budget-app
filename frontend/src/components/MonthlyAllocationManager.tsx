@@ -39,6 +39,15 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
+  // Auto-scroll to modal when it opens
+  useEffect(() => {
+    // Scroll to top of the modal overlay
+    const modalOverlay = document.querySelector('.modal-overlay');
+    if (modalOverlay) {
+      modalOverlay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   useEffect(() => {
     loadExistingAllocations();
   }, [fundId]);

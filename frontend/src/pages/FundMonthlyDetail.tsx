@@ -259,7 +259,7 @@ export default function FundMonthlyDetail() {
         <MonthlyAllocationManager
           fundId={fund.id}
           fundName={fund.name}
-          totalFundAllocation={fund.allocated_amount}
+          totalFundAllocation={Number(fund.allocated_amount)}
           onClose={() => setShowAllocationManager(false)}
           onSuccess={handleAllocationSuccess}
         />

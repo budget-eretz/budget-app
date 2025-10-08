@@ -17,6 +17,14 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
+      
+      // Auto-scroll to modal when it opens
+      setTimeout(() => {
+        const modalOverlay = document.querySelector('.modal-overlay');
+        if (modalOverlay) {
+          modalOverlay.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
     }
 
     return () => {
