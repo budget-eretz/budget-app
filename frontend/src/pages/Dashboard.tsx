@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { reportsAPI, reimbursementsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
-import { Dashboard as DashboardType, Reimbursement, MonthlyFundStatus, Fund } from '../types';
+import { reportsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
+import { Dashboard as DashboardType, MonthlyFundStatus, Fund } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
-import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
 
 // Add hover effects for table rows
@@ -405,33 +404,48 @@ export default function Dashboard() {
             }
 
             return (
-              <div style={styles.table}>
-                {currentMonthExpenses.map(expense => (
-                  <div key={expense.id} style={styles.plannedExpenseRow}>
-                    <div style={styles.tableCell}>{expense.fund_name}</div>
-                    <div style={styles.tableCell}>{expense.description}</div>
-                    <div style={styles.tableCell}>{formatCurrency(expense.amount)}</div>
-                    <div style={styles.tableCell}>
-                      {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
-                    </div>
-                    <div style={styles.actionsCell}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
-                      >
-                        ערוך
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDeletePlannedExpense(expense.id)}
-                      >
-                        מחק
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>קופה</th>
+                      <th style={styles.th}>תיאור</th>
+                      <th style={styles.th}>סכום</th>
+                      <th style={styles.th}>תאריך מתוכנן</th>
+                      <th style={styles.th}>פעולות</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentMonthExpenses.map(expense => (
+                      <tr key={expense.id} style={styles.tableRow}>
+                        <td style={styles.td}>{expense.fund_name}</td>
+                        <td style={styles.td}>{expense.description}</td>
+                        <td style={styles.td}>{formatCurrency(expense.amount)}</td>
+                        <td style={styles.td}>
+                          {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.actionButtons}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
+                            >
+                              ערוך
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeletePlannedExpense(expense.id)}
+                            >
+                              מחק
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             );
           })()}
@@ -453,17 +467,29 @@ export default function Dashboard() {
               </Button>
             </div>
           ) : (
-            <div style={styles.table}>
-              {dashboard.myReimbursements.slice(0, 5).map(reimb => (
-                <div key={reimb.id} style={styles.tableRow}>
-                  <div style={styles.tableCell}>{reimb.fund_name}</div>
-                  <div style={styles.tableCell}>{reimb.description}</div>
-                  <div style={styles.tableCell}>{formatCurrency(reimb.amount)}</div>
-                  <div style={styles.tableCell}>
-                    <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
-                  </div>
-                </div>
-              ))}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>קופה</th>
+                    <th style={styles.th}>תיאור</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>סטטוס</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.myReimbursements.slice(0, 5).map(reimb => (
+                    <tr key={reimb.id} style={styles.tableRow}>
+                      <td style={styles.td}>{reimb.fund_name}</td>
+                      <td style={styles.td}>{reimb.description}</td>
+                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+                      <td style={styles.td}>
+                        <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
@@ -666,25 +692,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
   },
 
-  plannedExpenseRow: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 3fr 1fr 1fr 1.5fr',
-    padding: '16px 20px',
-    borderBottom: '1px solid #e2e8f0',
-    gap: '16px',
-    alignItems: 'center',
-  },
-  tableCell: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-  },
-  actionsCell: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
+
   emptyState: {
     background: 'white',
     padding: '40px 20px',
