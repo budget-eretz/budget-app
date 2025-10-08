@@ -15,12 +15,15 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **Payment Transfers**: Automatic grouping of approved reimbursements by recipient and budget type for efficient payment execution
 - **Charge Submission**: Track debts owed to circle/group that offset pending reimbursements
 - **Fund Access Control**: Budget-based access control for circle and group funds
+- **Monthly Fund Allocation**: Granular monthly budget allocation with fixed or variable strategies and comprehensive tracking
 
 ### Key Entities
 - **Users**: System users with roles and group memberships (many-to-many)
 - **Groups**: User groups for organizing members and budgets
 - **Budgets**: Circle-wide and group-specific budget allocations
 - **Funds**: Sub-budget categories for organized spending
+- **Fund Monthly Allocations**: Monthly budget allocations per fund with fixed or variable strategies
+- **Fund Allocation History**: Audit trail of all allocation changes
 - **Planned Expenses**: Future expense planning and tracking
 - **Reimbursements**: Member expense reimbursement workflow with recipient field support
 - **Payment Transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
@@ -242,6 +245,146 @@ The system now has two separate treasurer pages:
    - View pending and executed transfers
    - Transfer details with all associated reimbursements
    - Payment execution with audit trail
+
+### Monthly Fund Allocation and Tracking
+
+A comprehensive system for managing and tracking fund allocations on a monthly basis, providing granular financial planning and monitoring capabilities.
+
+#### Key Concepts
+
+**Monthly Allocation**: The amount of money allocated to a fund for a specific month. Treasurers can set allocations using either fixed (same amount every month) or variable (different amounts per month) strategies.
+
+**Allocation Types**:
+- **Fixed Allocation**: Set a single amount that applies to all months starting from the current month
+- **Variable Allocation**: Set different amounts for each month of the year individually
+
+**Monthly Tracking**: Track actual spending, planned expenses, and remaining budget for each fund on a monthly basis.
+
+#### Monthly Allocation Management
+
+**Allocation Manager Modal** (ניהול הקצאות חודשיות):
+- Accessible from fund detail pages (treasurer only)
+- Toggle between fixed and variable allocation modes
+- Real-time validation against total fund budget
+- Visual summary showing total allocated, remaining unallocated
+- Prevents over-allocation with clear error messages
+- Saves allocation history for audit trail
+
+**Fixed Allocation Mode**:
+- Enter a single monthly amount
+- Automatically calculates annual total (amount × 12)
+- Applied to all months starting from current month
+- Simple and quick for consistent monthly budgets
+
+**Variable Allocation Mode**:
+- Grid of 12 month inputs (Hebrew month names)
+- Set different amounts for each month
+- Flexible for seasonal or varying budgets
+- Shows total across all months
+
+**Allocation History** (היסטוריית הקצאות):
+- Complete audit trail of all allocation changes
+- Shows who made changes and when
+- Tracks created, updated, and deleted allocations
+- Displays allocation type (fixed/variable) for each entry
+- Sortable and filterable history table
+
+#### Monthly Fund Status Tracking
+
+**Fund Monthly Detail Page** (`/funds/:fundId/monthly`):
+- Month navigator for browsing different months
+- Monthly status summary card showing:
+  - Allocated amount for the month
+  - Spent amount (approved/paid reimbursements)
+  - Planned amount (planned expenses)
+  - Remaining amount (allocated - spent)
+  - Visual progress bar with color coding
+- Monthly expenses table with all reimbursements for the month
+- Monthly planned expenses table
+- Access to allocation manager and history (treasurer only)
+
+**Monthly Status Cards** (Dashboard):
+- Display current month status for all accessible funds
+- Quick overview of spending vs. allocation
+- Color-coded indicators for budget health
+- Click to navigate to detailed monthly view
+
+**Month Navigation**:
+- Navigate between months with arrow buttons
+- Month/year picker for quick jumps
+- Consistent navigation across all monthly views
+- Maintains context when switching between funds
+
+#### API Endpoints
+
+**Monthly Allocation Management**:
+- `GET /api/funds/:fundId/monthly-allocations` - Get all allocations for a fund
+- `POST /api/funds/:fundId/monthly-allocations/fixed` - Set fixed monthly allocation
+- `POST /api/funds/:fundId/monthly-allocations/variable` - Set variable monthly allocations
+- `GET /api/funds/:fundId/allocation-history` - Get allocation change history
+
+**Monthly Status and Tracking**:
+- `GET /api/funds/:fundId/monthly-status/:year/:month` - Get monthly status for a fund
+- `GET /api/funds/:fundId/monthly-expenses/:year/:month` - Get monthly expenses
+- `GET /api/funds/:fundId/monthly-planned/:year/:month` - Get monthly planned expenses
+- `GET /api/dashboard/monthly-status` - Get current month status for all accessible funds
+
+**Budget-Level Monthly Tracking**:
+- `GET /api/budgets/:budgetId/monthly-summary/:year/:month` - Get monthly summary for all funds in a budget
+
+#### Key Features
+
+**Automatic Calculations**:
+- Real-time calculation of total allocated vs. fund budget
+- Automatic remaining budget calculation
+- Monthly spending aggregation from reimbursements
+- Planned expense totals per month
+
+**Validation and Constraints**:
+- Prevent over-allocation beyond fund budget
+- Require positive amounts for allocations
+- Validate date ranges and month selections
+- Ensure at least one allocation when using variable mode
+
+**Access Control**:
+- Only treasurers can manage allocations
+- Circle treasurers: Full access to all fund allocations
+- Group treasurers: Access limited to their group funds
+- All users can view monthly status for accessible funds
+
+**Audit Trail**:
+- Complete history of all allocation changes
+- Track who made changes and when
+- Record change type (created/updated/deleted)
+- Maintain historical allocation data
+
+**Hebrew Interface**:
+- Hebrew month names (ינואר, פברואר, etc.)
+- Hebrew labels and messages throughout
+- RTL-friendly layout and design
+- Hebrew status indicators and summaries
+
+#### Integration with Existing Features
+
+**Fund Management**:
+- Monthly allocations linked to fund total budget
+- Validation ensures monthly allocations don't exceed fund budget
+- Fund detail pages include monthly tracking access
+
+**Budget Detail Pages**:
+- Display monthly summary for all funds in budget
+- Aggregate monthly status across funds
+- Quick access to individual fund monthly details
+
+**Dashboard**:
+- Current month status cards for all accessible funds
+- Quick overview of monthly budget health
+- Direct navigation to monthly detail pages
+
+**Expense Tracking**:
+- Reimbursements automatically counted in monthly spending
+- Planned expenses included in monthly calculations
+- Real-time updates as expenses are added or approved
 
 ### Target Deployment
 - Development: Docker Compose

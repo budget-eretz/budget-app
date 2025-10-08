@@ -27,6 +27,7 @@ backend/
 │   │   ├── budgetController.ts
 │   │   ├── chargeController.ts
 │   │   ├── fundController.ts
+│   │   ├── fundMonthlyAllocationController.ts
 │   │   ├── groupController.ts
 │   │   ├── incomeController.ts
 │   │   ├── paymentTransferController.ts
@@ -46,6 +47,7 @@ backend/
 │   │   ├── authRoutes.ts
 │   │   ├── budgetRoutes.ts
 │   │   ├── chargeRoutes.ts
+│   │   ├── dashboardRoutes.ts
 │   │   ├── fundRoutes.ts
 │   │   ├── groupRoutes.ts
 │   │   ├── incomeRoutes.ts
@@ -70,6 +72,7 @@ frontend/
 ├── src/
 │   ├── components/   # Reusable React components
 │   │   ├── ActionBar.tsx
+│   │   ├── AllocationHistoryModal.tsx
 │   │   ├── BudgetCard.tsx
 │   │   ├── BudgetForm.tsx
 │   │   ├── Button.tsx
@@ -78,6 +81,11 @@ frontend/
 │   │   ├── FundForm.tsx
 │   │   ├── GroupFormModal.tsx
 │   │   ├── Modal.tsx
+│   │   ├── MonthNavigator.tsx
+│   │   ├── MonthlyAllocationManager.tsx
+│   │   ├── MonthlyExpenseTable.tsx
+│   │   ├── MonthlyFundStatusCard.tsx
+│   │   ├── MonthlyPlannedExpenseTable.tsx
 │   │   ├── Navigation.tsx
 │   │   ├── PaymentTransferDetailsModal.tsx
 │   │   ├── PaymentTransferTable.tsx
@@ -92,6 +100,7 @@ frontend/
 │   │   ├── BudgetDetail.tsx
 │   │   ├── Budgets.tsx
 │   │   ├── Dashboard.tsx
+│   │   ├── FundMonthlyDetail.tsx # Monthly fund detail page with allocation management
 │   │   ├── GroupManagement.tsx
 │   │   ├── Login.tsx
 │   │   ├── MyReimbursements.tsx
@@ -121,6 +130,8 @@ frontend/
 - **user_groups**: Many-to-many relationship between users and groups
 - **budgets**: Circle-wide and group-specific budget allocations
 - **funds**: Sub-budget categories within budgets
+- **fund_monthly_allocations**: Monthly budget allocations per fund with allocation type (fixed/variable)
+- **fund_allocation_history**: Audit trail of all allocation changes with change type and user tracking
 - **planned_expenses**: Future expense planning
 - **reimbursements**: Member expense reimbursement requests (enhanced with recipient_user_id and payment_transfer_id)
 - **payment_transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
@@ -159,6 +170,27 @@ New table for tracking user debts:
 - `charge_date`: Date of the charge
 - `status`: active/settled/cancelled
 
+### Fund Monthly Allocations Table
+Table for tracking monthly budget allocations per fund:
+- `fund_id`: Associated fund for the allocation
+- `year`: Year of the allocation
+- `month`: Month of the allocation (1-12)
+- `allocated_amount`: Amount allocated for this month
+- `allocation_type`: Either 'fixed' or 'variable'
+- `created_at`: Timestamp when allocation was created
+- `updated_at`: Timestamp when allocation was last updated
+
+### Fund Allocation History Table
+Audit trail table for tracking all allocation changes:
+- `fund_id`: Associated fund
+- `year`: Year of the allocation
+- `month`: Month of the allocation (1-12)
+- `allocated_amount`: Amount that was allocated
+- `allocation_type`: Type of allocation (fixed/variable)
+- `changed_by`: User ID who made the change
+- `changed_at`: Timestamp of the change
+- `change_type`: Type of change (created/updated/deleted)
+
 ## API Endpoints
 
 ### Reimbursement Endpoints (Enhanced)
@@ -190,6 +222,21 @@ New table for tracking user debts:
 ### Fund Endpoints (Enhanced)
 - `GET /api/funds` - List all funds
 - `GET /api/funds/accessible` - Get funds grouped by budget with access control
+- `GET /api/funds/:fundId/monthly-status/:year/:month` - Get monthly status for a fund
+- `GET /api/funds/:fundId/monthly-expenses/:year/:month` - Get monthly expenses for a fund
+- `GET /api/funds/:fundId/monthly-planned/:year/:month` - Get monthly planned expenses for a fund
+- `GET /api/funds/:fundId/allocation-history` - Get allocation change history for a fund
+
+### Monthly Allocation Endpoints (New)
+- `GET /api/funds/:fundId/monthly-allocations` - Get all monthly allocations for a fund
+- `POST /api/funds/:fundId/monthly-allocations/fixed` - Set fixed monthly allocation (treasurer only)
+- `POST /api/funds/:fundId/monthly-allocations/variable` - Set variable monthly allocations (treasurer only)
+
+### Budget Endpoints (Enhanced)
+- `GET /api/budgets/:budgetId/monthly-summary/:year/:month` - Get monthly summary for all funds in a budget
+
+### Dashboard Endpoints (New)
+- `GET /api/dashboard/monthly-status` - Get current month status for all accessible funds
 
 ### Other Endpoints
 - Authentication: `/api/auth/*`
@@ -283,6 +330,75 @@ Main payment transfer execution page (העברות):
 - Success/error toast messages
 - Loading and error states
 - Access control: circle treasurers see only circle transfers, group treasurers see only their group transfers
+
+### Monthly Fund Tracking Components (New)
+
+#### MonthlyAllocationManager.tsx
+Modal component for managing monthly fund allocations (treasurer only):
+- Toggle between fixed and variable allocation modes
+- Fixed mode: Single amount input with annual calculation
+- Variable mode: Grid of 12 month inputs with Hebrew month names
+- Real-time validation against total fund budget
+- Summary display: total allocated, remaining unallocated
+- Prevents over-allocation with error messages
+- Saves to fund_monthly_allocations table
+- Creates audit trail in fund_allocation_history
+
+#### AllocationHistoryModal.tsx
+Modal component for viewing allocation change history:
+- Table of all allocation changes for a fund
+- Columns: date, month, amount, allocation type, action, changed by
+- Change type badges (created/updated/deleted)
+- Hebrew month names and labels
+- Sortable by date
+- Read-only view for audit purposes
+
+#### MonthNavigator.tsx
+Reusable month navigation component:
+- Previous/next month arrow buttons
+- Current month/year display with Hebrew month names
+- Optional month/year picker for quick jumps
+- Callback on month change
+- Used across all monthly tracking pages
+- Consistent navigation experience
+
+#### MonthlyFundStatusCard.tsx
+Dashboard card component showing monthly fund status:
+- Fund name and current month
+- Allocated, spent, planned, and remaining amounts
+- Visual progress bar with color coding (green/yellow/red)
+- Percentage of budget used
+- Click to navigate to FundMonthlyDetail page
+- Compact display for dashboard overview
+
+#### MonthlyExpenseTable.tsx
+Table component for displaying monthly expenses:
+- Shows all reimbursements for a specific fund and month
+- Columns: submitter, recipient, amount, description, date, status
+- Sortable columns
+- Receipt link if available
+- Status badges with Hebrew labels
+- Responsive grid layout
+
+#### MonthlyPlannedExpenseTable.tsx
+Table component for displaying monthly planned expenses:
+- Shows all planned expenses for a specific fund and month
+- Columns: user, amount, description, planned date, status
+- Sortable columns
+- Status badges with Hebrew labels
+- Responsive grid layout
+
+#### FundMonthlyDetail.tsx
+Full page for monthly fund detail and management:
+- Fund name and back button
+- Month navigator for browsing months
+- Monthly status summary card with progress bar
+- Monthly expenses table
+- Monthly planned expenses table
+- "ניהול הקצאות חודשיות" button (treasurer only) - opens MonthlyAllocationManager
+- "היסטוריית הקצאות" button (treasurer only) - opens AllocationHistoryModal
+- Real-time data loading per selected month
+- Access control based on fund permissions
 
 ## Key Configuration Files
 
