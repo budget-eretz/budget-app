@@ -258,7 +258,21 @@ A comprehensive system for managing and tracking fund allocations on a monthly b
 - **Fixed Allocation**: Set a single amount that applies to all months starting from the current month
 - **Variable Allocation**: Set different amounts for each month of the year individually
 
-**Monthly Tracking**: Track actual spending, planned expenses, and remaining budget for each fund on a monthly basis.
+**Planning vs Execution Separation**: The system maintains a clear separation between planning and actual execution:
+- **Planning Track**: Shows what was planned (planned expenses) vs what wasn't planned (buffer)
+- **Execution Track**: Shows what actually happened (spent) vs what remains available
+- **Variance Analysis**: Compares planning to execution to identify deviations
+
+This separation allows for:
+- Better budget analysis and forecasting
+- Understanding planning accuracy
+- Identifying systematic over/under-spending patterns
+- Maintaining realistic available budgets (not reduced by plans that may not materialize)
+
+**Monthly Tracking**: Track actual spending, planned expenses, and remaining budget for each fund on a monthly basis with three parallel views:
+1. **Actual Execution**: Allocated → Spent → Remaining
+2. **Planning**: Allocated → Planned → Unplanned
+3. **Variance**: Planned vs Actual with deviation percentage
 
 #### Monthly Allocation Management
 
@@ -293,20 +307,19 @@ A comprehensive system for managing and tracking fund allocations on a monthly b
 
 **Fund Monthly Detail Page** (`/funds/:fundId/monthly`):
 - Month navigator for browsing different months
-- Monthly status summary card showing:
-  - Allocated amount for the month
-  - Spent amount (approved/paid reimbursements)
-  - Planned amount (planned expenses)
-  - Remaining amount (allocated - spent)
-  - Visual progress bar with color coding
+- Three separate status tables showing:
+  1. **Actual Execution Table**: Allocated, Spent, Remaining (what actually happened)
+  2. **Planning Table**: Allocated, Planned, Unplanned (what was planned)
+  3. **Variance Table**: Planned vs Actual with deviation indicators
 - Monthly expenses table with all reimbursements for the month
 - Monthly planned expenses table
 - Access to allocation manager and history (treasurer only)
 
 **Monthly Status Cards** (Dashboard):
 - Display current month status for all accessible funds
-- Quick overview of spending vs. allocation
-- Color-coded indicators for budget health
+- Shows actual execution (spent vs remaining)
+- Shows variance from planning (if planned expenses exist)
+- Color-coded indicators for budget health and planning deviation
 - Click to navigate to detailed monthly view
 
 **Month Navigation**:
@@ -336,9 +349,11 @@ A comprehensive system for managing and tracking fund allocations on a monthly b
 
 **Automatic Calculations**:
 - Real-time calculation of total allocated vs. fund budget
-- Automatic remaining budget calculation
+- Automatic remaining budget calculation (allocated - spent)
+- Automatic unplanned budget calculation (allocated - planned)
 - Monthly spending aggregation from reimbursements
 - Planned expense totals per month
+- Variance calculation (actual vs planned) with percentage deviation
 
 **Validation and Constraints**:
 - Prevent over-allocation beyond fund budget
@@ -382,9 +397,11 @@ A comprehensive system for managing and tracking fund allocations on a monthly b
 - Direct navigation to monthly detail pages
 
 **Expense Tracking**:
-- Reimbursements automatically counted in monthly spending
-- Planned expenses included in monthly calculations
+- Reimbursements automatically counted in monthly spending (actual execution)
+- Planned expenses tracked separately and do NOT reduce available budget
+- Variance tracking shows deviation between planned and actual spending
 - Real-time updates as expenses are added or approved
+- Clear separation between planning and execution for better budget analysis
 
 ### Target Deployment
 - Development: Docker Compose

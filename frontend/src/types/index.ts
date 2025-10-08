@@ -221,10 +221,21 @@ export interface MonthlyFundStatus {
   fundName: string;
   year: number;
   month: number;
-  allocatedAmount: number;
-  spentAmount: number;
-  plannedAmount: number;
-  remainingAmount: number;
+  allocated: number;
+  actual: {
+    spent: number;
+    remaining: number;
+  };
+  planning: {
+    planned: number;
+    unplanned: number;
+  };
+  variance: {
+    planned: number;
+    actual: number;
+    difference: number;
+    percentage: number;
+  };
   allocationType?: 'fixed' | 'variable';
 }
 

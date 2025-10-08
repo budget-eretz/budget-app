@@ -51,9 +51,10 @@ export const fundsAPI = {
 // Planned Expenses API
 export const plannedExpensesAPI = {
   getAll: (fundId?: number) => api.get('/planned-expenses', { params: { fundId } }),
+  getById: (id: number) => api.get(`/planned-expenses/${id}`),
   create: (data: { fundId: number; amount: number; description: string; plannedDate?: string }) =>
     api.post('/planned-expenses', data),
-  update: (id: number, data: Partial<{ amount: number; description: string; plannedDate: string; status: string }>) =>
+  update: (id: number, data: Partial<{ fundId?: number; amount: number; description: string; plannedDate: string; status: string }>) =>
     api.patch(`/planned-expenses/${id}`, data),
   delete: (id: number) => api.delete(`/planned-expenses/${id}`),
 };

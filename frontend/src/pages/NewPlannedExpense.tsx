@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { fundsAPI, plannedExpensesAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
@@ -20,6 +20,9 @@ interface Budget {
 }
 
 export default function NewPlannedExpense() {
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = !!id;
+  
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -50,8 +53,20 @@ export default function NewPlannedExpense() {
     try {
       const fundsResponse = await fundsAPI.getAccessible();
       setBudgets(fundsResponse.data.budgets || []);
+
+      // If in edit mode, load the planned expense data
+      if (isEditMode && id) {
+        const expenseResponse = await plannedExpensesAPI.getById(parseInt(id));
+        const expense = expenseResponse.data;
+        setFormData({
+          fundId: expense.fund_id.toString(),
+          amount: expense.amount.toString(),
+          description: expense.description,
+          plannedDate: expense.planned_date ? expense.planned_date.split('T')[0] : '',
+        });
+      }
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בטעינת הקופות', 'error');
+      showToast(error.response?.data?.error || 'שגיאה בטעינת הנתונים', 'error');
     } finally {
       setLoading(false);
     }
@@ -72,17 +87,29 @@ export default function NewPlannedExpense() {
 
     setSubmitting(true);
     try {
-      await plannedExpensesAPI.create({
-        fundId: parseInt(formData.fundId),
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        plannedDate: formData.plannedDate || undefined,
-      });
+      if (isEditMode && id) {
+        // Update existing planned expense
+        await plannedExpensesAPI.update(parseInt(id), {
+          fundId: parseInt(formData.fundId),
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          plannedDate: formData.plannedDate || undefined,
+        });
+        showToast('התכנון עודכן בהצלחה', 'success');
+      } else {
+        // Create new planned expense
+        await plannedExpensesAPI.create({
+          fundId: parseInt(formData.fundId),
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          plannedDate: formData.plannedDate || undefined,
+        });
+        showToast('התכנון נוצר בהצלחה', 'success');
+      }
 
-      showToast('התכנון נוצר בהצלחה', 'success');
       navigate('/dashboard');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה ביצירת התכנון', 'error');
+      showToast(error.response?.data?.error || `שגיאה ב${isEditMode ? 'עדכון' : 'יצירת'} התכנון`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -102,11 +129,14 @@ export default function NewPlannedExpense() {
 
       <div style={styles.content}>
         <div style={styles.pageHeader}>
-          <h1 style={styles.title}>יצירת תכנון הוצאה</h1>
+          <h1 style={styles.title}>{isEditMode ? 'עריכת תכנון הוצאה' : 'יצירת תכנון הוצאה'}</h1>
         </div>
         <div style={styles.formCard}>
           <p style={{ color: '#718096', marginBottom: '24px' }}>
-            תכנון הוצאה מאפשר לך להצהיר על כוונה להוציא כסף בעתיד, וכך הסכום "נשמר" בקופה ולא יהיה זמין לשימושים אחרים.
+            {isEditMode 
+              ? 'ערוך את פרטי התכנון שלך. שים לב שהשינויים ישפיעו על החישובים החודשיים.'
+              : 'תכנון הוצאה מאפשר לך לתכנן הוצאות עתידיות ולעקוב אחר ביצוען מול התכנון.'
+            }
           </p>
 
           <form onSubmit={handleSubmit} style={styles.form}>
@@ -186,7 +216,7 @@ export default function NewPlannedExpense() {
                 ביטול
               </Button>
               <Button type="submit" variant="primary" isLoading={submitting}>
-                צור תכנון
+                {isEditMode ? 'עדכן תכנון' : 'צור תכנון'}
               </Button>
             </div>
           </form>

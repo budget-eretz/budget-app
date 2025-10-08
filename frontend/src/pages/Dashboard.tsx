@@ -47,16 +47,27 @@ export default function Dashboard() {
   const loadMonthlyStatus = async () => {
     try {
       const response = await monthlyAllocationsAPI.getDashboardMonthlyStatus();
-      // Transform snake_case to camelCase
+      // Transform snake_case to camelCase with new structure
       const transformedData = response.data.map((item: any) => ({
         fundId: item.fund_id,
         fundName: item.fund_name,
         year: item.year,
         month: item.month,
-        allocatedAmount: item.allocated_amount,
-        spentAmount: item.spent_amount,
-        plannedAmount: item.planned_amount,
-        remainingAmount: item.remaining_amount,
+        allocated: item.allocated,
+        actual: {
+          spent: item.actual.spent,
+          remaining: item.actual.remaining
+        },
+        planning: {
+          planned: item.planning.planned,
+          unplanned: item.planning.unplanned
+        },
+        variance: {
+          planned: item.variance.planned,
+          actual: item.variance.actual,
+          difference: item.variance.difference,
+          percentage: item.variance.percentage
+        },
         allocationType: item.allocation_type
       }));
       setMonthlyStatus(transformedData);
@@ -75,18 +86,6 @@ export default function Dashboard() {
       await loadDashboard();
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה במחיקת התכנון', 'error');
-    }
-  };
-
-  const handleExecutePlannedExpense = async (expenseId: number) => {
-    if (!confirm('האם אתה בטוח שביצעת את ההוצאה הזו? לאחר מכן תוכל להגיש בקשת החזר.')) return;
-
-    try {
-      await plannedExpensesAPI.update(expenseId, { status: 'executed' });
-      showToast('התכנון סומן כמבוצע', 'success');
-      await loadDashboard();
-    } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בעדכון התכנון', 'error');
     }
   };
 
@@ -198,8 +197,8 @@ export default function Dashboard() {
                         </thead>
                         <tbody>
                           {budgetMonthlyStatus.map(status => {
-                            const usagePercent = status.allocatedAmount > 0 
-                              ? (status.spentAmount / status.allocatedAmount) * 100 
+                            const usagePercent = status.allocated > 0 
+                              ? (status.actual.spent / status.allocated) * 100 
                               : 0;
                             const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
                             
@@ -208,11 +207,11 @@ export default function Dashboard() {
                                 <td style={styles.td}>
                                   <strong>{status.fundName}</strong>
                                 </td>
-                                <td style={styles.td}>{formatCurrency(status.allocatedAmount)}</td>
-                                <td style={{ ...styles.td, color: '#e53e3e' }}>{formatCurrency(status.spentAmount)}</td>
-                                <td style={{ ...styles.td, color: '#dd6b20' }}>{formatCurrency(status.plannedAmount)}</td>
+                                <td style={styles.td}>{formatCurrency(status.allocated)}</td>
+                                <td style={{ ...styles.td, color: '#e53e3e' }}>{formatCurrency(status.actual.spent)}</td>
+                                <td style={{ ...styles.td, color: '#3182ce' }}>{formatCurrency(status.planning.planned)}</td>
                                 <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
-                                  {formatCurrency(status.remainingAmount)}
+                                  {formatCurrency(status.actual.remaining)}
                                 </td>
                                 <td style={styles.td}>
                                   <div style={styles.progressContainer}>
@@ -364,51 +363,78 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* My Planned Expenses */}
+        {/* My Planned Expenses - Current Month */}
         <section style={styles.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>התכנונים שלי ({dashboard.myPlannedExpenses.length})</h2>
+            <h2 style={styles.sectionTitle}>
+              התכנונים שלי - {getHebrewMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
+              {' '}
+              ({(() => {
+                const currentMonth = new Date().getMonth() + 1;
+                const currentYear = new Date().getFullYear();
+                const currentMonthExpenses = dashboard.myPlannedExpenses.filter(expense => {
+                  if (!expense.planned_date) return false;
+                  const expenseDate = new Date(expense.planned_date);
+                  return expenseDate.getMonth() + 1 === currentMonth && expenseDate.getFullYear() === currentYear;
+                });
+                return currentMonthExpenses.length;
+              })()})
+            </h2>
             <Button variant="primary" size="sm" onClick={() => navigate('/planned-expenses/new')}>
               + תכנון חדש
             </Button>
           </div>
-          {dashboard.myPlannedExpenses.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p>אין לך תכנונים פעילים</p>
-              <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
-                צור תכנון ראשון
-              </Button>
-            </div>
-          ) : (
-            <div style={styles.table}>
-              {dashboard.myPlannedExpenses.map(expense => (
-                <div key={expense.id} style={styles.plannedExpenseRow}>
-                  <div style={styles.tableCell}>{expense.fund_name}</div>
-                  <div style={styles.tableCell}>{expense.description}</div>
-                  <div style={styles.tableCell}>{formatCurrency(expense.amount)}</div>
-                  <div style={styles.tableCell}>
-                    {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
-                  </div>
-                  <div style={styles.actionsCell}>
-                    <Button
-                      variant="success"
-                      size="sm"
-                      onClick={() => handleExecutePlannedExpense(expense.id)}
-                    >
-                      בוצע
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleDeletePlannedExpense(expense.id)}
-                    >
-                      מחק
-                    </Button>
-                  </div>
+          {(() => {
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            const currentMonthExpenses = dashboard.myPlannedExpenses.filter(expense => {
+              if (!expense.planned_date) return false;
+              const expenseDate = new Date(expense.planned_date);
+              return expenseDate.getMonth() + 1 === currentMonth && expenseDate.getFullYear() === currentYear;
+            });
+
+            if (currentMonthExpenses.length === 0) {
+              return (
+                <div style={styles.emptyState}>
+                  <p>אין לך תכנונים לחודש הנוכחי</p>
+                  <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
+                    צור תכנון חדש
+                  </Button>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            }
+
+            return (
+              <div style={styles.table}>
+                {currentMonthExpenses.map(expense => (
+                  <div key={expense.id} style={styles.plannedExpenseRow}>
+                    <div style={styles.tableCell}>{expense.fund_name}</div>
+                    <div style={styles.tableCell}>{expense.description}</div>
+                    <div style={styles.tableCell}>{formatCurrency(expense.amount)}</div>
+                    <div style={styles.tableCell}>
+                      {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
+                    </div>
+                    <div style={styles.actionsCell}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
+                      >
+                        ערוך
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeletePlannedExpense(expense.id)}
+                      >
+                        מחק
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </section>
 
         {/* My Recent Reimbursements */}

@@ -355,18 +355,36 @@ export async function getMonthlyStatus(req: Request, res: Response) {
 
     const plannedAmount = Number(plannedResult.rows[0].planned_amount);
 
-    // Calculate remaining amount
+    // Calculate remaining amount (actual execution)
     const remainingAmount = allocatedAmount - spentAmount;
+
+    // Calculate unplanned amount (planning perspective)
+    const unplannedAmount = allocatedAmount - plannedAmount;
+
+    // Calculate variance (planning vs actual)
+    const varianceDifference = spentAmount - plannedAmount;
+    const variancePercentage = plannedAmount > 0 ? (spentAmount / plannedAmount) * 100 : 0;
 
     res.json({
       fund_id: parseInt(fundId),
       fund_name: fund.name,
       year: parseInt(year),
       month: parseInt(month),
-      allocated_amount: allocatedAmount,
-      spent_amount: spentAmount,
-      planned_amount: plannedAmount,
-      remaining_amount: remainingAmount,
+      allocated: allocatedAmount,
+      actual: {
+        spent: spentAmount,
+        remaining: remainingAmount
+      },
+      planning: {
+        planned: plannedAmount,
+        unplanned: unplannedAmount
+      },
+      variance: {
+        planned: plannedAmount,
+        actual: spentAmount,
+        difference: varianceDifference,
+        percentage: variancePercentage
+      },
       allocation_type: allocationType
     });
   } catch (error) {
@@ -571,18 +589,36 @@ export async function getDashboardMonthlyStatus(req: Request, res: Response) {
 
         const plannedAmount = Number(plannedResult.rows[0].planned_amount);
 
-        // Calculate remaining amount
+        // Calculate remaining amount (actual execution)
         const remainingAmount = allocatedAmount - spentAmount;
+
+        // Calculate unplanned amount (planning perspective)
+        const unplannedAmount = allocatedAmount - plannedAmount;
+
+        // Calculate variance (planning vs actual)
+        const varianceDifference = spentAmount - plannedAmount;
+        const variancePercentage = plannedAmount > 0 ? (spentAmount / plannedAmount) * 100 : 0;
 
         return {
           fund_id: fund.id,
           fund_name: fund.name,
           year: currentYear,
           month: currentMonth,
-          allocated_amount: allocatedAmount,
-          spent_amount: spentAmount,
-          planned_amount: plannedAmount,
-          remaining_amount: remainingAmount,
+          allocated: allocatedAmount,
+          actual: {
+            spent: spentAmount,
+            remaining: remainingAmount
+          },
+          planning: {
+            planned: plannedAmount,
+            unplanned: unplannedAmount
+          },
+          variance: {
+            planned: plannedAmount,
+            actual: spentAmount,
+            difference: varianceDifference,
+            percentage: variancePercentage
+          },
           allocation_type: allocationType
         };
       })

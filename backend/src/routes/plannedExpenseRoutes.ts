@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/', plannedExpenseController.getPlannedExpenses);
+router.get('/:id', plannedExpenseController.getPlannedExpenseById);
 router.post('/', plannedExpenseController.createPlannedExpense);
 router.patch('/:id', plannedExpenseController.updatePlannedExpense);
 router.delete('/:id', plannedExpenseController.deletePlannedExpense);

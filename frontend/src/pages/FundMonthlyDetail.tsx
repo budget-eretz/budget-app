@@ -62,10 +62,21 @@ export default function FundMonthlyDetail() {
         fundName: statusRes.data.fund_name,
         year: statusRes.data.year,
         month: statusRes.data.month,
-        allocatedAmount: statusRes.data.allocated_amount,
-        spentAmount: statusRes.data.spent_amount,
-        plannedAmount: statusRes.data.planned_amount,
-        remainingAmount: statusRes.data.remaining_amount,
+        allocated: statusRes.data.allocated,
+        actual: {
+          spent: statusRes.data.actual.spent,
+          remaining: statusRes.data.actual.remaining
+        },
+        planning: {
+          planned: statusRes.data.planning.planned,
+          unplanned: statusRes.data.planning.unplanned
+        },
+        variance: {
+          planned: statusRes.data.variance.planned,
+          actual: statusRes.data.variance.actual,
+          difference: statusRes.data.variance.difference,
+          percentage: statusRes.data.variance.percentage
+        },
         allocationType: statusRes.data.allocation_type
       };
 
@@ -181,62 +192,210 @@ export default function FundMonthlyDetail() {
           showMonthPicker={true}
         />
 
-        {/* Monthly Status Summary */}
+        {/* Monthly Status Summary - Three Tables */}
         {monthlyStatus && (
-          <div style={styles.statusCard}>
-            <h2 style={styles.statusTitle}>סיכום חודשי</h2>
-            <div style={styles.statusGrid}>
-              <div style={styles.statusItem}>
-                <span style={styles.statusLabel}>מוקצה לחודש:</span>
-                <span style={styles.statusValue}>{formatCurrency(monthlyStatus.allocatedAmount)}</span>
-              </div>
-              <div style={styles.statusItem}>
-                <span style={styles.statusLabel}>הוצא:</span>
-                <span style={{ ...styles.statusValue, color: '#e53e3e' }}>
-                  {formatCurrency(monthlyStatus.spentAmount)}
-                </span>
-              </div>
-              <div style={styles.statusItem}>
-                <span style={styles.statusLabel}>מתוכנן:</span>
-                <span style={{ ...styles.statusValue, color: '#dd6b20' }}>
-                  {formatCurrency(monthlyStatus.plannedAmount)}
-                </span>
-              </div>
-              <div style={styles.statusItem}>
-                <span style={styles.statusLabel}>נותר:</span>
-                <span
-                  style={{
-                    ...styles.statusValue,
-                    ...styles.remainingValue,
-                    color: monthlyStatus.remainingAmount < 0 ? '#e53e3e' : '#38a169',
-                  }}
-                >
-                  {formatCurrency(monthlyStatus.remainingAmount)}
-                </span>
-              </div>
+          <div style={styles.statusContainer}>
+            {/* Table 1: Actual Execution */}
+            <div style={styles.statusTable}>
+              <h2 style={styles.tableTitle}>מצב חודשי - ביצוע</h2>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.headerRow}>
+                    <th style={styles.th}>קטגוריה</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>% שימוש</th>
+                    <th style={styles.th}>פעילות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>מוקצה</td>
+                    <td style={styles.td}>{formatCurrency(monthlyStatus.allocated)}</td>
+                    <td style={styles.td}>-</td>
+                    <td style={styles.td}>
+                      <div style={styles.progressBarSmall}>
+                        <div style={{ ...styles.progressFillSmall, width: '100%', backgroundColor: '#cbd5e0' }} />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>יצא</td>
+                    <td style={{ ...styles.td, color: '#e53e3e', fontWeight: 600 }}>
+                      {formatCurrency(monthlyStatus.actual.spent)}
+                    </td>
+                    <td style={styles.td}>
+                      {monthlyStatus.allocated > 0 
+                        ? `${((monthlyStatus.actual.spent / monthlyStatus.allocated) * 100).toFixed(0)}%`
+                        : '-'}
+                    </td>
+                    <td style={styles.td}>
+                      <div style={styles.progressBarSmall}>
+                        <div 
+                          style={{ 
+                            ...styles.progressFillSmall, 
+                            width: `${Math.min((monthlyStatus.actual.spent / monthlyStatus.allocated) * 100, 100)}%`,
+                            backgroundColor: 
+                              (monthlyStatus.actual.spent / monthlyStatus.allocated) >= 0.9 ? '#e53e3e' :
+                              (monthlyStatus.actual.spent / monthlyStatus.allocated) >= 0.7 ? '#dd6b20' : '#38a169'
+                          }} 
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr style={{ ...styles.dataRow, backgroundColor: '#f7fafc' }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>נשאר</td>
+                    <td style={{ 
+                      ...styles.td, 
+                      fontWeight: 700,
+                      color: monthlyStatus.actual.remaining < 0 ? '#e53e3e' : '#38a169'
+                    }}>
+                      {formatCurrency(monthlyStatus.actual.remaining)}
+                    </td>
+                    <td style={styles.td}>
+                      {monthlyStatus.allocated > 0 
+                        ? `${((monthlyStatus.actual.remaining / monthlyStatus.allocated) * 100).toFixed(0)}%`
+                        : '-'}
+                    </td>
+                    <td style={styles.td}>-</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Progress Bar */}
-            <div style={styles.progressContainer}>
-              <div style={styles.progressBar}>
-                <div
-                  style={{
-                    ...styles.progressFill,
-                    width: `${Math.min((monthlyStatus.spentAmount / monthlyStatus.allocatedAmount) * 100, 100)}%`,
-                    backgroundColor:
-                      monthlyStatus.spentAmount / monthlyStatus.allocatedAmount >= 0.9
-                        ? '#e53e3e'
-                        : monthlyStatus.spentAmount / monthlyStatus.allocatedAmount >= 0.7
-                        ? '#dd6b20'
-                        : '#38a169',
-                  }}
-                />
-              </div>
-              <span style={styles.progressText}>
-                {monthlyStatus.allocatedAmount > 0
-                  ? `${((monthlyStatus.spentAmount / monthlyStatus.allocatedAmount) * 100).toFixed(0)}% בשימוש`
-                  : 'אין הקצאה'}
-              </span>
+            {/* Table 2: Planning */}
+            <div style={styles.statusTable}>
+              <h2 style={styles.tableTitle}>מצב חודשי - תכנון</h2>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.headerRow}>
+                    <th style={styles.th}>קטגוריה</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>% שימוש</th>
+                    <th style={styles.th}>פעילות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>מוקצה</td>
+                    <td style={styles.td}>{formatCurrency(monthlyStatus.allocated)}</td>
+                    <td style={styles.td}>-</td>
+                    <td style={styles.td}>
+                      <div style={styles.progressBarSmall}>
+                        <div style={{ ...styles.progressFillSmall, width: '100%', backgroundColor: '#cbd5e0' }} />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>מתוכנן</td>
+                    <td style={{ ...styles.td, color: '#3182ce', fontWeight: 600 }}>
+                      {formatCurrency(monthlyStatus.planning.planned)}
+                    </td>
+                    <td style={styles.td}>
+                      {monthlyStatus.allocated > 0 
+                        ? `${((monthlyStatus.planning.planned / monthlyStatus.allocated) * 100).toFixed(0)}%`
+                        : '-'}
+                    </td>
+                    <td style={styles.td}>
+                      <div style={styles.progressBarSmall}>
+                        <div 
+                          style={{ 
+                            ...styles.progressFillSmall, 
+                            width: `${Math.min((monthlyStatus.planning.planned / monthlyStatus.allocated) * 100, 100)}%`,
+                            backgroundColor: '#3182ce'
+                          }} 
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                  <tr style={{ ...styles.dataRow, backgroundColor: '#f7fafc' }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>לא מתוכנן</td>
+                    <td style={{ 
+                      ...styles.td, 
+                      fontWeight: 700,
+                      color: monthlyStatus.planning.unplanned < 0 ? '#e53e3e' : '#718096'
+                    }}>
+                      {formatCurrency(monthlyStatus.planning.unplanned)}
+                    </td>
+                    <td style={styles.td}>
+                      {monthlyStatus.allocated > 0 
+                        ? `${((monthlyStatus.planning.unplanned / monthlyStatus.allocated) * 100).toFixed(0)}%`
+                        : '-'}
+                    </td>
+                    <td style={styles.td}>-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table 3: Variance (Planning vs Actual) */}
+            <div style={styles.statusTable}>
+              <h2 style={styles.tableTitle}>תכנון מול ביצוע</h2>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.headerRow}>
+                    <th style={styles.th}>קטגוריה</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>סטייה</th>
+                    <th style={styles.th}>אינדיקטור</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>תוכנן</td>
+                    <td style={{ ...styles.td, color: '#3182ce' }}>
+                      {formatCurrency(monthlyStatus.variance.planned)}
+                    </td>
+                    <td style={styles.td}>-</td>
+                    <td style={styles.td}>-</td>
+                  </tr>
+                  <tr style={styles.dataRow}>
+                    <td style={styles.td}>בוצע</td>
+                    <td style={{ ...styles.td, color: '#e53e3e' }}>
+                      {formatCurrency(monthlyStatus.variance.actual)}
+                    </td>
+                    <td style={styles.td}>-</td>
+                    <td style={styles.td}>-</td>
+                  </tr>
+                  <tr style={{ ...styles.dataRow, backgroundColor: '#f7fafc' }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>סטייה</td>
+                    <td style={{ 
+                      ...styles.td, 
+                      fontWeight: 700,
+                      color: monthlyStatus.variance.difference > 0 ? '#e53e3e' : 
+                             monthlyStatus.variance.difference < 0 ? '#38a169' : '#718096'
+                    }}>
+                      {monthlyStatus.variance.difference > 0 ? '+' : ''}
+                      {formatCurrency(monthlyStatus.variance.difference)}
+                    </td>
+                    <td style={{ 
+                      ...styles.td, 
+                      fontWeight: 700,
+                      color: monthlyStatus.variance.percentage > 110 ? '#e53e3e' : 
+                             monthlyStatus.variance.percentage < 90 ? '#38a169' : '#dd6b20'
+                    }}>
+                      {monthlyStatus.variance.planned > 0 
+                        ? `${monthlyStatus.variance.percentage.toFixed(0)}%`
+                        : '-'}
+                    </td>
+                    <td style={styles.td}>
+                      {monthlyStatus.variance.planned > 0 && (
+                        <span style={{
+                          ...styles.badge,
+                          backgroundColor: 
+                            monthlyStatus.variance.percentage > 110 ? '#fed7d7' :
+                            monthlyStatus.variance.percentage < 90 ? '#c6f6d5' : '#feebc8',
+                          color:
+                            monthlyStatus.variance.percentage > 110 ? '#c53030' :
+                            monthlyStatus.variance.percentage < 90 ? '#2f855a' : '#c05621'
+                        }}>
+                          {monthlyStatus.variance.percentage > 110 ? '⚠️ חריגה' :
+                           monthlyStatus.variance.percentage < 90 ? '✓ חיסכון' : '~ קרוב'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -362,65 +521,68 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'all 0.2s',
     whiteSpace: 'nowrap',
   },
-  statusCard: {
+  statusContainer: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: '20px',
+    marginBottom: '30px',
+  },
+  statusTable: {
     background: 'white',
     borderRadius: '8px',
-    padding: '24px',
-    marginBottom: '30px',
+    padding: '20px',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
     border: '1px solid #e2e8f0',
   },
-  statusTitle: {
-    fontSize: '18px',
+  tableTitle: {
+    fontSize: '16px',
     fontWeight: '700',
     color: '#2d3748',
-    marginBottom: '20px',
-    margin: 0,
+    marginBottom: '16px',
+    margin: '0 0 16px 0',
   },
-  statusGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '20px',
-    marginTop: '20px',
-  },
-  statusItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  statusLabel: {
-    fontSize: '14px',
-    color: '#718096',
-    fontWeight: '500',
-  },
-  statusValue: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#2d3748',
-  },
-  remainingValue: {
-    fontSize: '24px',
-  },
-  progressContainer: {
-    marginTop: '24px',
-  },
-  progressBar: {
+  table: {
     width: '100%',
-    height: '12px',
-    backgroundColor: '#e2e8f0',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    marginBottom: '8px',
+    borderCollapse: 'collapse',
+    fontSize: '14px',
   },
-  progressFill: {
+  headerRow: {
+    backgroundColor: '#f7fafc',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  th: {
+    padding: '12px',
+    textAlign: 'right',
+    fontWeight: '600',
+    color: '#4a5568',
+    fontSize: '13px',
+  },
+  dataRow: {
+    borderBottom: '1px solid #e2e8f0',
+  },
+  td: {
+    padding: '12px',
+    textAlign: 'right',
+    color: '#2d3748',
+  },
+  progressBarSmall: {
+    width: '100%',
+    height: '8px',
+    backgroundColor: '#e2e8f0',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressFillSmall: {
     height: '100%',
     transition: 'width 0.3s ease, background-color 0.3s ease',
-    borderRadius: '6px',
+    borderRadius: '4px',
   },
-  progressText: {
-    fontSize: '13px',
-    color: '#a0aec0',
-    fontWeight: '500',
+  badge: {
+    display: 'inline-block',
+    padding: '4px 10px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
   },
   tableSection: {
     marginBottom: '30px',

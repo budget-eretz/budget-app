@@ -75,6 +75,7 @@ function App() {
             <Route path="/payment-transfers" element={<TreasurerRoute><PaymentTransfers /></TreasurerRoute>} />
             <Route path="/reimbursements/new" element={<PrivateRoute><NewReimbursement /></PrivateRoute>} />
             <Route path="/planned-expenses/new" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
+            <Route path="/planned-expenses/:id/edit" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
             <Route path="/my-reimbursements" element={<PrivateRoute><MyReimbursements /></PrivateRoute>} />
             <Route path="/charges/new" element={<PrivateRoute><NewCharge /></PrivateRoute>} />
             <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />

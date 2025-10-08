@@ -126,3 +126,35 @@ export async function deletePlannedExpense(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to delete planned expense' });
   }
 }
+
+export async function getPlannedExpenseById(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    const result = await pool.query(
+      `SELECT pe.*, f.name as fund_name, u.full_name as user_name
+       FROM planned_expenses pe
+       JOIN funds f ON pe.fund_id = f.id
+       JOIN users u ON pe.user_id = u.id
+       WHERE pe.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Planned expense not found' });
+    }
+
+    const expense = result.rows[0];
+
+    // Check access - only owner or treasurers can view
+    if (expense.user_id !== user.userId && !user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(expense);
+  } catch (error) {
+    console.error('Get planned expense by ID error:', error);
+    res.status(500).json({ error: 'Failed to get planned expense' });
+  }
+}

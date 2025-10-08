@@ -44,9 +44,9 @@ const MonthlyFundStatusCard: React.FC<MonthlyFundStatusCardProps> = ({ status })
     navigate(`/funds/${status.fundId}/monthly`);
   };
 
-  // Calculate usage percentage
-  const usagePercent = status.allocatedAmount > 0 
-    ? (status.spentAmount / status.allocatedAmount) * 100 
+  // Calculate usage percentage (actual execution)
+  const usagePercent = status.allocated > 0 
+    ? (status.actual.spent / status.allocated) * 100 
     : 0;
 
   // Get progress bar color based on usage
@@ -58,9 +58,16 @@ const MonthlyFundStatusCard: React.FC<MonthlyFundStatusCardProps> = ({ status })
 
   // Get remaining amount color
   const getRemainingColor = () => {
-    if (status.remainingAmount < 0) return '#e53e3e';
+    if (status.actual.remaining < 0) return '#e53e3e';
     if (usagePercent >= 70) return '#dd6b20';
     return '#38a169';
+  };
+
+  // Get variance color
+  const getVarianceColor = () => {
+    if (status.variance.percentage > 110) return '#e53e3e';
+    if (status.variance.percentage < 90) return '#38a169';
+    return '#dd6b20';
   };
 
   return (
@@ -81,18 +88,12 @@ const MonthlyFundStatusCard: React.FC<MonthlyFundStatusCardProps> = ({ status })
       <div style={styles.amountsContainer}>
         <div style={styles.amountRow}>
           <span style={styles.label}>מוקצה לחודש:</span>
-          <span style={styles.value}>{formatAmount(status.allocatedAmount)}</span>
+          <span style={styles.value}>{formatAmount(status.allocated)}</span>
         </div>
         <div style={styles.amountRow}>
           <span style={styles.label}>הוצא:</span>
           <span style={{...styles.value, color: '#e53e3e'}}>
-            {formatAmount(status.spentAmount)}
-          </span>
-        </div>
-        <div style={styles.amountRow}>
-          <span style={styles.label}>מתוכנן:</span>
-          <span style={{...styles.value, color: '#dd6b20'}}>
-            {formatAmount(status.plannedAmount)}
+            {formatAmount(status.actual.spent)}
           </span>
         </div>
         <div style={{...styles.amountRow, ...styles.remainingRow}}>
@@ -102,7 +103,7 @@ const MonthlyFundStatusCard: React.FC<MonthlyFundStatusCardProps> = ({ status })
             ...styles.remainingValue,
             color: getRemainingColor(),
           }}>
-            {formatAmount(status.remainingAmount)}
+            {formatAmount(status.actual.remaining)}
           </span>
         </div>
       </div>
@@ -121,6 +122,31 @@ const MonthlyFundStatusCard: React.FC<MonthlyFundStatusCardProps> = ({ status })
           {usagePercent.toFixed(0)}% בשימוש
         </span>
       </div>
+
+      {/* Variance Section */}
+      {status.variance.planned > 0 && (
+        <div style={styles.varianceContainer}>
+          <div style={styles.varianceRow}>
+            <span style={styles.label}>תוכנן:</span>
+            <span style={{...styles.value, color: '#3182ce'}}>
+              {formatAmount(status.variance.planned)}
+            </span>
+          </div>
+          <div style={styles.varianceRow}>
+            <span style={styles.label}>סטייה:</span>
+            <span style={{
+              ...styles.value,
+              color: getVarianceColor(),
+              fontWeight: 700,
+            }}>
+              {status.variance.difference > 0 ? '+' : ''}
+              {formatAmount(status.variance.difference)}
+              {' '}
+              ({status.variance.percentage.toFixed(0)}%)
+            </span>
+          </div>
+        </div>
+      )}
 
       <div style={styles.footer}>
         <span style={styles.footerText}>לחץ לפרטים מלאים</span>
@@ -209,6 +235,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   progressText: {
     fontSize: '12px',
     color: '#a0aec0',
+  },
+  varianceContainer: {
+    marginTop: '12px',
+    paddingTop: '12px',
+    borderTop: '1px solid #e2e8f0',
+  },
+  varianceRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '6px',
   },
   footer: {
     marginTop: '16px',
