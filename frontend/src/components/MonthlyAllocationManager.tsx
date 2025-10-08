@@ -35,6 +35,7 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -49,8 +50,10 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
   }, []);
 
   useEffect(() => {
-    loadExistingAllocations();
-  }, [fundId]);
+    if (!initialLoadDone) {
+      loadExistingAllocations();
+    }
+  }, [fundId, initialLoadDone]);
 
   const loadExistingAllocations = async () => {
     try {
@@ -91,13 +94,16 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
           setVariableAllocations(allocations);
         }
       } else {
-        // Initialize empty variable allocations for current year
+        // Always initialize empty variable allocations for current year
+        // This ensures the grid is always available when switching to variable mode
         const emptyAllocations: MonthlyAllocation[] = [];
         for (let month = 1; month <= 12; month++) {
           emptyAllocations.push({ year: currentYear, month, amount: 0 });
         }
         setVariableAllocations(emptyAllocations);
       }
+      
+      setInitialLoadDone(true);
     } catch (err: any) {
       console.error('Failed to load allocations:', err);
       // Initialize empty allocations on error
@@ -106,6 +112,7 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
         emptyAllocations.push({ year: currentYear, month, amount: 0 });
       }
       setVariableAllocations(emptyAllocations);
+      setInitialLoadDone(true);
     }
   };
 
@@ -124,6 +131,19 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
 
   const isOverAllocated = (): boolean => {
     return getRemainingUnallocated() < 0;
+  };
+
+  const handleAllocationTypeChange = (type: 'fixed' | 'variable') => {
+    setAllocationType(type);
+    
+    // Initialize variable allocations if switching to variable mode and array is empty
+    if (type === 'variable' && variableAllocations.length === 0) {
+      const emptyAllocations: MonthlyAllocation[] = [];
+      for (let month = 1; month <= 12; month++) {
+        emptyAllocations.push({ year: currentYear, month, amount: 0 });
+      }
+      setVariableAllocations(emptyAllocations);
+    }
   };
 
   const handleFixedAmountChange = (value: string) => {
@@ -250,13 +270,13 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
           <div className="allocation-type-toggle">
             <button
               className={`toggle-button ${allocationType === 'fixed' ? 'active' : ''}`}
-              onClick={() => setAllocationType('fixed')}
+              onClick={() => handleAllocationTypeChange('fixed')}
             >
               הקצאה קבועה
             </button>
             <button
               className={`toggle-button ${allocationType === 'variable' ? 'active' : ''}`}
-              onClick={() => setAllocationType('variable')}
+              onClick={() => handleAllocationTypeChange('variable')}
             >
               הקצאה משתנה
             </button>
