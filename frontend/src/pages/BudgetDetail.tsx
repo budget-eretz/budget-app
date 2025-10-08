@@ -9,6 +9,7 @@ import FundForm, { FundFormData } from '../components/FundForm';
 import BudgetForm from '../components/BudgetForm';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import MonthNavigator from '../components/MonthNavigator';
 
 export default function BudgetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,11 @@ export default function BudgetDetail() {
   const [loading, setLoading] = useState(true);
   const [loadingMonthlyStatus, setLoadingMonthlyStatus] = useState(false);
 
+  // Month selector state - default to current month
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+
   const [showCreateFundModal, setShowCreateFundModal] = useState(false);
   const [editingFund, setEditingFund] = useState<Fund | null>(null);
   const [showEditFundModal, setShowEditFundModal] = useState(false);
@@ -36,9 +42,15 @@ export default function BudgetDetail() {
     // All authenticated users can view budget details
     if (id) {
       loadBudgetData();
-      loadMonthlyStatus();
     }
   }, [id, user, navigate]);
+
+  useEffect(() => {
+    // Load monthly status when month/year changes
+    if (id) {
+      loadMonthlyStatus(selectedYear, selectedMonth);
+    }
+  }, [id, selectedYear, selectedMonth]);
 
   const loadBudgetData = async () => {
     if (!id) return;
@@ -101,7 +113,7 @@ export default function BudgetDetail() {
     }
   };
 
-  const loadMonthlyStatus = async () => {
+  const loadMonthlyStatus = async (year: number, month: number) => {
     if (!id) return;
 
     try {
@@ -112,11 +124,6 @@ export default function BudgetDetail() {
       if (isNaN(budgetId) || budgetId <= 0) {
         return;
       }
-
-      // Get current month and year
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1; // JavaScript months are 0-indexed
 
       // Fetch monthly status for all funds in the budget
       const response = await monthlyAllocationsAPI.getBudgetMonthlyStatus(budgetId, year, month);
@@ -142,6 +149,11 @@ export default function BudgetDetail() {
     } finally {
       setLoadingMonthlyStatus(false);
     }
+  };
+
+  const handleMonthChange = (year: number, month: number) => {
+    setSelectedYear(year);
+    setSelectedMonth(month);
   };
 
   const handleCreateFund = async (data: FundFormData) => {
@@ -408,14 +420,6 @@ export default function BudgetDetail() {
     }).format(amount);
   };
 
-  const getHebrewMonth = (month: number): string => {
-    const hebrewMonths = [
-      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
-    ];
-    return hebrewMonths[month - 1] || '';
-  };
-
   const calculateBudgetSummary = () => {
     const totalAllocated = funds.reduce((sum, fund) => sum + Number(fund.allocated_amount || 0), 0);
     const totalSpent = funds.reduce((sum, fund) => sum + Number(fund.spent_amount || 0), 0);
@@ -545,85 +549,74 @@ export default function BudgetDetail() {
         </div>
 
         {/* Monthly Status Table */}
-        {monthlyStatuses.length > 0 && (
-          <div style={styles.section}>
-            <div style={styles.sectionHeader}>
-              <h2 style={styles.sectionTitle}>
-                מצב קופות חודשי - {getHebrewMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
-              </h2>
-              {hasPermission && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    // Navigate to first fund's monthly detail page
-                    if (funds.length > 0) {
-                      navigate(`/funds/${funds[0].id}/monthly`);
-                    }
-                  }}
-                >
-                  ⚙️ ניהול הקצאות
-                </Button>
-              )}
-            </div>
-
-            {loadingMonthlyStatus ? (
-              <div style={styles.loadingMonthly}>טוען מצב חודשי...</div>
-            ) : (
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>שם הקופה</th>
-                      <th style={styles.th}>מוקצה</th>
-                      <th style={styles.th}>הוצא</th>
-                      <th style={styles.th}>מתוכנן</th>
-                      <th style={styles.th}>נותר</th>
-                      <th style={styles.th}>% שימוש</th>
-                      <th style={styles.th}>פעולות</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monthlyStatuses.map(status => {
-                      const usagePercent = status.allocatedAmount > 0
-                        ? (status.spentAmount / status.allocatedAmount) * 100
-                        : 0;
-                      const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
-
-                      return (
-                        <tr key={status.fundId} style={styles.tableRow}>
-                          <td style={styles.td}>
-                            <strong>{status.fundName}</strong>
-                          </td>
-                          <td style={styles.td}>{formatAmount(status.allocatedAmount)}</td>
-                          <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.spentAmount)}</td>
-                          <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.plannedAmount)}</td>
-                          <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
-                            {formatAmount(status.remainingAmount)}
-                          </td>
-                          <td style={styles.td}>
-                            <div style={styles.progressContainer}>
-                              <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
-                              <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
-                            </div>
-                          </td>
-                          <td style={styles.td}>
-                            <Button
-                              variant="secondary"
-                              onClick={() => navigate(`/funds/${status.fundId}/monthly`)}
-                              style={styles.smallButton}
-                            >
-                              פרטים
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        <div style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
           </div>
-        )}
+
+          <MonthNavigator
+            year={selectedYear}
+            month={selectedMonth}
+            onChange={handleMonthChange}
+            showMonthPicker={true}
+          />
+
+          {loadingMonthlyStatus ? (
+            <div style={styles.loadingMonthly}>טוען מצב חודשי...</div>
+          ) : monthlyStatuses.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>אין נתונים חודשיים לחודש זה</p>
+            </div>
+          ) : (
+
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>שם הקופה</th>
+                    <th style={styles.th}>מוקצה</th>
+                    <th style={styles.th}>הוצא</th>
+                    <th style={styles.th}>מתוכנן</th>
+                    <th style={styles.th}>נותר</th>
+                    <th style={styles.th}>% שימוש</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyStatuses.map(status => {
+                    const usagePercent = status.allocatedAmount > 0
+                      ? (status.spentAmount / status.allocatedAmount) * 100
+                      : 0;
+                    const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+
+                    return (
+                      <tr
+                        key={status.fundId}
+                        style={{ ...styles.tableRow, cursor: 'pointer' }}
+                        onClick={() => navigate(`/funds/${status.fundId}/monthly`)}
+                      >
+                        <td style={styles.td}>
+                          <strong>{status.fundName}</strong>
+                        </td>
+                        <td style={styles.td}>{formatAmount(status.allocatedAmount)}</td>
+                        <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.spentAmount)}</td>
+                        <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.plannedAmount)}</td>
+                        <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
+                          {formatAmount(status.remainingAmount)}
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.progressContainer}>
+                            <div style={{ ...styles.progressBar, width: `${Math.min(usagePercent, 100)}%`, backgroundColor: progressColor }} />
+                            <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Annual Funds Overview Table */}
         <div style={styles.section}>
@@ -656,7 +649,7 @@ export default function BudgetDetail() {
                     <th style={styles.th}>מתוכנן</th>
                     <th style={styles.th}>נותר</th>
                     <th style={styles.th}>% שימוש</th>
-                    <th style={styles.th}>פעולות</th>
+                    {hasPermission && <th style={styles.th}>פעולות</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -669,7 +662,11 @@ export default function BudgetDetail() {
                     const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
 
                     return (
-                      <tr key={fund.id} style={styles.tableRow}>
+                      <tr
+                        key={fund.id}
+                        style={{ ...styles.tableRow, cursor: 'pointer' }}
+                        onClick={() => navigate(`/funds/${fund.id}/monthly`)}
+                      >
                         <td style={styles.td}>
                           <div style={styles.fundNameCell}>
                             <strong>{fund.name}</strong>
@@ -690,35 +687,26 @@ export default function BudgetDetail() {
                             <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
                           </div>
                         </td>
-                        <td style={styles.td}>
-                          <div style={styles.actionButtons}>
-                            <Button
-                              variant="secondary"
-                              onClick={() => navigate(`/funds/${fund.id}/monthly`)}
-                              style={styles.smallButton}
-                            >
-                              פרטים
-                            </Button>
-                            {hasPermission && (
-                              <>
-                                <Button
-                                  variant="secondary"
-                                  onClick={() => openEditFundModal(fund)}
-                                  style={styles.smallButton}
-                                >
-                                  ✏️
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  onClick={() => openDeleteFundConfirm(fund)}
-                                  style={styles.smallButton}
-                                >
-                                  🗑️
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
+                        {hasPermission && (
+                          <td style={styles.td} onClick={(e) => e.stopPropagation()}>
+                            <div style={styles.actionButtons}>
+                              <Button
+                                variant="secondary"
+                                onClick={() => openEditFundModal(fund)}
+                                style={styles.smallButton}
+                              >
+                                ✏️
+                              </Button>
+                              <Button
+                                variant="danger"
+                                onClick={() => openDeleteFundConfirm(fund)}
+                                style={styles.smallButton}
+                              >
+                                🗑️
+                              </Button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
