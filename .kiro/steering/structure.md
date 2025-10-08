@@ -238,12 +238,18 @@ Audit trail table for tracking all allocation changes:
 ### Dashboard Endpoints (New)
 - `GET /api/dashboard/monthly-status` - Get current month status for all accessible funds
 
+### Planned Expense Endpoints
+- `GET /api/planned-expenses` - List all planned expenses (filtered by access control)
+- `GET /api/planned-expenses/:id` - Get planned expense by ID (owner or treasurer only)
+- `POST /api/planned-expenses` - Create new planned expense
+- `PATCH /api/planned-expenses/:id` - Update planned expense (owner only)
+- `DELETE /api/planned-expenses/:id` - Delete planned expense (owner only)
+
 ### Other Endpoints
 - Authentication: `/api/auth/*`
 - Budgets: `/api/budgets/*`
 - Groups: `/api/groups/*`
 - Users: `/api/users/*`
-- Planned Expenses: `/api/planned-expenses/*`
 - Incomes: `/api/incomes/*`
 - Reports: `/api/reports/*`
 

@@ -4,6 +4,8 @@
 
 A comprehensive budget management system designed for cooperative circles and groups, supporting Hebrew interface and multi-level financial management.
 
+**Important Documentation**: See `PLANNING_VS_EXECUTION.md` in the project root for detailed explanation of the planning vs execution budget separation system (in Hebrew).
+
 ### Core Features
 - **Circle Treasurer**: Manages overall circle budget, allocates funds to groups, approves reimbursements, manages users and groups
 - **Group Treasurer**: Manages group-specific budgets and member reimbursements  
