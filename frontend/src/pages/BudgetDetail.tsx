@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast';
 import Navigation from '../components/Navigation';
 import FundCard from '../components/FundCard';
 import FundForm, { FundFormData } from '../components/FundForm';
+import BudgetForm, { BudgetFormData } from '../components/BudgetForm';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import MonthlyFundStatusCard from '../components/MonthlyFundStatusCard';
@@ -23,12 +24,13 @@ export default function BudgetDetail() {
   const [monthlyStatuses, setMonthlyStatuses] = useState<MonthlyFundStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMonthlyStatus, setLoadingMonthlyStatus] = useState(false);
-  
+
   const [showCreateFundModal, setShowCreateFundModal] = useState(false);
   const [editingFund, setEditingFund] = useState<Fund | null>(null);
   const [showEditFundModal, setShowEditFundModal] = useState(false);
   const [showDeleteFundConfirm, setShowDeleteFundConfirm] = useState(false);
   const [deletingFund, setDeletingFund] = useState<Fund | null>(null);
+  const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showDeleteBudgetConfirm, setShowDeleteBudgetConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -42,29 +44,29 @@ export default function BudgetDetail() {
 
   const loadBudgetData = async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       const budgetId = parseInt(id);
-      
+
       // Validate budget ID
       if (isNaN(budgetId) || budgetId <= 0) {
         showToast('מזהה תקציב לא תקין', 'error');
         navigate('/budgets');
         return;
       }
-      
+
       // Fetch budget details, funds, and incomes in parallel
       const [budgetRes, fundsRes, incomesRes] = await Promise.all([
         budgetsAPI.getById(budgetId),
         fundsAPI.getAll(budgetId),
         incomesAPI.getAll(budgetId),
       ]);
-      
+
       setBudget(budgetRes.data);
       setFunds(fundsRes.data);
       setIncomes(incomesRes.data);
-      
+
       // Additional permission check for group treasurers
       if (user?.isGroupTreasurer && !user?.isCircleTreasurer) {
         const loadedBudget = budgetRes.data;
@@ -80,7 +82,7 @@ export default function BudgetDetail() {
       }
     } catch (error: any) {
       console.error('Failed to load budget data:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 404) {
         showToast('התקציב לא נמצא', 'error');
@@ -103,24 +105,24 @@ export default function BudgetDetail() {
 
   const loadMonthlyStatus = async () => {
     if (!id) return;
-    
+
     try {
       setLoadingMonthlyStatus(true);
       const budgetId = parseInt(id);
-      
+
       // Validate budget ID
       if (isNaN(budgetId) || budgetId <= 0) {
         return;
       }
-      
+
       // Get current month and year
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1; // JavaScript months are 0-indexed
-      
+
       // Fetch monthly status for all funds in the budget
       const response = await monthlyAllocationsAPI.getBudgetMonthlyStatus(budgetId, year, month);
-      
+
       // Transform snake_case to camelCase
       const transformedStatuses: MonthlyFundStatus[] = response.data.map((status: any) => ({
         fundId: status.fund_id,
@@ -133,7 +135,7 @@ export default function BudgetDetail() {
         remainingAmount: status.remaining_amount,
         allocationType: status.allocation_type,
       }));
-      
+
       setMonthlyStatuses(transformedStatuses);
     } catch (error: any) {
       console.error('Failed to load monthly status:', error);
@@ -146,7 +148,7 @@ export default function BudgetDetail() {
 
   const handleCreateFund = async (data: FundFormData) => {
     if (!budget) return;
-    
+
     try {
       setSubmitting(true);
       await fundsAPI.create({
@@ -160,7 +162,7 @@ export default function BudgetDetail() {
       await loadBudgetData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to create fund:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה ליצור קופות בתקציב זה', 'error');
@@ -187,7 +189,7 @@ export default function BudgetDetail() {
 
   const handleEditFund = async (data: FundFormData) => {
     if (!editingFund) return;
-    
+
     try {
       setSubmitting(true);
       await fundsAPI.update(editingFund.id, {
@@ -201,7 +203,7 @@ export default function BudgetDetail() {
       await loadBudgetData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to update fund:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה לערוך קופה זו', 'error');
@@ -228,7 +230,7 @@ export default function BudgetDetail() {
 
   const handleDeleteFund = async () => {
     if (!deletingFund) return;
-    
+
     try {
       setSubmitting(true);
       await fundsAPI.delete(deletingFund.id);
@@ -238,7 +240,7 @@ export default function BudgetDetail() {
       await loadBudgetData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to delete fund:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה למחוק קופה זו', 'error');
@@ -262,9 +264,49 @@ export default function BudgetDetail() {
     }
   };
 
+  const handleEditBudget = async (data: any) => {
+    if (!budget) return;
+
+    try {
+      setSubmitting(true);
+      await budgetsAPI.update(budget.id, {
+        name: data.name,
+        totalAmount: data.totalAmount,
+        fiscalYear: data.fiscalYear,
+      });
+      showToast('התקציב עודכן בהצלחה', 'success');
+      setShowEditBudgetModal(false);
+      await loadBudgetData(); // Refresh data
+    } catch (error: any) {
+      console.error('Failed to update budget:', error);
+
+      // Handle specific error cases
+      if (error.response?.status === 403) {
+        showToast('אין לך הרשאה לערוך תקציב זה', 'error');
+        setShowEditBudgetModal(false);
+      } else if (error.response?.status === 404) {
+        showToast('התקציב לא נמצא', 'error');
+        setShowEditBudgetModal(false);
+        navigate('/budgets');
+      } else if (error.response?.status === 400) {
+        showToast(error.response?.data?.error || 'נתונים לא תקינים', 'error');
+      } else if (error.response?.status === 401) {
+        showToast('נדרשת התחברות מחדש', 'error');
+        navigate('/login');
+      } else if (!error.response) {
+        showToast('שגיאת רשת - אנא בדוק את החיבור לאינטרנט', 'error');
+      } else {
+        showToast(error.response?.data?.error || 'שגיאה בעדכון התקציב', 'error');
+      }
+      throw error; // Re-throw to prevent modal from closing
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDeleteBudget = async () => {
     if (!budget) return;
-    
+
     try {
       setSubmitting(true);
       await budgetsAPI.delete(budget.id);
@@ -272,7 +314,7 @@ export default function BudgetDetail() {
       navigate('/budgets');
     } catch (error: any) {
       console.error('Failed to delete budget:', error);
-      
+
       // Handle specific error cases
       if (error.response?.status === 403) {
         showToast('אין לך הרשאה למחוק תקציב זה', 'error');
@@ -327,6 +369,14 @@ export default function BudgetDetail() {
     setDeletingFund(null);
   };
 
+  const openEditBudgetModal = () => {
+    setShowEditBudgetModal(true);
+  };
+
+  const closeEditBudgetModal = () => {
+    setShowEditBudgetModal(false);
+  };
+
   const openDeleteBudgetConfirm = () => {
     setShowDeleteBudgetConfirm(true);
   };
@@ -338,16 +388,16 @@ export default function BudgetDetail() {
   // Check if user has permission to manage this budget
   const canManageBudget = () => {
     if (!user || !budget) return false;
-    
+
     // Circle treasurer can manage all budgets
     if (user.isCircleTreasurer) return true;
-    
+
     // Group treasurer can only manage their group's budget
     if (user.isGroupTreasurer && budget.group_id) {
       const userGroupIds = user.groups?.map(g => g.id) || [];
       return userGroupIds.includes(budget.group_id);
     }
-    
+
     return false;
   };
 
@@ -366,7 +416,7 @@ export default function BudgetDetail() {
     const totalPlanned = funds.reduce((sum, fund) => sum + Number(fund.planned_amount || 0), 0);
     const totalIncome = Number(budget?.total_income || 0);
     const available = Number(budget?.total_amount || 0) + totalIncome - totalAllocated;
-    
+
     return {
       totalAllocated,
       totalSpent,
@@ -405,13 +455,13 @@ export default function BudgetDetail() {
   return (
     <div style={styles.container}>
       <Navigation />
-      
+
       <div className="budget-detail-content" style={styles.content}>
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={() => navigate('/budgets')}
               style={styles.backButton}
             >
@@ -421,7 +471,7 @@ export default function BudgetDetail() {
           </div>
           {hasPermission && (
             <div style={styles.headerActions}>
-              <Button variant="secondary" onClick={() => {}}>
+              <Button variant="secondary" onClick={openEditBudgetModal}>
                 ✏️ ערוך תקציב
               </Button>
               <Button variant="danger" onClick={openDeleteBudgetConfirm}>
@@ -447,41 +497,41 @@ export default function BudgetDetail() {
               )}
             </div>
           </div>
-          
+
           <div className="summary-grid" style={styles.summaryGrid}>
             <div style={styles.summaryItem}>
               <span style={styles.summaryLabel}>סה"כ תקציב</span>
-              <span style={{...styles.summaryValue, color: '#667eea'}}>
+              <span style={{ ...styles.summaryValue, color: '#667eea' }}>
                 {formatAmount(budget.total_amount)}
               </span>
             </div>
             <div style={styles.summaryItem}>
               <span style={styles.summaryLabel}>הכנסות</span>
-              <span style={{...styles.summaryValue, color: '#38a169'}}>
+              <span style={{ ...styles.summaryValue, color: '#38a169' }}>
                 {formatAmount(summary.totalIncome)}
               </span>
             </div>
             <div style={styles.summaryItem}>
               <span style={styles.summaryLabel}>מוקצה לקופות</span>
-              <span style={{...styles.summaryValue, color: '#718096'}}>
+              <span style={{ ...styles.summaryValue, color: '#718096' }}>
                 {formatAmount(summary.totalAllocated)}
               </span>
             </div>
             <div style={styles.summaryItem}>
               <span style={styles.summaryLabel}>הוצא</span>
-              <span style={{...styles.summaryValue, color: '#e53e3e'}}>
+              <span style={{ ...styles.summaryValue, color: '#e53e3e' }}>
                 {formatAmount(summary.totalSpent)}
               </span>
             </div>
             <div style={styles.summaryItem}>
               <span style={styles.summaryLabel}>מתוכנן</span>
-              <span style={{...styles.summaryValue, color: '#dd6b20'}}>
+              <span style={{ ...styles.summaryValue, color: '#dd6b20' }}>
                 {formatAmount(summary.totalPlanned)}
               </span>
             </div>
-            <div style={{...styles.summaryItem, ...styles.availableItem}}>
+            <div style={{ ...styles.summaryItem, ...styles.availableItem }}>
               <span style={styles.summaryLabel}>זמין</span>
-              <span style={{...styles.summaryValue, ...styles.availableValue}}>
+              <span style={{ ...styles.summaryValue, ...styles.availableValue }}>
                 {formatAmount(summary.available)}
               </span>
             </div>
@@ -494,8 +544,8 @@ export default function BudgetDetail() {
             <div style={styles.sectionHeader}>
               <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
               {hasPermission && (
-                <Button 
-                  variant="secondary" 
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     // Navigate to first fund's monthly detail page
                     if (funds.length > 0) {
@@ -507,7 +557,7 @@ export default function BudgetDetail() {
                 </Button>
               )}
             </div>
-            
+
             {loadingMonthlyStatus ? (
               <div style={styles.loadingMonthly}>טוען מצב חודשי...</div>
             ) : (
@@ -530,7 +580,7 @@ export default function BudgetDetail() {
               </Button>
             )}
           </div>
-          
+
           {funds.length === 0 ? (
             <div style={styles.emptyState}>
               <p style={styles.emptyText}>אין קופות בתקציב זה</p>
@@ -578,7 +628,7 @@ export default function BudgetDetail() {
                       </td>
                       <td style={styles.td}>{income.source}</td>
                       <td style={styles.td}>{income.description || '-'}</td>
-                      <td style={{...styles.td, fontWeight: 600, color: '#38a169'}}>
+                      <td style={{ ...styles.td, fontWeight: 600, color: '#38a169' }}>
                         {formatAmount(income.amount)}
                       </td>
                     </tr>
@@ -615,7 +665,7 @@ export default function BudgetDetail() {
 
       {/* Delete Fund Confirmation Modal */}
       {showDeleteFundConfirm && deletingFund && (
-        <Modal 
+        <Modal
           isOpen={showDeleteFundConfirm}
           onClose={closeDeleteFundConfirm}
           title="מחיקת קופה"
@@ -634,15 +684,15 @@ export default function BudgetDetail() {
               </div>
             )}
             <div style={styles.deleteActions}>
-              <Button 
-                variant="danger" 
+              <Button
+                variant="danger"
                 onClick={handleDeleteFund}
                 disabled={submitting}
               >
                 {submitting ? 'מוחק...' : 'מחק'}
               </Button>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={closeDeleteFundConfirm}
                 disabled={submitting}
               >
@@ -653,9 +703,19 @@ export default function BudgetDetail() {
         </Modal>
       )}
 
+      {/* Edit Budget Modal */}
+      {showEditBudgetModal && budget && (
+        <BudgetForm
+          budget={budget}
+          onSubmit={handleEditBudget}
+          onCancel={closeEditBudgetModal}
+          isLoading={submitting}
+        />
+      )}
+
       {/* Delete Budget Confirmation Modal */}
       {showDeleteBudgetConfirm && budget && (
-        <Modal 
+        <Modal
           isOpen={showDeleteBudgetConfirm}
           onClose={closeDeleteBudgetConfirm}
           title="מחיקת תקציב"
@@ -674,15 +734,15 @@ export default function BudgetDetail() {
               </div>
             )}
             <div style={styles.deleteActions}>
-              <Button 
-                variant="danger" 
+              <Button
+                variant="danger"
                 onClick={handleDeleteBudget}
                 disabled={submitting || funds.length > 0}
               >
                 {submitting ? 'מוחק...' : 'מחק'}
               </Button>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={closeDeleteBudgetConfirm}
                 disabled={submitting}
               >
