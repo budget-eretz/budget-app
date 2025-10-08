@@ -26,9 +26,6 @@ export default function Dashboard() {
   const [dashboard, setDashboard] = useState<DashboardType | null>(null);
   const [monthlyStatus, setMonthlyStatus] = useState<MonthlyFundStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [rejectModal, setRejectModal] = useState<{ isOpen: boolean; reimbursement: Reimbursement | null }>({ isOpen: false, reimbursement: null });
-  const [rejectNotes, setRejectNotes] = useState('');
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -66,43 +63,6 @@ export default function Dashboard() {
     } catch (error: any) {
       console.error('Failed to load monthly status:', error);
       // Don't show error - monthly status is optional
-    }
-  };
-
-  const handleApprove = async (reimbursementId: number) => {
-    if (!confirm('האם אתה בטוח שברצונך לאשר בקשה זו?')) return;
-
-    setActionLoading(reimbursementId);
-    try {
-      await reimbursementsAPI.approve(reimbursementId);
-      showToast('בקשת ההחזר אושרה בהצלחה', 'success');
-      await loadDashboard();
-    } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה באישור הבקשה', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRejectClick = (reimbursement: Reimbursement) => {
-    setRejectModal({ isOpen: true, reimbursement });
-    setRejectNotes('');
-  };
-
-  const handleRejectConfirm = async () => {
-    if (!rejectModal.reimbursement) return;
-
-    setActionLoading(rejectModal.reimbursement.id);
-    try {
-      await reimbursementsAPI.reject(rejectModal.reimbursement.id, rejectNotes);
-      showToast('בקשת ההחזר נדחתה', 'info');
-      setRejectModal({ isOpen: false, reimbursement: null });
-      setRejectNotes('');
-      await loadDashboard();
-    } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בדחיית הבקשה', 'error');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -372,39 +332,34 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={styles.sectionTitle}>בקשות החזר ממתינות ({dashboard.pendingReimbursements.length})</h2>
               <Button variant="primary" size="sm" onClick={() => navigate('/payments')}>
-                רשימת תשלומים
+                אשר החזרים
               </Button>
             </div>
-            <div style={styles.table}>
-              {dashboard.pendingReimbursements.map(reimb => (
-                <div key={reimb.id} style={styles.reimbursementRow}>
-                  <div style={styles.tableCell}>
-                    <strong>{reimb.user_name}</strong>
-                    <small style={{ color: '#718096' }}>{reimb.fund_name}</small>
-                  </div>
-                  <div style={styles.tableCell}>{reimb.description}</div>
-                  <div style={styles.tableCell}>{formatCurrency(reimb.amount)}</div>
-                  <div style={styles.actionsCell}>
-                    <Button
-                      variant="success"
-                      size="sm"
-                      onClick={() => handleApprove(reimb.id)}
-                      isLoading={actionLoading === reimb.id}
-                      disabled={actionLoading !== null}
-                    >
-                      אשר
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleRejectClick(reimb)}
-                      disabled={actionLoading !== null}
-                    >
-                      דחה
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>מגיש</th>
+                    <th style={styles.th}>קופה</th>
+                    <th style={styles.th}>תיאור</th>
+                    <th style={styles.th}>סכום</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.pendingReimbursements.map(reimb => (
+                    <tr key={reimb.id} style={styles.tableRow}>
+                      <td style={styles.td}>
+                        <strong>{reimb.user_name}</strong>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={{ fontSize: '13px', color: '#718096' }}>{reimb.fund_name}</span>
+                      </td>
+                      <td style={styles.td}>{reimb.description}</td>
+                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -488,53 +443,6 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Reject Modal */}
-      <Modal
-        isOpen={rejectModal.isOpen}
-        onClose={() => setRejectModal({ isOpen: false, reimbursement: null })}
-        title="דחיית בקשת החזר"
-        size="sm"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p>האם אתה בטוח שברצונך לדחות את הבקשה של <strong>{rejectModal.reimbursement?.user_name}</strong>?</p>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-              הערות (אופציונלי):
-            </label>
-            <textarea
-              value={rejectNotes}
-              onChange={(e) => setRejectNotes(e.target.value)}
-              placeholder="למה הבקשה נדחתה..."
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #cbd5e0',
-                borderRadius: '6px',
-                fontSize: '14px',
-                resize: 'vertical',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <Button
-              variant="secondary"
-              onClick={() => setRejectModal({ isOpen: false, reimbursement: null })}
-              disabled={actionLoading !== null}
-            >
-              ביטול
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleRejectConfirm}
-              isLoading={actionLoading === rejectModal.reimbursement?.id}
-              disabled={actionLoading !== null}
-            >
-              דחה בקשה
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
@@ -731,14 +639,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#718096',
     fontSize: '14px',
   },
-  reimbursementRow: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 3fr 1fr 2fr',
-    padding: '16px 20px',
-    borderBottom: '1px solid #e2e8f0',
-    gap: '16px',
-    alignItems: 'center',
-  },
+
   plannedExpenseRow: {
     display: 'grid',
     gridTemplateColumns: '2fr 3fr 1fr 1fr 1.5fr',
