@@ -145,6 +145,64 @@ export interface Income {
   description?: string;
   income_date: string;
   created_at: string;
+  categories?: IncomeCategory[];
+}
+
+export interface IncomeCategory {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+  income_count?: number;
+}
+
+export interface ExpectedIncome {
+  id: number;
+  budget_id: number;
+  budget_name?: string;
+  user_id?: number;
+  source_name: string;
+  amount: number;
+  description?: string;
+  year: number;
+  month: number;
+  frequency: 'one-time' | 'monthly' | 'quarterly' | 'annual';
+  parent_annual_id?: number;
+  is_manual: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  categories?: IncomeCategory[];
+}
+
+export interface IncomeComparison {
+  source_name: string;
+  user_id?: number;
+  expected_amount: number;
+  actual_amount: number;
+  difference: number;
+  percentage: number;
+  status: 'not-received' | 'partial' | 'full' | 'exceeded';
+  categories?: IncomeCategory[];
+}
+
+export interface MonthlyIncomeSummary {
+  year: number;
+  month: number;
+  total_expected: number;
+  total_actual: number;
+  difference: number;
+  fulfillment_percentage: number;
+  by_category?: {
+    category_id: number;
+    category_name: string;
+    expected: number;
+    actual: number;
+  }[];
+  by_source?: IncomeComparison[];
 }
 
 export interface ReimbursementsByStatus {

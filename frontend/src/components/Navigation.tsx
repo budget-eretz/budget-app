@@ -54,6 +54,15 @@ export default function Navigation() {
             >
               תקציבים
             </button>
+            <button
+              onClick={() => handleNavigation('/incomes')}
+              style={{
+                ...styles.navLink,
+                ...(isActive('/incomes') ? styles.navLinkActive : {}),
+              }}
+            >
+              הכנסות
+            </button>
             {isTreasurer && (
               <>
                 <button
@@ -163,6 +172,15 @@ export default function Navigation() {
             }}
           >
             תקציבים
+          </button>
+          <button
+            onClick={() => handleNavigation('/incomes')}
+            style={{
+              ...styles.mobileNavLink,
+              ...(isActive('/incomes') ? styles.mobileNavLinkActive : {}),
+            }}
+          >
+            הכנסות
           </button>
           {isTreasurer && (
             <>

@@ -92,10 +92,94 @@ export const reimbursementsAPI = {
 
 // Incomes API
 export const incomesAPI = {
-  getAll: (budgetId?: number) => api.get('/incomes', { params: { budgetId } }),
-  create: (data: { budgetId: number; amount: number; source: string; description?: string; incomeDate: string }) =>
-    api.post('/incomes', data),
+  getAll: (params?: { 
+    budgetId?: number; 
+    startDate?: string; 
+    endDate?: string; 
+    source?: string; 
+    categoryId?: number; 
+    year?: number; 
+    month?: number;
+  }) => api.get('/incomes', { params }),
+  getById: (id: number) => api.get(`/incomes/${id}`),
+  create: (data: { 
+    budgetId: number; 
+    amount: number; 
+    source: string; 
+    description?: string; 
+    incomeDate: string;
+    categoryIds?: number[];
+  }) => api.post('/incomes', data),
+  update: (id: number, data: Partial<{
+    amount: number;
+    description: string;
+    incomeDate: string;
+    source: string;
+  }>) => api.patch(`/incomes/${id}`, data),
   delete: (id: number) => api.delete(`/incomes/${id}`),
+  assignCategories: (id: number, categoryIds: number[]) => 
+    api.post(`/incomes/${id}/categories`, { categoryIds }),
+};
+
+// Income Categories API
+export const incomeCategoriesAPI = {
+  getAll: () => api.get('/income-categories'),
+  getById: (id: number) => api.get(`/income-categories/${id}`),
+  create: (data: { name: string; description?: string; color?: string }) =>
+    api.post('/income-categories', data),
+  update: (id: number, data: Partial<{ name: string; description: string; color: string }>) =>
+    api.patch(`/income-categories/${id}`, data),
+  delete: (id: number) => api.delete(`/income-categories/${id}`),
+};
+
+// Expected Incomes API
+export const expectedIncomesAPI = {
+  getAll: (params?: {
+    budgetId?: number;
+    year?: number;
+    month?: number;
+    source?: string;
+    categoryId?: number;
+    frequency?: string;
+  }) => api.get('/expected-incomes', { params }),
+  getById: (id: number) => api.get(`/expected-incomes/${id}`),
+  createAnnual: (data: {
+    budgetId: number;
+    userId?: number;
+    sourceName: string;
+    amount: number;
+    description?: string;
+    year: number;
+    frequency: 'one-time' | 'monthly' | 'quarterly' | 'annual';
+    month?: number; // Required for one-time
+    categoryIds?: number[];
+  }) => api.post('/expected-incomes/annual', data),
+  createMonthly: (data: {
+    budgetId: number;
+    userId?: number;
+    sourceName: string;
+    amount: number;
+    description?: string;
+    year: number;
+    month: number;
+    categoryIds?: number[];
+  }) => api.post('/expected-incomes/monthly', data),
+  update: (id: number, data: Partial<{
+    amount: number;
+    description: string;
+    sourceName: string;
+  }>) => api.patch(`/expected-incomes/${id}`, data),
+  delete: (id: number) => api.delete(`/expected-incomes/${id}`),
+  assignCategories: (id: number, categoryIds: number[]) =>
+    api.post(`/expected-incomes/${id}/categories`, { categoryIds }),
+};
+
+// Income Comparison API
+export const incomeComparisonAPI = {
+  getMonthlyComparison: (year: number, month: number) =>
+    api.get(`/incomes/comparison/monthly/${year}/${month}`),
+  getDashboardSummary: () =>
+    api.get('/incomes/dashboard/summary'),
 };
 
 // Charges API

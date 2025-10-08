@@ -70,7 +70,7 @@ export default function BudgetDetail() {
       const [budgetRes, fundsRes, incomesRes] = await Promise.all([
         budgetsAPI.getById(budgetId),
         fundsAPI.getAll(budgetId),
-        incomesAPI.getAll(budgetId),
+        incomesAPI.getAll({ budgetId }),
       ]);
 
       setBudget(budgetRes.data);

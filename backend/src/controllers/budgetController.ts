@@ -61,8 +61,18 @@ export async function getBudgetById(req: Request, res: Response) {
     const { id } = req.params;
     const user = req.user!;
 
+    console.log(`[getBudgetById] Request for budget ID: ${id} by user: ${user.userId}`);
+
+    // Validate budget ID
+    const budgetId = parseInt(id);
+    if (isNaN(budgetId) || budgetId <= 0) {
+      console.log(`[getBudgetById] Invalid budget ID: ${id}`);
+      return res.status(400).json({ error: 'Invalid budget ID' });
+    }
+
     // Check if user has access to this budget
-    const hasAccess = await canAccessBudget(user.userId, parseInt(id));
+    const hasAccess = await canAccessBudget(user.userId, budgetId);
+    console.log(`[getBudgetById] User ${user.userId} access to budget ${budgetId}: ${hasAccess}`);
     
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this budget' });
@@ -74,8 +84,10 @@ export async function getBudgetById(req: Request, res: Response) {
        FROM budgets b
        LEFT JOIN groups g ON b.group_id = g.id
        WHERE b.id = $1`,
-      [id]
+      [budgetId]
     );
+
+    console.log(`[getBudgetById] Query result rows: ${result.rows.length}`);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Budget not found' });
@@ -84,6 +96,7 @@ export async function getBudgetById(req: Request, res: Response) {
     const budget = result.rows[0];
     budget.total_income = Number(budget.total_income || 0);
 
+    console.log(`[getBudgetById] Successfully retrieved budget: ${budget.name}`);
     res.json(budget);
   } catch (error) {
     console.error('Get budget error:', error);
