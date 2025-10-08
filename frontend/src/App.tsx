@@ -14,6 +14,7 @@ import UserManagement from './pages/UserManagement';
 import GroupManagement from './pages/GroupManagement';
 import PaymentTransfers from './pages/PaymentTransfers';
 import FundMonthlyDetail from './pages/FundMonthlyDetail';
+import Profile from './pages/Profile';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -78,6 +79,7 @@ function App() {
             <Route path="/planned-expenses/:id/edit" element={<PrivateRoute><NewPlannedExpense /></PrivateRoute>} />
             <Route path="/my-reimbursements" element={<PrivateRoute><MyReimbursements /></PrivateRoute>} />
             <Route path="/charges/new" element={<PrivateRoute><NewCharge /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />
             <Route path="/groups" element={<CircleTreasurerRoute><GroupManagement /></CircleTreasurerRoute>} />
             <Route path="/funds/:fundId/monthly" element={<PrivateRoute><FundMonthlyDetail /></PrivateRoute>} />

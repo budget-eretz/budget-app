@@ -83,6 +83,11 @@ export default function UserManagement() {
     setFilteredUsers(filtered);
   };
 
+  const handleAddUser = () => {
+    setSelectedUser(null);
+    setShowEditModal(true);
+  };
+
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
     setShowEditModal(true);
@@ -138,6 +143,9 @@ export default function UserManagement() {
       <div style={styles.content}>
         <div style={styles.header}>
           <h1 style={styles.title}>ניהול משתמשים</h1>
+          <Button onClick={handleAddUser} style={styles.addButton}>
+            + הוסף משתמש חדש
+          </Button>
         </div>
 
         {/* Filters */}
@@ -215,8 +223,8 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Edit User Modal */}
-      {showEditModal && selectedUser && (
+      {/* Edit/Create User Modal */}
+      {showEditModal && (
         <UserEditModal
           isOpen={showEditModal}
           onClose={handleCloseModal}
@@ -250,12 +258,22 @@ const styles: Record<string, React.CSSProperties> = {
   },
   header: {
     marginBottom: '32px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '20px',
+    flexWrap: 'wrap',
   },
   title: {
     fontSize: '32px',
     fontWeight: 'bold',
     color: '#2d3748',
     margin: 0,
+  },
+  addButton: {
+    padding: '12px 24px',
+    fontSize: '16px',
+    fontWeight: '600',
   },
   filters: {
     display: 'flex',

@@ -101,12 +101,21 @@ export default function Navigation() {
           </div>
         </div>
         <div style={styles.rightSection} className="nav-right">
-          <div style={styles.userInfo} className="user-info">
-            <span style={styles.userName}>{user?.fullName}</span>
-            <span style={styles.userRole}>
-              {user?.isCircleTreasurer ? 'גזבר מעגלי' : user?.isGroupTreasurer ? 'גזבר קבוצתי' : 'חבר'}
-            </span>
-          </div>
+          <button 
+            onClick={() => handleNavigation('/profile')}
+            style={{
+              ...styles.profileButton,
+              ...(isActive('/profile') ? styles.profileButtonActive : {}),
+            }}
+            className="profile-btn"
+          >
+            <div style={styles.userInfo} className="user-info">
+              <span style={styles.userName}>{user?.fullName}</span>
+              <span style={styles.userRole}>
+                {user?.isCircleTreasurer ? 'גזבר מעגלי' : user?.isGroupTreasurer ? 'גזבר קבוצתי' : 'חבר'}
+              </span>
+            </div>
+          </button>
           <button onClick={logout} style={styles.logoutBtn} className="logout-btn">
             יציאה
           </button>
@@ -199,6 +208,15 @@ export default function Navigation() {
               </button>
             </>
           )}
+          <button
+            onClick={() => handleNavigation('/profile')}
+            style={{
+              ...styles.mobileNavLink,
+              ...(isActive('/profile') ? styles.mobileNavLinkActive : {}),
+            }}
+          >
+            הפרופיל שלי
+          </button>
           <div style={styles.mobileUserInfo}>
             <span style={styles.mobileUserName}>{user?.fullName}</span>
             <span style={styles.mobileUserRole}>
@@ -266,7 +284,18 @@ const styles: Record<string, React.CSSProperties> = {
   rightSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: '20px',
+    gap: '12px',
+  },
+  profileButton: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    transition: 'all 0.2s',
+  },
+  profileButtonActive: {
+    background: '#edf2f7',
   },
   userInfo: {
     display: 'flex',

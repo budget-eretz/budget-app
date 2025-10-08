@@ -120,8 +120,23 @@ export const usersAPI = {
   getAll: () => api.get('/users'),
   getBasic: () => api.get('/users/basic'),
   getById: (id: number) => api.get(`/users/${id}`),
+  getCurrentUser: () => api.get('/users/me'),
+  updateOwnProfile: (data: { fullName: string; phone?: string }) => 
+    api.patch('/users/me', data),
+  changeOwnPassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.patch('/users/me/password', data),
+  create: (data: { 
+    email: string; 
+    password: string; 
+    fullName: string; 
+    phone?: string; 
+    role?: 'member' | 'group_treasurer' | 'circle_treasurer';
+    groupIds?: number[];
+  }) => api.post('/users', data),
   updateRole: (id: number, data: { role: 'member' | 'group_treasurer' | 'circle_treasurer' }) =>
     api.patch(`/users/${id}/role`, data),
+  resetPassword: (id: number, data: { newPassword: string }) =>
+    api.patch(`/users/${id}/reset-password`, data),
   assignToGroup: (userId: number, groupId: number) =>
     api.post(`/users/${userId}/groups`, { groupId }),
   removeFromGroup: (userId: number, groupId: number) =>
