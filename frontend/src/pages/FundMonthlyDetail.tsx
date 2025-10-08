@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { monthlyAllocationsAPI, fundsAPI } from '../services/api';
-import { MonthlyFundStatus, MonthlyExpenseDetail, MonthlyPlannedExpenseDetail, Fund } from '../types';
+import { MonthlyFundStatus, MonthlyExpense, MonthlyPlannedExpenseDetail, Fund } from '../types';
 import { useToast } from '../components/Toast';
 import Navigation from '../components/Navigation';
 import MonthNavigator from '../components/MonthNavigator';
@@ -19,7 +19,7 @@ export default function FundMonthlyDetail() {
 
   const [fund, setFund] = useState<Fund | null>(null);
   const [monthlyStatus, setMonthlyStatus] = useState<MonthlyFundStatus | null>(null);
-  const [expenses, setExpenses] = useState<MonthlyExpenseDetail[]>([]);
+  const [expenses, setExpenses] = useState<MonthlyExpense[]>([]);
   const [plannedExpenses, setPlannedExpenses] = useState<MonthlyPlannedExpenseDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllocationManager, setShowAllocationManager] = useState(false);
@@ -80,21 +80,8 @@ export default function FundMonthlyDetail() {
         allocationType: statusRes.data.allocation_type
       };
 
-      // Transform snake_case to camelCase for expenses
-      const transformedExpenses = expensesRes.data.map((item: any) => ({
-        id: item.id,
-        fundId: item.fund_id,
-        submitterId: item.submitter_id,
-        submitterName: item.submitter_name,
-        recipientId: item.recipient_user_id,
-        recipientName: item.recipient_user_name,
-        amount: item.amount,
-        description: item.description,
-        expenseDate: item.expense_date,
-        receiptUrl: item.receipt_url,
-        status: item.status,
-        createdAt: item.created_at
-      }));
+      // Transform expenses from API response
+      const transformedExpenses = expensesRes.data.expenses || [];
 
       // Transform snake_case to camelCase for planned expenses
       const transformedPlanned = plannedRes.data.map((item: any) => ({
@@ -402,8 +389,19 @@ export default function FundMonthlyDetail() {
 
         {/* Monthly Expenses Table */}
         <div style={styles.tableSection}>
-          <h2 style={styles.sectionTitle}>הוצאות החודש ({expenses.length})</h2>
-          <MonthlyExpenseTable expenses={expenses} />
+          <div style={styles.sectionHeader}>
+            <h2 style={styles.sectionTitle}>הוצאות החודש ({expenses.length})</h2>
+            {isTreasurer && (
+              <button
+                onClick={() => navigate(`/direct-expenses/new?fundId=${fundId}`)}
+                style={styles.addButton}
+                className="add-direct-expense-btn"
+              >
+                + הוסף הוצאה ישירה
+              </button>
+            )}
+          </div>
+          <MonthlyExpenseTable expenses={expenses} onRefresh={loadMonthlyData} />
         </div>
 
         {/* Monthly Planned Expenses Table */}
@@ -441,6 +439,10 @@ const hoverStyle = document.createElement('style');
 hoverStyle.textContent = `
   .manage-allocation-btn:hover {
     background: #5568d3 !important;
+    transform: translateY(-1px);
+  }
+  .add-direct-expense-btn:hover {
+    background: #38a169 !important;
     transform: translateY(-1px);
   }
 `;
@@ -587,10 +589,28 @@ const styles: Record<string, React.CSSProperties> = {
   tableSection: {
     marginBottom: '30px',
   },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+  },
   sectionTitle: {
     fontSize: '18px',
     fontWeight: '700',
     color: '#2d3748',
-    marginBottom: '16px',
+    margin: 0,
+  },
+  addButton: {
+    background: '#48bb78',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '8px 16px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    whiteSpace: 'nowrap',
   },
 };

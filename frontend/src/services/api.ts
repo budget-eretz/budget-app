@@ -278,4 +278,14 @@ export const monthlyAllocationsAPI = {
     api.get(`/funds/${fundId}/allocation-history`),
 };
 
+// Direct Expenses API
+export const directExpensesAPI = {
+  getById: (id: number) => api.get(`/direct-expenses/${id}`),
+  create: (data: { fundId: number; amount: number; description: string; expenseDate: string; payee: string; receiptUrl?: string }) =>
+    api.post('/direct-expenses', data),
+  update: (id: number, data: Partial<{ amount: number; description: string; expenseDate: string; payee: string; receiptUrl: string }>) =>
+    api.patch(`/direct-expenses/${id}`, data),
+  delete: (id: number) => api.delete(`/direct-expenses/${id}`),
+};
+
 export default api;

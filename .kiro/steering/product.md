@@ -18,6 +18,7 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **Charge Submission**: Track debts owed to circle/group that offset pending reimbursements
 - **Fund Access Control**: Budget-based access control for circle and group funds
 - **Monthly Fund Allocation**: Granular monthly budget allocation with fixed or variable strategies and comprehensive tracking
+- **Income Tracking Enhancement**: Comprehensive income tracking with categorization, expected income planning, and comparison between planned and actual income
 
 ### Key Entities
 - **Users**: System users with roles and group memberships (many-to-many)
@@ -30,7 +31,9 @@ A comprehensive budget management system designed for cooperative circles and gr
 - **Reimbursements**: Member expense reimbursement workflow with recipient field support
 - **Payment Transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
 - **Charges**: User debts to circle/group that offset reimbursements
-- **Incomes**: Revenue and income tracking
+- **Incomes**: Revenue and income tracking (actual and expected)
+- **Income Categories**: Flexible categorization system for income tracking
+- **Expected Incomes**: Planned income tracking with annual and monthly planning
 - **Reports**: Financial reporting and analytics
 
 ### User Roles
@@ -91,6 +94,32 @@ Quick action buttons on fund cards:
 - "הוסף תכנון" (Add Planned Expense) button
 - Pre-selects fund when navigating to form
 - Reduces navigation steps for common actions
+
+#### Direct Expenses (הוצאות ישירות)
+Treasurers can record direct expenses from funds that are not reimbursements to members:
+- **Purpose**: Track expenses paid directly from the fund (e.g., utility bills, supplier payments, direct purchases)
+- **Access Control**:
+  - Circle treasurers: Can create direct expenses for circle budget funds only
+  - Group treasurers: Can create direct expenses for their group budget funds only
+  - Members: Can view direct expenses but cannot create, edit, or delete them
+- **Key Features**:
+  - Record payee (free text field, not limited to system users)
+  - Amount, description, expense date, and optional receipt
+  - Edit and delete capabilities for treasurers with appropriate permissions
+  - Integrated into monthly expense tracking alongside reimbursements
+  - Counted in "spent" amount for monthly fund status
+  - Displayed in unified expense table with "הוצאה ישירה" label in submitter column
+- **Workflow**:
+  - Treasurer navigates to fund monthly detail page
+  - Clicks "הוסף הוצאה ישירה" button (visible only to authorized treasurers)
+  - Fills in expense details (fund, payee, amount, description, date, receipt)
+  - Expense appears immediately in monthly expense table
+  - Can edit or delete from table actions column
+- **Integration**:
+  - Appears in monthly expense table alongside reimbursements
+  - No status workflow (created directly, no approval needed)
+  - Affects monthly "spent" calculation and remaining budget
+  - Does not affect planning track (only execution track)
 
 #### Hebrew Language Interface
 Complete Hebrew language support throughout:
@@ -404,6 +433,188 @@ This separation allows for:
 - Variance tracking shows deviation between planned and actual spending
 - Real-time updates as expenses are added or approved
 - Clear separation between planning and execution for better budget analysis
+
+### Income Tracking Enhancement (הכנסות)
+
+A comprehensive income tracking system that allows treasurers to track actual income, plan expected income, categorize income sources, and compare planned vs actual income.
+
+#### Key Concepts
+
+**Income Types**:
+- **Actual Income (הכנסות בפועל)**: Income that has been received
+- **Expected Income (הכנסות צפויות)**: Planned income for future periods
+
+**Income Sources**:
+- **Member Income**: Income from specific circle/group members
+- **Other Sources**: Income from external sources (מקור אחר)
+
+**Income Categories**: Flexible categorization system allowing multiple categories per income entry for better organization and analysis.
+
+**Planning Frequencies**:
+- **One-time (חד-פעמי)**: Single income event in a specific month
+- **Monthly (חודשי)**: Recurring monthly income (automatically creates 12 monthly entries)
+- **Quarterly (רבעוני)**: Recurring quarterly income (automatically creates 4 quarterly entries)
+- **Annual (שנתי)**: Annual income planning
+
+#### Income Management Features
+
+**Actual Income Recording**:
+- Record income received from members or other sources
+- Assign multiple categories to each income entry
+- Track income date, amount, description, and source
+- Edit and delete income entries (treasurer only)
+- Filter and sort by date, source, category, and amount
+
+**Income Categories**:
+- Create custom income categories with names, descriptions, and colors
+- Assign multiple categories to income entries (many-to-many relationship)
+- Edit and delete categories with usage tracking
+- Visual color coding for easy identification
+- Category usage statistics (number of income entries per category)
+
+**Expected Income Planning - Annual Level**:
+- Plan expected income for the entire year
+- Set income frequency (one-time, monthly, quarterly, annual)
+- Automatic breakdown into monthly entries based on frequency
+- Monthly frequency: Creates 12 equal monthly entries
+- Quarterly frequency: Creates 4 entries (January, April, July, October)
+- One-time: Creates single entry for specified month
+- Assign categories to planned income
+
+**Expected Income Planning - Monthly Level**:
+- View and manage expected income for specific months
+- Add manual expected income entries for specific months
+- Edit expected income amounts for specific months (without affecting annual plan)
+- Distinguish between automatic (from annual plan) and manual entries
+- Delete expected income entries with warnings for annual plan entries
+
+**Income Comparison & Analysis**:
+- Compare expected vs actual income by month
+- View comparison by source (member or other source)
+- Filter comparison by category or source
+- Calculate fulfillment percentage (actual / expected × 100)
+- Status indicators with color coding:
+  - Not Received (אדום - red): No actual income received
+  - Partial (כתום - orange): Actual income less than expected
+  - Full (ירוק - green): Actual income equals expected
+  - Exceeded (ירוק - green): Actual income exceeds expected
+- Monthly summary with total expected, total actual, difference, and fulfillment percentage
+- Breakdown by category showing expected vs actual per category
+
+#### Incomes Page Structure
+
+The Incomes page (`/incomes`) is a comprehensive single-page interface with multiple sections (similar to Payments page structure):
+
+**1. Actual Income Section (הכנסות בפועל)**:
+- Table of all actual income entries
+- Filters: date range, source, category
+- Sort by any column
+- Add, edit, delete income entries (treasurer only)
+- Category badges with color coding
+
+**2. Annual Income Planning Section (תכנון הכנסות שנתי)**:
+- Year selector
+- Table of annual expected income entries
+- Add annual expected income with frequency selection
+- Edit and delete annual plans
+- Automatic breakdown display
+
+**3. Monthly Income Planning Section (תכנון הכנסות חודשי)**:
+- Month navigator for browsing months
+- Table of expected income for selected month
+- Visual distinction between automatic (from annual plan) and manual entries
+- Add manual expected income for specific month
+- Edit monthly amounts (with or without affecting annual plan)
+- Delete monthly entries with warnings
+
+**4. Comparison Section (השוואה - צפוי מול בפועל)**:
+- Month navigator
+- Summary card: total expected, total actual, difference, fulfillment percentage
+- Filters: category, source
+- Detailed comparison table by source
+- Color-coded status indicators
+- Breakdown by category (optional)
+
+#### API Endpoints
+
+**Income Categories**:
+- `GET /api/income-categories` - Get all categories
+- `POST /api/income-categories` - Create category (treasurer only)
+- `PATCH /api/income-categories/:id` - Update category (treasurer only)
+- `DELETE /api/income-categories/:id` - Delete category (treasurer only)
+
+**Actual Incomes (Enhanced)**:
+- `GET /api/incomes` - Get all incomes with filters (date, source, category)
+- `GET /api/incomes/:id` - Get single income
+- `POST /api/incomes` - Create income (treasurer only)
+- `PATCH /api/incomes/:id` - Update income (treasurer only)
+- `DELETE /api/incomes/:id` - Delete income (treasurer only)
+- `POST /api/incomes/:id/categories` - Assign categories to income
+- `DELETE /api/incomes/:id/categories/:catId` - Remove category from income
+
+**Expected Incomes**:
+- `GET /api/expected-incomes` - Get expected incomes with filters
+- `GET /api/expected-incomes/:id` - Get single expected income
+- `POST /api/expected-incomes/annual` - Create annual planning (treasurer only)
+- `POST /api/expected-incomes/monthly` - Create monthly expected income (treasurer only)
+- `PATCH /api/expected-incomes/:id` - Update expected income (treasurer only)
+- `DELETE /api/expected-incomes/:id` - Delete expected income (treasurer only)
+- `POST /api/expected-incomes/:id/categories` - Assign categories
+- `DELETE /api/expected-incomes/:id/categories/:catId` - Remove category
+
+**Income Comparison**:
+- `GET /api/incomes/comparison/monthly/:year/:month` - Get monthly comparison
+- `GET /api/incomes/dashboard/summary` - Get dashboard summary for current month
+
+#### Access Control
+
+**Circle Treasurer**:
+- Full access to all income tracking features
+- Create, edit, delete actual and expected income
+- Manage income categories
+- View all income entries and comparisons
+
+**Group Treasurer**:
+- Read-only access to circle-level income data
+- Cannot create, edit, or delete income entries
+- Cannot manage categories
+
+**Circle/Group Members**:
+- View only their own income entries (where they are the source)
+- Cannot create, edit, or delete income entries
+- Cannot manage categories
+
+#### Key Features
+
+**Flexible Categorization**:
+- Multiple categories per income entry
+- Custom category names, descriptions, and colors
+- Category usage tracking and statistics
+- Safe category deletion with usage warnings
+
+**Automatic Planning Breakdown**:
+- Annual plans automatically create monthly entries
+- Quarterly plans create 4 entries at appropriate months
+- Monthly plans create 12 equal entries
+- Manual override capability for specific months
+
+**Comprehensive Comparison**:
+- Real-time comparison between expected and actual income
+- Multiple filtering and grouping options
+- Visual status indicators with color coding
+- Percentage-based fulfillment tracking
+
+**Hebrew Interface**:
+- Complete Hebrew language support
+- Hebrew labels, buttons, and messages
+- RTL-friendly layout
+- Hebrew status indicators and summaries
+
+**Integration with Budget System**:
+- Income entries linked to budgets
+- Budget-level income tracking and reporting
+- Integration with budget detail pages
+- Income data available for financial reports
 
 ### Target Deployment
 - Development: Docker Compose

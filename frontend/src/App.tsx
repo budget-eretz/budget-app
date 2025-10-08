@@ -16,6 +16,8 @@ import PaymentTransfers from './pages/PaymentTransfers';
 import FundMonthlyDetail from './pages/FundMonthlyDetail';
 import Profile from './pages/Profile';
 import Incomes from './pages/Incomes';
+import NewDirectExpense from './pages/NewDirectExpense';
+import EditDirectExpense from './pages/EditDirectExpense';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -85,6 +87,8 @@ function App() {
             <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />
             <Route path="/groups" element={<CircleTreasurerRoute><GroupManagement /></CircleTreasurerRoute>} />
             <Route path="/funds/:fundId/monthly" element={<PrivateRoute><FundMonthlyDetail /></PrivateRoute>} />
+            <Route path="/direct-expenses/new" element={<TreasurerRoute><NewDirectExpense /></TreasurerRoute>} />
+            <Route path="/direct-expenses/:id/edit" element={<TreasurerRoute><EditDirectExpense /></TreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </BrowserRouter>

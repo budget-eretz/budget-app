@@ -89,13 +89,31 @@ async function seed() {
     `, [circleBudgetId, groupBudget1Result.rows[0].id, groupBudget2Result.rows[0].id, circleTreasurerId]);
 
     // Create group funds
-    await client.query(`
+    const groupFundsResult = await client.query(`
       INSERT INTO funds (budget_id, name, allocated_amount, description)
       VALUES
         ($1, 'אירועי קבוצה', 50000.00, 'אירועים פנימיים של הקבוצה'),
         ($1, 'ציוד קבוצתי', 60000.00, 'ציוד לשימוש הקבוצה'),
         ($1, 'תחזוקה', 40000.00, 'תחזוקה שוטפת')
+      RETURNING id
     `, [groupBudget1Result.rows[0].id]);
+
+    // Get fund IDs for direct expenses
+    const circleFundsResult = await client.query(`
+      SELECT id FROM funds WHERE budget_id = $1 LIMIT 2
+    `, [circleBudgetResult.rows[0].id]);
+
+    // Create sample direct expenses
+    if (circleFundsResult.rows.length > 0) {
+      await client.query(`
+        INSERT INTO direct_expenses (fund_id, amount, description, expense_date, payee, created_by)
+        VALUES
+          ($1, 350.00, 'חשבון חשמל לחודש אוקטובר', '2025-10-05', 'חברת חשמל', $3),
+          ($1, 120.00, 'חשבון מים לחודש אוקטובר', '2025-10-07', 'מקורות', $3),
+          ($2, 450.00, 'רכישת ציוד משרדי', '2025-10-03', 'אופיס דיפו', $3),
+          ($2, 85.00, 'שירותי ניקיון', '2025-10-01', 'חברת ניקיון בע"מ', $3)
+      `, [circleFundsResult.rows[0].id, circleFundsResult.rows[1]?.id || circleFundsResult.rows[0].id, circleTreasurerId]);
+    }
 
     console.log('✅ Sample data created successfully!');
     console.log('\n📝 Login credentials:');

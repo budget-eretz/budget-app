@@ -329,14 +329,18 @@ export async function getMonthlyStatus(req: Request, res: Response) {
       ? allocationResult.rows[0].allocation_type 
       : undefined;
 
-    // Calculate spent amount (approved and paid reimbursements)
+    // Calculate spent amount (approved and paid reimbursements + direct expenses)
     const spentResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) as spent_amount
-       FROM reimbursements
-       WHERE fund_id = $1
-         AND EXTRACT(YEAR FROM expense_date) = $2
-         AND EXTRACT(MONTH FROM expense_date) = $3
-         AND status IN ('approved', 'paid')`,
+      `SELECT 
+         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
+          WHERE fund_id = $1
+            AND EXTRACT(YEAR FROM expense_date) = $2
+            AND EXTRACT(MONTH FROM expense_date) = $3
+            AND status IN ('approved', 'paid')) +
+         (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+          WHERE fund_id = $1
+            AND EXTRACT(YEAR FROM expense_date) = $2
+            AND EXTRACT(MONTH FROM expense_date) = $3) as spent_amount`,
       [fundId, year, month]
     );
 
@@ -405,18 +409,43 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
       return res.status(403).json({ error: 'Access denied to this fund' });
     }
 
+    // Get fund and budget info for permission checking
+    const fundResult = await pool.query(
+      `SELECT f.id, f.budget_id, b.group_id 
+       FROM funds f 
+       JOIN budgets b ON f.budget_id = b.id 
+       WHERE f.id = $1`,
+      [fundId]
+    );
+
+    if (fundResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    const fund = fundResult.rows[0];
+    const isCircleBudget = fund.group_id === null;
+
+    // Check if user can edit/delete direct expenses
+    let canManageDirectExpenses = false;
+    if (isCircleBudget) {
+      canManageDirectExpenses = user.isCircleTreasurer;
+    } else {
+      canManageDirectExpenses = user.isCircleTreasurer || 
+        (user.isGroupTreasurer && user.groupIds.includes(fund.group_id));
+    }
+
     // Get all reimbursements for the fund in the specified month
-    const result = await pool.query(
+    const reimbursementsResult = await pool.query(
       `SELECT 
-         r.id,
-         r.fund_id,
+         'reimbursement' as type,
+         'r-' || r.id as id,
          r.user_id as submitter_id,
          u_submitter.full_name as submitter_name,
          r.recipient_user_id,
          u_recipient.full_name as recipient_name,
          r.amount,
          r.description,
-         r.expense_date,
+         r.expense_date as date,
          r.status,
          r.receipt_url
        FROM reimbursements r
@@ -429,21 +458,59 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
       [fundId, year, month]
     );
 
-    const expenses = result.rows.map(row => ({
-      id: row.id,
-      fund_id: row.fund_id,
-      submitter_id: row.submitter_id,
-      submitter_name: row.submitter_name,
-      recipient_id: row.recipient_user_id || row.submitter_id,
-      recipient_name: row.recipient_name || row.submitter_name,
-      amount: Number(row.amount),
-      description: row.description,
-      expense_date: row.expense_date,
-      status: row.status,
-      receipt_url: row.receipt_url
-    }));
+    // Get all direct expenses for the fund in the specified month
+    const directExpensesResult = await pool.query(
+      `SELECT 
+         'direct_expense' as type,
+         'de-' || de.id as id,
+         de.created_by as submitter_id,
+         de.payee,
+         de.amount,
+         de.description,
+         de.expense_date as date,
+         de.receipt_url
+       FROM direct_expenses de
+       WHERE de.fund_id = $1
+         AND EXTRACT(YEAR FROM de.expense_date) = $2
+         AND EXTRACT(MONTH FROM de.expense_date) = $3
+       ORDER BY de.expense_date DESC, de.created_at DESC`,
+      [fundId, year, month]
+    );
 
-    res.json(expenses);
+    // Combine and format expenses
+    const expenses = [
+      ...reimbursementsResult.rows.map(row => ({
+        id: row.id,
+        type: 'reimbursement',
+        submitter: row.submitter_name,
+        recipient: row.recipient_name || row.submitter_name,
+        amount: Number(row.amount),
+        description: row.description,
+        date: row.date,
+        status: row.status,
+        receiptUrl: row.receipt_url,
+        canEdit: false,
+        canDelete: false
+      })),
+      ...directExpensesResult.rows.map(row => ({
+        id: row.id,
+        type: 'direct_expense',
+        submitter: 'הוצאה ישירה',
+        recipient: row.payee,
+        amount: Number(row.amount),
+        description: row.description,
+        date: row.date,
+        status: null,
+        receiptUrl: row.receipt_url,
+        canEdit: canManageDirectExpenses,
+        canDelete: canManageDirectExpenses
+      }))
+    ];
+
+    // Sort by date descending
+    expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    res.json({ expenses });
   } catch (error) {
     console.error('Get monthly expenses error:', error);
     res.status(500).json({ error: 'Failed to get monthly expenses' });
@@ -563,14 +630,18 @@ export async function getDashboardMonthlyStatus(req: Request, res: Response) {
           ? allocationResult.rows[0].allocation_type 
           : undefined;
 
-        // Calculate spent amount (approved and paid reimbursements)
+        // Calculate spent amount (approved and paid reimbursements + direct expenses)
         const spentResult = await pool.query(
-          `SELECT COALESCE(SUM(amount), 0) as spent_amount
-           FROM reimbursements
-           WHERE fund_id = $1
-             AND EXTRACT(YEAR FROM expense_date) = $2
-             AND EXTRACT(MONTH FROM expense_date) = $3
-             AND status IN ('approved', 'paid')`,
+          `SELECT 
+             (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
+              WHERE fund_id = $1
+                AND EXTRACT(YEAR FROM expense_date) = $2
+                AND EXTRACT(MONTH FROM expense_date) = $3
+                AND status IN ('approved', 'paid')) +
+             (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+              WHERE fund_id = $1
+                AND EXTRACT(YEAR FROM expense_date) = $2
+                AND EXTRACT(MONTH FROM expense_date) = $3) as spent_amount`,
           [fund.id, currentYear, currentMonth]
         );
 

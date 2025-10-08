@@ -26,9 +26,11 @@ backend/
 │   │   ├── authController.ts
 │   │   ├── budgetController.ts
 │   │   ├── chargeController.ts
+│   │   ├── expectedIncomeController.ts
 │   │   ├── fundController.ts
 │   │   ├── fundMonthlyAllocationController.ts
 │   │   ├── groupController.ts
+│   │   ├── incomeCategoryController.ts
 │   │   ├── incomeController.ts
 │   │   ├── paymentTransferController.ts
 │   │   ├── plannedExpenseController.ts
@@ -48,8 +50,10 @@ backend/
 │   │   ├── budgetRoutes.ts
 │   │   ├── chargeRoutes.ts
 │   │   ├── dashboardRoutes.ts
+│   │   ├── expectedIncomeRoutes.ts
 │   │   ├── fundRoutes.ts
 │   │   ├── groupRoutes.ts
+│   │   ├── incomeCategoryRoutes.ts
 │   │   ├── incomeRoutes.ts
 │   │   ├── paymentTransferRoutes.ts
 │   │   ├── plannedExpenseRoutes.ts
@@ -76,10 +80,16 @@ frontend/
 │   │   ├── BudgetCard.tsx
 │   │   ├── BudgetForm.tsx
 │   │   ├── Button.tsx
+│   │   ├── CategoryManager.tsx
+│   │   ├── ComparisonTable.tsx
+│   │   ├── ExpectedIncomeFormModal.tsx
+│   │   ├── ExpectedIncomeTable.tsx
 │   │   ├── FilterBar.tsx
 │   │   ├── FundCard.tsx
 │   │   ├── FundForm.tsx
 │   │   ├── GroupFormModal.tsx
+│   │   ├── IncomeFormModal.tsx
+│   │   ├── IncomeTable.tsx
 │   │   ├── Modal.tsx
 │   │   ├── MonthNavigator.tsx
 │   │   ├── MonthlyAllocationManager.tsx
@@ -102,6 +112,7 @@ frontend/
 │   │   ├── Dashboard.tsx
 │   │   ├── FundMonthlyDetail.tsx # Monthly fund detail page with allocation management
 │   │   ├── GroupManagement.tsx
+│   │   ├── Incomes.tsx           # Comprehensive income tracking page with actual, expected, and comparison sections
 │   │   ├── Login.tsx
 │   │   ├── MyReimbursements.tsx
 │   │   ├── NewCharge.tsx
@@ -136,7 +147,12 @@ frontend/
 - **reimbursements**: Member expense reimbursement requests (enhanced with recipient_user_id and payment_transfer_id)
 - **payment_transfers**: Grouped approved reimbursements by recipient and budget type for payment execution
 - **charges**: User debts to circle/group that offset reimbursements
-- **incomes**: Revenue and income tracking
+- **direct_expenses**: Direct expenses from funds that are not reimbursements to members
+- **incomes**: Revenue and income tracking (actual income received)
+- **income_categories**: Custom categories for organizing income entries
+- **income_category_assignments**: Many-to-many relationship between incomes and categories
+- **expected_incomes**: Planned/expected income with annual and monthly planning support
+- **expected_income_category_assignments**: Many-to-many relationship between expected incomes and categories
 
 ### Enhanced Reimbursements Table
 The reimbursements table includes:
@@ -170,6 +186,18 @@ New table for tracking user debts:
 - `charge_date`: Date of the charge
 - `status`: active/settled/cancelled
 
+### Direct Expenses Table
+New table for tracking direct expenses from funds:
+- `fund_id`: Associated fund for the expense
+- `amount`: Expense amount (positive value)
+- `description`: Expense description
+- `expense_date`: Date of the expense
+- `payee`: Who received the payment (free text, not user_id)
+- `receipt_url`: Optional link to receipt/invoice
+- `created_by`: Treasurer who created the expense
+- `created_at`: Timestamp when expense was created
+- `updated_at`: Timestamp when expense was last updated
+
 ### Fund Monthly Allocations Table
 Table for tracking monthly budget allocations per fund:
 - `fund_id`: Associated fund for the allocation
@@ -190,6 +218,47 @@ Audit trail table for tracking all allocation changes:
 - `changed_by`: User ID who made the change
 - `changed_at`: Timestamp of the change
 - `change_type`: Type of change (created/updated/deleted)
+
+### Income Categories Table
+Custom categories for organizing income entries:
+- `id`: Primary key
+- `name`: Category name (unique)
+- `description`: Optional category description
+- `color`: Hex color code for visual identification (e.g., #FF5733)
+- `created_by`: User who created the category
+- `created_at`: Timestamp when category was created
+- `updated_at`: Timestamp when category was last updated
+
+### Income Category Assignments Table
+Many-to-many relationship between incomes and categories:
+- `income_id`: Reference to income entry
+- `category_id`: Reference to income category
+- `assigned_at`: Timestamp when category was assigned
+- Primary key: (income_id, category_id)
+
+### Expected Incomes Table
+Planned/expected income with annual and monthly planning:
+- `id`: Primary key
+- `budget_id`: Associated budget
+- `user_id`: User who is the income source (NULL for "מקור אחר")
+- `source_name`: Display name of income source (user name or "מקור אחר")
+- `amount`: Expected income amount
+- `description`: Optional description
+- `year`: Year of expected income
+- `month`: Month of expected income (1-12)
+- `frequency`: Income frequency (one-time, monthly, quarterly, annual)
+- `parent_annual_id`: Reference to parent annual plan (for auto-generated monthly entries)
+- `is_manual`: Boolean indicating if manually added (true) or auto-generated from annual plan (false)
+- `created_by`: User who created the expected income
+- `created_at`: Timestamp when created
+- `updated_at`: Timestamp when last updated
+
+### Expected Income Category Assignments Table
+Many-to-many relationship between expected incomes and categories:
+- `expected_income_id`: Reference to expected income entry
+- `category_id`: Reference to income category
+- `assigned_at`: Timestamp when category was assigned
+- Primary key: (expected_income_id, category_id)
 
 ## API Endpoints
 
@@ -219,11 +288,17 @@ Audit trail table for tracking all allocation changes:
 - `PATCH /api/charges/:id` - Update charge (owner only, active only)
 - `DELETE /api/charges/:id` - Delete charge (owner only, active only)
 
+### Direct Expense Endpoints (New)
+- `GET /api/direct-expenses/:id` - Get direct expense by ID
+- `POST /api/direct-expenses` - Create new direct expense (treasurer only, with fund access validation)
+- `PATCH /api/direct-expenses/:id` - Update direct expense (treasurer only, with fund access validation)
+- `DELETE /api/direct-expenses/:id` - Delete direct expense (treasurer only, with fund access validation)
+
 ### Fund Endpoints (Enhanced)
 - `GET /api/funds` - List all funds
 - `GET /api/funds/accessible` - Get funds grouped by budget with access control
 - `GET /api/funds/:fundId/monthly-status/:year/:month` - Get monthly status for a fund
-- `GET /api/funds/:fundId/monthly-expenses/:year/:month` - Get monthly expenses for a fund
+- `GET /api/funds/:fundId/monthly-expenses/:year/:month` - Get monthly expenses for a fund (returns unified list of reimbursements and direct expenses)
 - `GET /api/funds/:fundId/monthly-planned/:year/:month` - Get monthly planned expenses for a fund
 - `GET /api/funds/:fundId/allocation-history` - Get allocation change history for a fund
 
@@ -245,12 +320,40 @@ Audit trail table for tracking all allocation changes:
 - `PATCH /api/planned-expenses/:id` - Update planned expense (owner only)
 - `DELETE /api/planned-expenses/:id` - Delete planned expense (owner only)
 
+### Income Category Endpoints (New)
+- `GET /api/income-categories` - Get all income categories
+- `POST /api/income-categories` - Create new category (treasurer only)
+- `PATCH /api/income-categories/:id` - Update category (treasurer only)
+- `DELETE /api/income-categories/:id` - Delete category with usage check (treasurer only)
+
+### Income Endpoints (Enhanced)
+- `GET /api/incomes` - Get all incomes with filters (date, source, category, year, month)
+- `GET /api/incomes/:id` - Get single income by ID
+- `POST /api/incomes` - Create new income (treasurer only)
+- `PATCH /api/incomes/:id` - Update income (treasurer only)
+- `DELETE /api/incomes/:id` - Delete income (treasurer only)
+- `POST /api/incomes/:id/categories` - Assign categories to income
+- `DELETE /api/incomes/:id/categories/:catId` - Remove category from income
+
+### Expected Income Endpoints (New)
+- `GET /api/expected-incomes` - Get expected incomes with filters (budget, year, month, source, category, frequency)
+- `GET /api/expected-incomes/:id` - Get single expected income by ID
+- `POST /api/expected-incomes/annual` - Create annual income planning (treasurer only)
+- `POST /api/expected-incomes/monthly` - Create monthly expected income (treasurer only)
+- `PATCH /api/expected-incomes/:id` - Update expected income (treasurer only)
+- `DELETE /api/expected-incomes/:id` - Delete expected income (treasurer only)
+- `POST /api/expected-incomes/:id/categories` - Assign categories to expected income
+- `DELETE /api/expected-incomes/:id/categories/:catId` - Remove category from expected income
+
+### Income Comparison Endpoints (New)
+- `GET /api/incomes/comparison/monthly/:year/:month` - Get monthly comparison between expected and actual income
+- `GET /api/incomes/dashboard/summary` - Get dashboard summary for current month
+
 ### Other Endpoints
 - Authentication: `/api/auth/*`
 - Budgets: `/api/budgets/*`
 - Groups: `/api/groups/*`
 - Users: `/api/users/*`
-- Incomes: `/api/incomes/*`
 - Reports: `/api/reports/*`
 
 ## Treasurer Payment Management Components
@@ -405,6 +508,89 @@ Full page for monthly fund detail and management:
 - "היסטוריית הקצאות" button (treasurer only) - opens AllocationHistoryModal
 - Real-time data loading per selected month
 - Access control based on fund permissions
+
+### Income Tracking Components (New)
+
+#### CategoryManager.tsx
+Component for managing income categories (treasurer only):
+- List of all income categories with edit/delete actions
+- Add new category form with name, description, and color picker
+- Category usage statistics (number of incomes per category)
+- Delete confirmation with usage warning
+- Color-coded category badges
+- Hebrew labels and RTL support
+
+#### IncomeTable.tsx
+Advanced table component for displaying actual income entries:
+- Columns: date, source, description, amount, categories, actions
+- Sortable columns (click header to sort)
+- Filter controls (date range, source, category)
+- Category badges with custom colors
+- Edit and delete actions (treasurer only)
+- Receipt/document link if available
+- Responsive grid layout
+- Hebrew RTL support
+
+#### IncomeFormModal.tsx
+Modal form for adding/editing actual income:
+- Amount input with validation (positive numbers only)
+- Date picker for income date
+- Description text field
+- Source selection: member dropdown or "מקור אחר" (other source)
+- Multi-select for categories with color-coded badges
+- Save and cancel actions
+- Validation and error messages in Hebrew
+- RTL-friendly layout
+
+#### ExpectedIncomeTable.tsx
+Table component for displaying expected income entries:
+- Columns: source, amount, description, frequency, categories, type (manual/automatic), actions
+- Visual distinction between manual and automatic entries
+- Sortable columns
+- Edit and delete actions with appropriate warnings
+- Category badges
+- Frequency indicators (one-time, monthly, quarterly, annual)
+- Hebrew labels and RTL support
+
+#### ExpectedIncomeFormModal.tsx
+Modal form for adding/editing expected income:
+- Planning level selector: annual or monthly
+- Amount input with validation
+- Source selection (member or other source)
+- Description text field
+- Frequency selector (for annual planning): one-time, monthly, quarterly, annual
+- Month selector (for one-time or monthly planning)
+- Year selector
+- Multi-select for categories
+- Automatic breakdown preview (for annual planning)
+- Save and cancel actions
+- Validation and Hebrew error messages
+
+#### ComparisonTable.tsx
+Table component for income comparison (expected vs actual):
+- Columns: source, expected amount, actual amount, difference, fulfillment percentage, status
+- Color-coded status indicators:
+  - Red (אדום): Not received (0% fulfillment)
+  - Orange (כתום): Partial (1-99% fulfillment)
+  - Green (ירוק): Full or exceeded (100%+ fulfillment)
+- Sortable columns
+- Filter by category or source
+- Summary row with totals
+- Percentage calculations
+- Hebrew labels and RTL support
+
+#### Incomes.tsx
+Comprehensive income tracking page with multiple sections:
+- **Header**: Page title "הכנסות" with action buttons (Add Income, Manage Categories)
+- **Section 1 - Actual Income**: IncomeTable with filters and actions
+- **Section 2 - Annual Planning**: Year selector, ExpectedIncomeTable, add annual planning button
+- **Section 3 - Monthly Planning**: MonthNavigator, ExpectedIncomeTable for selected month, add monthly income button
+- **Section 4 - Comparison**: MonthNavigator, summary card, ComparisonTable with filters
+- All sections in single scrollable page (similar to Payments.tsx structure)
+- Access control: treasurer-only actions, member view of own income
+- Real-time data updates after actions
+- Toast notifications for success/error messages
+- Hebrew interface with RTL layout
 
 ## Key Configuration Files
 

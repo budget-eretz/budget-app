@@ -342,3 +342,32 @@ export interface FundAllocationHistory {
   changeType: 'created' | 'updated' | 'deleted';
   changedByName?: string;
 }
+
+export interface DirectExpense {
+  id: number;
+  fundId: number;
+  fundName?: string;
+  amount: number;
+  description: string;
+  expenseDate: string;
+  payee: string;
+  receiptUrl?: string;
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyExpense {
+  id: string;
+  type: 'reimbursement' | 'direct_expense';
+  submitter: string;
+  recipient: string;
+  amount: number;
+  description: string;
+  date: string;
+  status: string | null;
+  receiptUrl: string | null;
+  canEdit: boolean;
+  canDelete: boolean;
+}

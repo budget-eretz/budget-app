@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { MonthlyExpenseDetail } from '../types';
+import { MonthlyExpense } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { directExpensesAPI } from '../services/api';
 
 interface MonthlyExpenseTableProps {
-  expenses: MonthlyExpenseDetail[];
-  onViewDetails?: (expense: MonthlyExpenseDetail) => void;
+  expenses: MonthlyExpense[];
+  onRefresh?: () => void;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -22,13 +24,14 @@ interface Column {
   label: string;
   sortable: boolean;
   filterable: boolean;
-  render: (expense: MonthlyExpenseDetail) => React.ReactNode;
+  render: (expense: MonthlyExpense) => React.ReactNode;
 }
 
 export default function MonthlyExpenseTable({
   expenses,
-  onViewDetails,
+  onRefresh,
 }: MonthlyExpenseTableProps) {
+  const navigate = useNavigate();
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
@@ -76,16 +79,16 @@ export default function MonthlyExpenseTable({
         
         switch (columnKey) {
           case 'submitter':
-            value = expense.submitterName || '';
+            value = expense.submitter || '';
             break;
           case 'recipient':
-            value = expense.recipientName || '';
+            value = expense.recipient || '';
             break;
           case 'description':
             value = expense.description;
             break;
           case 'status':
-            value = getStatusLabel(expense.status);
+            value = expense.status ? getStatusLabel(expense.status) : '-';
             break;
           default:
             return true;
@@ -111,24 +114,24 @@ export default function MonthlyExpenseTable({
 
       switch (sortState.column) {
         case 'submitter':
-          aValue = a.submitterName || '';
-          bValue = b.submitterName || '';
+          aValue = a.submitter || '';
+          bValue = b.submitter || '';
           break;
         case 'recipient':
-          aValue = a.recipientName || '';
-          bValue = b.recipientName || '';
+          aValue = a.recipient || '';
+          bValue = b.recipient || '';
           break;
         case 'amount':
           aValue = a.amount;
           bValue = b.amount;
           break;
         case 'expense_date':
-          aValue = new Date(a.expenseDate).getTime();
-          bValue = new Date(b.expenseDate).getTime();
+          aValue = new Date(a.date).getTime();
+          bValue = new Date(b.date).getTime();
           break;
         case 'status':
-          aValue = getStatusLabel(a.status);
-          bValue = getStatusLabel(b.status);
+          aValue = a.status ? getStatusLabel(a.status) : '-';
+          bValue = b.status ? getStatusLabel(b.status) : '-';
           break;
         default:
           return 0;
@@ -156,16 +159,16 @@ export default function MonthlyExpenseTable({
       
       switch (columnKey) {
         case 'submitter':
-          value = expense.submitterName || '';
+          value = expense.submitter || '';
           break;
         case 'recipient':
-          value = expense.recipientName || '';
+          value = expense.recipient || '';
           break;
         case 'description':
           value = expense.description;
           break;
         case 'status':
-          value = getStatusLabel(expense.status);
+          value = expense.status ? getStatusLabel(expense.status) : '-';
           break;
         default:
           return;
@@ -252,14 +255,38 @@ export default function MonthlyExpenseTable({
     }
   };
 
+  const handleDelete = async (expense: MonthlyExpense) => {
+    if (!window.confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
+      return;
+    }
+
+    try {
+      const expenseId = expense.id.replace('de-', '');
+      await directExpensesAPI.delete(parseInt(expenseId));
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Error deleting direct expense:', error);
+      alert('שגיאה במחיקת הוצאה');
+    }
+  };
+
+  const handleEdit = (expense: MonthlyExpense) => {
+    const expenseId = expense.id.replace('de-', '');
+    navigate(`/direct-expenses/${expenseId}/edit`);
+  };
+
   const columns: Column[] = [
     {
       key: 'submitter',
       label: 'מגיש',
       sortable: true,
       filterable: true,
-      render: (expense: MonthlyExpenseDetail) => (
-        <span>{expense.submitterName || '-'}</span>
+      render: (expense: MonthlyExpense) => (
+        <span style={expense.type === 'direct_expense' ? styles.directExpenseLabel : {}}>
+          {expense.submitter || '-'}
+        </span>
       ),
     },
     {
@@ -267,10 +294,8 @@ export default function MonthlyExpenseTable({
       label: 'מקבל תשלום',
       sortable: true,
       filterable: true,
-      render: (expense: MonthlyExpenseDetail) => (
-        <span style={expense.recipientId !== expense.submitterId ? styles.differentRecipient : {}}>
-          {expense.recipientName || '-'}
-        </span>
+      render: (expense: MonthlyExpense) => (
+        <span>{expense.recipient || '-'}</span>
       ),
     },
     {
@@ -278,7 +303,7 @@ export default function MonthlyExpenseTable({
       label: 'תיאור',
       sortable: false,
       filterable: true,
-      render: (expense: MonthlyExpenseDetail) => (
+      render: (expense: MonthlyExpense) => (
         <span style={styles.description} title={expense.description}>
           {expense.description}
         </span>
@@ -289,7 +314,7 @@ export default function MonthlyExpenseTable({
       label: 'סכום',
       sortable: true,
       filterable: false,
-      render: (expense: MonthlyExpenseDetail) => (
+      render: (expense: MonthlyExpense) => (
         <span style={styles.amount}>{formatCurrency(expense.amount)}</span>
       ),
     },
@@ -298,8 +323,8 @@ export default function MonthlyExpenseTable({
       label: 'תאריך',
       sortable: true,
       filterable: false,
-      render: (expense: MonthlyExpenseDetail) => (
-        <span>{formatDate(expense.expenseDate)}</span>
+      render: (expense: MonthlyExpense) => (
+        <span>{formatDate(expense.date)}</span>
       ),
     },
     {
@@ -307,10 +332,14 @@ export default function MonthlyExpenseTable({
       label: 'סטטוס',
       sortable: true,
       filterable: true,
-      render: (expense: MonthlyExpenseDetail) => (
-        <span style={getStatusStyle(expense.status)}>
-          {getStatusLabel(expense.status)}
-        </span>
+      render: (expense: MonthlyExpense) => (
+        expense.status ? (
+          <span style={getStatusStyle(expense.status)}>
+            {getStatusLabel(expense.status)}
+          </span>
+        ) : (
+          <span>-</span>
+        )
       ),
     },
     {
@@ -318,11 +347,11 @@ export default function MonthlyExpenseTable({
       label: 'פעולות',
       sortable: false,
       filterable: false,
-      render: (expense: MonthlyExpenseDetail) => (
+      render: (expense: MonthlyExpense) => (
         <div style={styles.actionsCell}>
           {expense.receiptUrl && (
             <button
-              onClick={() => window.open(expense.receiptUrl, '_blank')}
+              onClick={() => window.open(expense.receiptUrl || '', '_blank')}
               style={styles.actionBtn}
               className="action-btn receipt-btn"
               title="צפה בקבלה"
@@ -331,15 +360,26 @@ export default function MonthlyExpenseTable({
               📄
             </button>
           )}
-          {onViewDetails && (
+          {expense.type === 'direct_expense' && expense.canEdit && (
             <button
-              onClick={() => onViewDetails(expense)}
+              onClick={() => handleEdit(expense)}
               style={styles.actionBtn}
-              className="action-btn details-btn"
-              title="פרטים"
-              aria-label="הצג פרטים"
+              className="action-btn edit-btn"
+              title="ערוך"
+              aria-label="ערוך הוצאה"
             >
-              👁️
+              ✏️
+            </button>
+          )}
+          {expense.type === 'direct_expense' && expense.canDelete && (
+            <button
+              onClick={() => handleDelete(expense)}
+              style={styles.actionBtn}
+              className="action-btn delete-btn"
+              title="מחק"
+              aria-label="מחק הוצאה"
+            >
+              🗑️
             </button>
           )}
         </div>
@@ -605,6 +645,10 @@ const styles: Record<string, React.CSSProperties> = {
   differentRecipient: {
     color: '#667eea',
     fontWeight: '600',
+  },
+  directExpenseLabel: {
+    fontWeight: '700',
+    color: '#2d3748',
   },
   description: {
     maxWidth: '250px',
