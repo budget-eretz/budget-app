@@ -1,16 +1,11 @@
 services:
-  # PostgreSQL Database
-  - type: pserv
-    name: budget-app-db
-    plan: free
-    region: frankfurt
-
   # Backend API
   - type: web
     name: budget-app-backend
-    env: node
+    runtime: node
     plan: free
     region: frankfurt
+    branch: main
     buildCommand: cd backend && npm install && npm run build
     startCommand: cd backend && npm start
     envVars:
@@ -24,15 +19,20 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
-    healthCheckPath: /health
 
   # Frontend (Static Site)
   - type: web
     name: budget-app-frontend
-    env: static
+    runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite
         source: /api/*
         destination: https://budget-app-backend.onrender.com/api/*
+
+databases:
+  # PostgreSQL Database
+  - name: budget-app-db
+    plan: free
+    region: frankfurt
