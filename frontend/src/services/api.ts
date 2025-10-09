@@ -1,8 +1,10 @@
 import axios from 'axios';
 
-// Use backend URL directly - in Docker it's accessible on host
+// Use backend URL - environment variable or default to production
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://budget-app-backend-r7x1.onrender.com/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:4567/api',
+  baseURL: API_BASE_URL,
 });
 
 // Add token to requests
