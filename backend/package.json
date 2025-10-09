@@ -25,10 +25,10 @@
     "@types/pg": "^8.10.9",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.5",
-    "@types/cors": "^2.8.17"
-  },
-  "devDependencies": {
+    "@types/cors": "^2.8.17",
     "tsx": "^4.7.0",
     "node-pg-migrate": "^6.2.2"
+  },
+  "devDependencies": {
   }
 }
