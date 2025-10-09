@@ -93,6 +93,63 @@ app.post('/run-migrations-temp-endpoint-delete-me', async (req, res) => {
   }
 });
 
+// Temporary admin user creation endpoint (remove after first use!)
+app.post('/create-admin-temp-endpoint-delete-me', async (req, res) => {
+  try {
+    const bcrypt = await import('bcrypt');
+    const { email, password, fullName, phone } = req.body;
+    
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email, password, and fullName are required' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      // Check if user already exists
+      const existingUser = await client.query(
+        'SELECT id FROM users WHERE email = $1',
+        [email]
+      );
+
+      if (existingUser.rows.length > 0) {
+        client.release();
+        return res.status(400).json({ 
+          success: false, 
+          error: 'User with this email already exists' 
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create admin user
+      const result = await client.query(
+        `INSERT INTO users (email, password, full_name, phone, is_circle_treasurer, is_group_treasurer, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, true, false, NOW(), NOW())
+         RETURNING id, email, full_name, is_circle_treasurer, is_group_treasurer`,
+        [email, hashedPassword, fullName, phone || null]
+      );
+
+      client.release();
+      
+      res.json({ 
+        success: true, 
+        message: 'Admin user created successfully',
+        user: result.rows[0]
+      });
+    } catch (error) {
+      client.release();
+      throw error;
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/budgets', budgetRoutes);
