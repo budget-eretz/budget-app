@@ -128,7 +128,7 @@ app.post('/create-admin-temp-endpoint-delete-me', async (req, res) => {
 
       // Create admin user
       const result = await client.query(
-        `INSERT INTO users (email, password, full_name, phone, is_circle_treasurer, is_group_treasurer, created_at, updated_at)
+        `INSERT INTO users (email, password_hash, full_name, phone, is_circle_treasurer, is_group_treasurer, created_at, updated_at)
          VALUES ($1, $2, $3, $4, true, false, NOW(), NOW())
          RETURNING id, email, full_name, is_circle_treasurer, is_group_treasurer`,
         [email, hashedPassword, fullName, phone || null]
