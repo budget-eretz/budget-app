@@ -3,10 +3,7 @@ services:
   - type: pserv
     name: budget-app-db
     plan: free
-    env: docker
     region: frankfurt
-    databaseName: budget_app
-    databaseUser: budget_app_user
 
   # Backend API
   - type: web
