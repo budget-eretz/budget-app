@@ -30,8 +30,6 @@ services:
   - type: web
     name: budget-app-frontend
     env: static
-    plan: free
-    region: frankfurt
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: ./frontend/dist
     routes:
