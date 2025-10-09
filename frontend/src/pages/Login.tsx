@@ -62,14 +62,6 @@ export default function Login() {
             {loading ? 'מתחבר...' : 'התחבר'}
           </button>
         </form>
-
-        <div style={styles.demo}>
-          <p><strong>חשבונות לדוגמה:</strong></p>
-          <p>גזבר מעגלי: treasurer@circle.com</p>
-          <p>גזבר קבוצתי: treasurer@north.com</p>
-          <p>חבר: member1@circle.com</p>
-          <p style={{ marginTop: '8px', fontSize: '14px' }}>סיסמה לכולם: password123</p>
-        </div>
       </div>
     </div>
   );
