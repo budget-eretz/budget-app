@@ -70,7 +70,7 @@ export async function register(req: Request, res: Response) {
       groupIds: userGroupIds
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -138,7 +138,7 @@ export async function login(req: Request, res: Response) {
       groupIds: userGroupIds
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN as any });
 
     res.json({
       message: 'Login successful',
