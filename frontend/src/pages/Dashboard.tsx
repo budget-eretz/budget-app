@@ -362,6 +362,49 @@ export default function Dashboard() {
           </section>
         )}
 
+        {/* My Recent Reimbursements */}
+        <section style={styles.section}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={styles.sectionTitle}>ההחזרים שלי</h2>
+            <Button variant="primary" size="sm" onClick={() => navigate('/reimbursements/new')}>
+              + הגש בקשת החזר
+            </Button>
+          </div>
+          {dashboard.myReimbursements.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p>לא הגשת עדיין בקשות החזר</p>
+              <Button variant="primary" onClick={() => navigate('/reimbursements/new')}>
+                הגש בקשה ראשונה
+              </Button>
+            </div>
+          ) : (
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>קופה</th>
+                    <th style={styles.th}>תיאור</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>סטטוס</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboard.myReimbursements.slice(0, 5).map(reimb => (
+                    <tr key={reimb.id} style={styles.tableRow}>
+                      <td style={styles.td}>{reimb.fund_name}</td>
+                      <td style={styles.td}>{reimb.description}</td>
+                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+                      <td style={styles.td}>
+                        <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
         {/* My Planned Expenses - Current Month */}
         <section style={styles.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -449,49 +492,6 @@ export default function Dashboard() {
               </div>
             );
           })()}
-        </section>
-
-        {/* My Recent Reimbursements */}
-        <section style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>ההחזרים שלי</h2>
-            <Button variant="primary" size="sm" onClick={() => navigate('/reimbursements/new')}>
-              + הגש בקשת החזר
-            </Button>
-          </div>
-          {dashboard.myReimbursements.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p>לא הגשת עדיין בקשות החזר</p>
-              <Button variant="primary" onClick={() => navigate('/reimbursements/new')}>
-                הגש בקשה ראשונה
-              </Button>
-            </div>
-          ) : (
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>קופה</th>
-                    <th style={styles.th}>תיאור</th>
-                    <th style={styles.th}>סכום</th>
-                    <th style={styles.th}>סטטוס</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.myReimbursements.slice(0, 5).map(reimb => (
-                    <tr key={reimb.id} style={styles.tableRow}>
-                      <td style={styles.td}>{reimb.fund_name}</td>
-                      <td style={styles.td}>{reimb.description}</td>
-                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
-                      <td style={styles.td}>
-                        <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
       </div>
 
