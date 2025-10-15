@@ -13,12 +13,16 @@ export default function NewCharge() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Check if we're editing an existing charge
+  const editingCharge = (location.state as any)?.charge;
+  const isEditing = !!editingCharge;
 
   const [formData, setFormData] = useState({
-    fundId: '',
-    amount: '',
-    description: '',
-    chargeDate: new Date().toISOString().split('T')[0],
+    fundId: editingCharge?.fund_id?.toString() || '',
+    amount: editingCharge?.amount?.toString() || '',
+    description: editingCharge?.description || '',
+    chargeDate: editingCharge?.charge_date || new Date().toISOString().split('T')[0],
   });
 
   useEffect(() => {
@@ -26,16 +30,18 @@ export default function NewCharge() {
   }, []);
 
   useEffect(() => {
-    // Handle pre-selected fund from navigation (query param or state)
-    const params = new URLSearchParams(location.search);
-    const fundIdFromQuery = params.get('fundId');
-    const fundIdFromState = (location.state as any)?.fundId;
-    
-    const preSelectedFundId = fundIdFromQuery || fundIdFromState;
-    if (preSelectedFundId) {
-      setFormData(prev => ({ ...prev, fundId: preSelectedFundId }));
+    // Handle pre-selected fund from navigation (query param or state) - only if not editing
+    if (!isEditing) {
+      const params = new URLSearchParams(location.search);
+      const fundIdFromQuery = params.get('fundId');
+      const fundIdFromState = (location.state as any)?.fundId;
+      
+      const preSelectedFundId = fundIdFromQuery || fundIdFromState;
+      if (preSelectedFundId) {
+        setFormData(prev => ({ ...prev, fundId: preSelectedFundId }));
+      }
     }
-  }, [location, budgets]);
+  }, [location, budgets, isEditing]);
 
   const loadData = async () => {
     try {
@@ -68,17 +74,26 @@ export default function NewCharge() {
 
     setSubmitting(true);
     try {
-      await chargesAPI.create({
-        fundId: parseInt(formData.fundId),
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        chargeDate: formData.chargeDate,
-      });
+      if (isEditing) {
+        await chargesAPI.update(editingCharge.id, {
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          chargeDate: formData.chargeDate,
+        });
+        showToast('החיוב עודכן בהצלחה', 'success');
+      } else {
+        await chargesAPI.create({
+          fundId: parseInt(formData.fundId),
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          chargeDate: formData.chargeDate,
+        });
+        showToast('החיוב הוגש בהצלחה', 'success');
+      }
 
-      showToast('החיוב הוגש בהצלחה', 'success');
       navigate('/my-reimbursements');
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בהגשת החיוב', 'error');
+      showToast(error.response?.data?.error || `שגיאה ב${isEditing ? 'עדכון' : 'הגשת'} החיוב`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -98,9 +113,11 @@ export default function NewCharge() {
 
       <div style={styles.content}>
         <div style={styles.pageHeader}>
-          <h1 style={styles.title}>הגשת חיוב</h1>
+          <h1 style={styles.title}>{isEditing ? 'עריכת חיוב' : 'הגשת חיוב'}</h1>
           <p style={styles.explanation}>
-            חיוב הוא סכום שאתה חייב למעגל. החיוב יקוזז מסך ההחזרים שלך ויפחית את הסכום הנטו שמגיע לך.
+            {isEditing 
+              ? 'ערוך את פרטי החיוב. ניתן לערוך רק חיובים ממתינים לאישור.'
+              : 'חיוב הוא סכום שאתה חייב למעגל. החיוב יקוזז מסך ההחזרים שלך ויפחית את הסכום הנטו שמגיע לך.'}
           </p>
         </div>
         <div style={styles.formCard}>
@@ -113,7 +130,8 @@ export default function NewCharge() {
                 value={formData.fundId}
                 onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
                 required
-                style={styles.select}
+                disabled={isEditing}
+                style={{...styles.select, ...(isEditing ? {background: '#f7fafc', cursor: 'not-allowed'} : {})}}
               >
                 <option value="">-- בחר קופה --</option>
                 {budgets.length === 0 ? (
@@ -133,6 +151,11 @@ export default function NewCharge() {
                   ))
                 )}
               </select>
+              {isEditing && (
+                <span style={{fontSize: '12px', color: '#718096'}}>
+                  לא ניתן לשנות קופה בעריכה
+                </span>
+              )}
             </div>
 
             <div style={styles.field}>
@@ -189,7 +212,7 @@ export default function NewCharge() {
                 ביטול
               </Button>
               <Button type="submit" variant="primary" isLoading={submitting}>
-                הגש חיוב
+                {isEditing ? 'עדכן חיוב' : 'הגש חיוב'}
               </Button>
             </div>
           </form>

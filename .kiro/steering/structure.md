@@ -282,11 +282,19 @@ Many-to-many relationship between expected incomes and categories:
 - `GET /api/payment-transfers/:id` - Get transfer details with all associated reimbursements
 - `POST /api/payment-transfers/:id/execute` - Execute a payment transfer (marks all reimbursements as paid)
 
-### Charge Endpoints (New)
+### Charge Endpoints (Enhanced with Approval Workflow)
 - `GET /api/charges/my` - Get user's charges
-- `POST /api/charges` - Create new charge
-- `PATCH /api/charges/:id` - Update charge (owner only, active only)
-- `DELETE /api/charges/:id` - Delete charge (owner only, active only)
+- `GET /api/charges` - List all charges (filtered by access control)
+- `GET /api/charges/:id` - Get charge by ID
+- `GET /api/charges/treasurer/all` - Get all charges grouped by status (treasurer only, filtered by budget type)
+- `POST /api/charges` - Create new charge (status: pending)
+- `POST /api/charges/:id/mark-review` - Mark single charge for review (treasurer only)
+- `POST /api/charges/:id/return-to-pending` - Return charge from review to pending (treasurer only)
+- `POST /api/charges/batch/approve` - Batch approve charges (treasurer only, associates with payment transfer)
+- `POST /api/charges/batch/reject` - Batch reject charges with reason (treasurer only)
+- `POST /api/charges/batch/mark-review` - Batch mark charges for review (treasurer only)
+- `PATCH /api/charges/:id` - Update charge (owner only, pending only)
+- `DELETE /api/charges/:id` - Delete charge (owner only, pending only)
 
 ### Direct Expense Endpoints (New)
 - `GET /api/direct-expenses/:id` - Get direct expense by ID

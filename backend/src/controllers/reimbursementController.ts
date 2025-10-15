@@ -373,11 +373,11 @@ export async function getMySummary(req: Request, res: Response) {
       [user.userId]
     );
 
-    // Calculate total active charges
+    // Calculate total pending charges (new approval workflow)
     const chargesResult = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total_charges
        FROM charges
-       WHERE user_id = $1 AND status = 'active'`,
+       WHERE user_id = $1 AND status = 'pending'`,
       [user.userId]
     );
 

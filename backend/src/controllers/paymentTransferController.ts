@@ -132,7 +132,8 @@ export async function getPaymentTransferById(req: Request, res: Response) {
         f.budget_id,
         submitter.full_name as user_name,
         recipient.full_name as recipient_name,
-        reviewer.full_name as reviewer_name
+        reviewer.full_name as reviewer_name,
+        'reimbursement' as item_type
       FROM reimbursements r
       JOIN funds f ON r.fund_id = f.id
       JOIN users submitter ON r.user_id = submitter.id
@@ -143,9 +144,45 @@ export async function getPaymentTransferById(req: Request, res: Response) {
       [id]
     );
 
+    // Get associated charges
+    const chargesResult = await pool.query(
+      `SELECT 
+        c.id,
+        c.fund_id,
+        c.user_id,
+        c.user_id as recipient_user_id,
+        -c.amount as amount,
+        c.description,
+        c.charge_date as expense_date,
+        NULL as receipt_url,
+        c.status,
+        c.reviewed_by,
+        c.reviewed_at,
+        c.notes,
+        c.created_at,
+        c.updated_at,
+        f.name as fund_name,
+        f.budget_id,
+        u.full_name as user_name,
+        u.full_name as recipient_name,
+        reviewer.full_name as reviewer_name,
+        'charge' as item_type
+      FROM charges c
+      JOIN funds f ON c.fund_id = f.id
+      JOIN users u ON c.user_id = u.id
+      LEFT JOIN users reviewer ON c.reviewed_by = reviewer.id
+      WHERE c.payment_transfer_id = $1
+      ORDER BY c.charge_date DESC`,
+      [id]
+    );
+
+    // Combine reimbursements and charges
+    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows]
+      .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
+
     const transferDetails: PaymentTransferDetails = {
       ...transfer,
-      reimbursements: reimbursementsResult.rows
+      reimbursements: allItems
     };
 
     res.json(transferDetails);
@@ -222,6 +259,16 @@ export async function executePaymentTransfer(req: Request, res: Response) {
     // Update all associated reimbursements to paid
     await client.query(
       `UPDATE reimbursements
+      SET 
+        status = 'paid',
+        updated_at = NOW()
+      WHERE payment_transfer_id = $1 AND status = 'approved'`,
+      [id]
+    );
+
+    // Update all associated charges to paid
+    await client.query(
+      `UPDATE charges
       SET 
         status = 'paid',
         updated_at = NOW()

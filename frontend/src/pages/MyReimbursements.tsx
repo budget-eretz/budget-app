@@ -17,9 +17,14 @@ export default function MyReimbursements() {
   const [charges, setCharges] = useState<Charge[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; reimbursement: Reimbursement | null }>({
+  const [deleteModal, setDeleteModal] = useState<{ 
+    isOpen: boolean; 
+    type: 'reimbursement' | 'charge';
+    item: Reimbursement | Charge | null;
+  }>({
     isOpen: false,
-    reimbursement: null,
+    type: 'reimbursement',
+    item: null,
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -45,25 +50,34 @@ export default function MyReimbursements() {
     }
   };
 
-  const handleEdit = (reimbursement: Reimbursement) => {
+  const handleEditReimbursement = (reimbursement: Reimbursement) => {
     navigate('/reimbursements/new', { state: { reimbursement } });
   };
 
-  const handleDeleteClick = (reimbursement: Reimbursement) => {
-    setDeleteModal({ isOpen: true, reimbursement });
+  const handleEditCharge = (charge: Charge) => {
+    navigate('/charges/new', { state: { charge } });
+  };
+
+  const handleDeleteClick = (type: 'reimbursement' | 'charge', item: Reimbursement | Charge) => {
+    setDeleteModal({ isOpen: true, type, item });
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteModal.reimbursement) return;
+    if (!deleteModal.item) return;
 
     setDeleteLoading(true);
     try {
-      await reimbursementsAPI.delete(deleteModal.reimbursement.id);
-      showToast('בקשת ההחזר נמחקה בהצלחה', 'success');
-      setDeleteModal({ isOpen: false, reimbursement: null });
+      if (deleteModal.type === 'reimbursement') {
+        await reimbursementsAPI.delete(deleteModal.item.id);
+        showToast('בקשת ההחזר נמחקה בהצלחה', 'success');
+      } else {
+        await chargesAPI.delete(deleteModal.item.id);
+        showToast('החיוב נמחק בהצלחה', 'success');
+      }
+      setDeleteModal({ isOpen: false, type: 'reimbursement', item: null });
       await loadData();
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה במחיקת הבקשה', 'error');
+      showToast(error.response?.data?.error || 'שגיאה במחיקה', 'error');
     } finally {
       setDeleteLoading(false);
     }
@@ -261,10 +275,10 @@ export default function MyReimbursements() {
                       <td style={styles.tableCell}>
                         {reimb.status === 'pending' && (
                           <div style={styles.tableActions}>
-                            <Button variant="secondary" size="sm" onClick={() => handleEdit(reimb)}>
+                            <Button variant="secondary" size="sm" onClick={() => handleEditReimbursement(reimb)}>
                               ערוך
                             </Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDeleteClick(reimb)}>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteClick('reimbursement', reimb)}>
                               מחק
                             </Button>
                           </div>
@@ -291,18 +305,42 @@ export default function MyReimbursements() {
                     <th style={styles.tableHeader}>סכום</th>
                     <th style={styles.tableHeader}>תאריך חיוב</th>
                     <th style={styles.tableHeader}>תאריך יצירה</th>
+                    <th style={styles.tableHeader}>סטטוס</th>
+                    <th style={styles.tableHeader}>פעולות</th>
                   </tr>
                 </thead>
                 <tbody>
                   {charges.map((charge) => (
                     <tr key={charge.id} style={styles.tableRow}>
                       <td style={styles.tableCell}>{charge.fund_name}</td>
-                      <td style={styles.tableCell}>{charge.description}</td>
+                      <td style={styles.tableCell}>
+                        <div style={styles.descriptionCell}>
+                          {charge.description}
+                          {charge.notes && (
+                            <div style={styles.notesText}>{charge.notes}</div>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ ...styles.tableCell, ...styles.chargeAmountCell }}>
                         -{formatCurrency(charge.amount)}
                       </td>
                       <td style={styles.tableCell}>{formatDate(charge.charge_date)}</td>
                       <td style={styles.tableCell}>{formatDate(charge.created_at)}</td>
+                      <td style={styles.tableCell}>
+                        <span style={getStatusStyle(charge.status)}>{getStatusText(charge.status)}</span>
+                      </td>
+                      <td style={styles.tableCell}>
+                        {charge.status === 'pending' && (
+                          <div style={styles.tableActions}>
+                            <Button variant="secondary" size="sm" onClick={() => handleEditCharge(charge)}>
+                              ערוך
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={() => handleDeleteClick('charge', charge)}>
+                              מחק
+                            </Button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -315,29 +353,33 @@ export default function MyReimbursements() {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, reimbursement: null })}
-        title="מחיקת בקשת החזר"
+        onClose={() => setDeleteModal({ isOpen: false, type: 'reimbursement', item: null })}
+        title={deleteModal.type === 'reimbursement' ? 'מחיקת בקשת החזר' : 'מחיקת חיוב'}
         size="sm"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p>האם אתה בטוח שברצונך למחוק את בקשת ההחזר?</p>
-          {deleteModal.reimbursement && (
+          <p>
+            {deleteModal.type === 'reimbursement' 
+              ? 'האם אתה בטוח שברצונך למחוק את בקשת ההחזר?'
+              : 'האם אתה בטוח שברצונך למחוק את החיוב?'}
+          </p>
+          {deleteModal.item && (
             <div style={styles.deleteModalDetails}>
               <div>
-                <strong>קופה:</strong> {deleteModal.reimbursement.fund_name}
+                <strong>קופה:</strong> {deleteModal.item.fund_name}
               </div>
               <div>
-                <strong>סכום:</strong> {formatCurrency(deleteModal.reimbursement.amount)}
+                <strong>סכום:</strong> {formatCurrency(deleteModal.item.amount)}
               </div>
               <div>
-                <strong>תיאור:</strong> {deleteModal.reimbursement.description}
+                <strong>תיאור:</strong> {deleteModal.item.description}
               </div>
             </div>
           )}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
             <Button
               variant="secondary"
-              onClick={() => setDeleteModal({ isOpen: false, reimbursement: null })}
+              onClick={() => setDeleteModal({ isOpen: false, type: 'reimbursement', item: null })}
               disabled={deleteLoading}
             >
               ביטול

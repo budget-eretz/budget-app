@@ -114,16 +114,37 @@ export interface Reimbursement {
   created_at: string;
 }
 
+export type ChargeStatus = 
+  | 'pending' 
+  | 'under_review' 
+  | 'approved' 
+  | 'rejected' 
+  | 'paid'
+  | 'active'    // Legacy status (migrated to 'approved')
+  | 'settled'   // Legacy status (migrated to 'paid')
+  | 'cancelled'; // Legacy status (equivalent to 'rejected')
+
 export interface Charge {
   id: number;
   fund_id: number;
   fund_name?: string;
   user_id: number;
+  user_name?: string;
+  user_email?: string;
   amount: number;
   description: string;
   charge_date: string;
-  status: 'active' | 'settled' | 'cancelled';
+  status: ChargeStatus;
+  reviewed_by?: number;
+  reviewer_name?: string;
+  reviewed_at?: string;
+  notes?: string;
+  under_review_by?: number;
+  under_review_at?: string;
+  review_notes?: string;
+  payment_transfer_id?: number;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface PaymentSummary {

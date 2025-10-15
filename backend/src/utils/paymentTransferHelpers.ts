@@ -114,6 +114,7 @@ export async function getOrCreateOpenTransfer(
 
 /**
  * Helper function to recalculate and update payment transfer totals
+ * Includes both reimbursements (positive) and charges (negative)
  * @param transferId - The payment transfer ID to update
  * @param client - Optional database client (for use within transactions)
  */
@@ -126,10 +127,18 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
         SELECT COALESCE(SUM(amount), 0)
         FROM reimbursements
         WHERE payment_transfer_id = $1 AND status = 'approved'
+      ) - (
+        SELECT COALESCE(SUM(amount), 0)
+        FROM charges
+        WHERE payment_transfer_id = $1 AND status = 'approved'
       ),
       reimbursement_count = (
         SELECT COUNT(*)
         FROM reimbursements
+        WHERE payment_transfer_id = $1 AND status = 'approved'
+      ) + (
+        SELECT COUNT(*)
+        FROM charges
         WHERE payment_transfer_id = $1 AND status = 'approved'
       )
     WHERE id = $1`,
@@ -167,5 +176,40 @@ export async function associateReimbursementWithTransfer(
   );
 
   // Update transfer totals
+  await updateTransferTotals(transferId, client);
+}
+
+/**
+ * Helper function to associate a charge with a payment transfer
+ * Charges are negative amounts that offset reimbursements
+ * @param chargeId - The charge ID to associate
+ * @param chargedUserId - The user who owes the money (charge is deducted from their payments)
+ * @param fundId - The fund ID to determine budget type
+ * @param client - Optional database client (for use within transactions)
+ */
+export async function associateChargeWithTransfer(
+  chargeId: number,
+  chargedUserId: number,
+  fundId: number,
+  client?: PoolClient
+): Promise<void> {
+  const db = client || pool;
+  
+  // Get budget type for the fund
+  const { budgetType, groupId } = await getBudgetTypeForFund(fundId, client);
+
+  // Get or create open transfer for the charged user
+  // Charges reduce the amount owed to the user
+  const transferId = await getOrCreateOpenTransfer(chargedUserId, budgetType, groupId, client);
+
+  // Associate charge with transfer
+  await db.query(
+    `UPDATE charges
+    SET payment_transfer_id = $1
+    WHERE id = $2`,
+    [transferId, chargeId]
+  );
+
+  // Update transfer totals (charges reduce the total)
   await updateTransferTotals(transferId, client);
 }

@@ -65,19 +65,24 @@ Users can submit reimbursements where a different person receives the payment:
 - Useful for expenses paid by one person but reimbursed to another
 - Both submitter and recipient are tracked and displayed
 
-#### Charge Submission (הגשת חיוב)
+#### Charge Submission and Approval (הגשת חיוב ואישור)
 Users can submit charges representing debts owed to the circle/group:
-- Charges offset pending reimbursements in net payment calculation
+- **Approval Workflow**: Charges now go through the same approval process as reimbursements
+- **Status Tracking**: pending → under_review → approved → rejected → paid
+- **Treasurer Review**: Treasurers can approve, reject, or mark charges for review
+- **Batch Operations**: Support for batch approval, rejection, and review marking
+- **Payment Integration**: Approved charges are linked to payment transfers and offset reimbursements
+- **Net Calculation**: Charges reduce the amount owed to user in payment transfers
 - Associated with specific fund for tracking
 - Requires description, amount, and charge date
-- Clearly distinguished from reimbursements in UI
-- Status tracking (active/settled/cancelled)
+- Clearly distinguished from reimbursements in UI (negative amounts in red)
 
 #### Payment Summary
 Automatic calculation of net amount owed to user:
 - Total pending reimbursements (money owed to user)
-- Total active charges (money user owes)
+- Total pending charges (money user owes)
 - Net amount = reimbursements - charges
+- Updated in real-time as charges and reimbursements are approved
 - Displayed prominently in My Reimbursements page
 
 #### Fund Access Control
@@ -209,26 +214,29 @@ A new payment execution system that groups approved reimbursements by recipient 
 
 #### Key Concepts
 
-**Payment Transfer**: A collection of approved reimbursements for a specific recipient from a specific budget type (circle or group). When a reimbursement is approved, it automatically joins an open payment transfer for that recipient and budget type.
+**Payment Transfer**: A collection of approved reimbursements and charges for a specific recipient from a specific budget type (circle or group). When a reimbursement or charge is approved, it automatically joins an open payment transfer for that recipient and budget type.
 
-**Automatic Grouping**: The system automatically creates and manages payment transfers. When a treasurer approves a reimbursement, it's associated with an open transfer for the recipient. If no open transfer exists, one is created automatically.
+**Automatic Grouping**: The system automatically creates and manages payment transfers. When a treasurer approves a reimbursement or charge, it's associated with an open transfer for the recipient/charged user. If no open transfer exists, one is created automatically.
 
-**Budget Type Separation**: Circle budget reimbursements and group budget reimbursements are kept in separate transfers even for the same recipient, ensuring proper budget tracking and access control.
+**Net Amount Calculation**: Payment transfers calculate the net amount by summing reimbursements (positive) and subtracting charges (negative). This ensures users receive the correct net payment after debts are deducted.
+
+**Budget Type Separation**: Circle budget reimbursements/charges and group budget reimbursements/charges are kept in separate transfers even for the same user, ensuring proper budget tracking and access control.
 
 #### Payment Transfer Workflow
 
-1. **Approval**: When a reimbursement is approved in the "אישור החזרים" (Reimbursement Approval) page, it automatically joins an open payment transfer for the recipient and budget type
-2. **Grouping**: All approved reimbursements for the same recipient and budget type are grouped into a single pending transfer
-3. **Execution**: Treasurer navigates to "העברות" (Transfers) page and executes the transfer
-4. **Completion**: All reimbursements in the transfer are automatically marked as "paid" with execution timestamp and executor recorded
+1. **Approval**: When a reimbursement or charge is approved in the "אישור החזרים" (Reimbursement Approval) page, it automatically joins an open payment transfer for the user and budget type
+2. **Grouping**: All approved reimbursements and charges for the same user and budget type are grouped into a single pending transfer
+3. **Net Calculation**: Transfer total = sum of reimbursements - sum of charges
+4. **Execution**: Treasurer navigates to "העברות" (Transfers) page and executes the transfer
+5. **Completion**: All reimbursements and charges in the transfer are automatically marked as "paid" with execution timestamp and executor recorded
 
 #### Key Features
 
 **Automatic Transfer Management**
-- Transfers created automatically when reimbursements are approved
+- Transfers created automatically when reimbursements or charges are approved
 - No manual transfer creation required
-- Automatic calculation of total amount and reimbursement count
-- Real-time updates as reimbursements are approved
+- Automatic calculation of net amount (reimbursements - charges) and item count
+- Real-time updates as reimbursements and charges are approved
 
 **Transfer Listing and Filtering**
 - Two tabs: Pending (awaiting execution) and Executed (completed)
