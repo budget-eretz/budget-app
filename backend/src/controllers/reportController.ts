@@ -46,7 +46,7 @@ export async function getDashboard(req: Request, res: Response) {
     let fundsQuery = `
       SELECT f.*,
              (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
-              WHERE fund_id = f.id AND status IN ('approved', 'paid')) as spent_amount,
+              WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) as spent_amount,
              (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
               WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f
@@ -168,7 +168,7 @@ export async function getBudgetReport(req: Request, res: Response) {
     const funds = await pool.query(
       `SELECT f.*,
               (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
-               WHERE fund_id = f.id AND status IN ('approved', 'paid')) as spent_amount,
+               WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) as spent_amount,
               (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
                WHERE fund_id = f.id AND status = 'planned') as planned_amount
        FROM funds f

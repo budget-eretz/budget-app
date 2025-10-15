@@ -317,14 +317,14 @@ export async function getBudgetMonthlyStatus(req: Request, res: Response) {
           ? allocationResult.rows[0].allocation_type 
           : undefined;
 
-        // Calculate spent amount (approved and paid reimbursements)
+        // Calculate spent amount (pending, under_review, approved and paid reimbursements)
         const spentResult = await pool.query(
           `SELECT COALESCE(SUM(amount), 0) as spent_amount
            FROM reimbursements
            WHERE fund_id = $1
              AND EXTRACT(YEAR FROM expense_date) = $2
              AND EXTRACT(MONTH FROM expense_date) = $3
-             AND status IN ('approved', 'paid')`,
+             AND status IN ('pending', 'under_review', 'approved', 'paid')`,
           [fund.id, year, month]
         );
 
