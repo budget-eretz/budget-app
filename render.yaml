@@ -15,8 +15,11 @@ services:
         fromDatabase:
           name: budget-app-db
           property: connectionString
+      # IMPORTANT: JWT_SECRET must be set manually in Render Dashboard
+      # Using sync: false ensures it stays constant across deploys
+      # Changing JWT_SECRET will invalidate all user sessions!
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_EXPIRES_IN
         value: 7d
 
