@@ -57,8 +57,22 @@ async function runMigrations() {
     throw error;
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-runMigrations().catch(console.error);
+// Only run migrations if this file is executed directly
+if (require.main === module) {
+  runMigrations()
+    .then(() => {
+      console.log('Migrations completed, closing connection...');
+      pool.end();
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Migration error:', error);
+      pool.end();
+      process.exit(1);
+    });
+}
+
+export default runMigrations;
