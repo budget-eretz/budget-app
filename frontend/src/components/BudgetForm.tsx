@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { groupsAPI } from '../services/api';
 import Button from './Button';
 import Modal from './Modal';
 
@@ -51,26 +52,8 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
   const loadGroups = async () => {
     setLoadingGroups(true);
     try {
-      // Since there's no groups API, we'll fetch from a simple query
-      // For now, we'll use a workaround - fetch budgets and extract unique groups
-      const response = await fetch('http://localhost:4567/api/budgets', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      const budgets = await response.json();
-      
-      // Extract unique groups from budgets
-      const uniqueGroups = budgets
-        .filter((b: any) => b.group_id && b.group_name)
-        .reduce((acc: Group[], b: any) => {
-          if (!acc.find(g => g.id === b.group_id)) {
-            acc.push({ id: b.group_id, name: b.group_name });
-          }
-          return acc;
-        }, []);
-      
-      setGroups(uniqueGroups);
+      const response = await groupsAPI.getAll();
+      setGroups(response.data);
     } catch (error) {
       console.error('Failed to load groups:', error);
     } finally {
