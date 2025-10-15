@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { reimbursementsAPI, chargesAPI } from '../services/api';
 import { Reimbursement, ReimbursementsByStatus, Charge, ChargesByStatus, GroupByOption } from '../types';
@@ -19,8 +19,11 @@ export default function Payments() {
   const [groupBy, setGroupBy] = useState<GroupByOption>('status'); // Will be used in task 14.3
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // Will be used in task 15
   const [selectedChargeIds, setSelectedChargeIds] = useState<Set<number>>(new Set());
+  const [pendingActionIds, setPendingActionIds] = useState<number[]>([]); // Store IDs for modal actions
+  const [isRejectingCharge, setIsRejectingCharge] = useState(false); // Track if rejecting charge or reimbursement
   const [activeModal, setActiveModal] = useState<'details' | 'rejection' | null>(null); // Will be used in task 15.8
   const [selectedReimbursement, setSelectedReimbursement] = useState<Reimbursement | null>(null); // Will be used in task 15.8
+  const isRejectingChargeRef = React.useRef(false); // Ref to track rejection type reliably
   
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -53,8 +56,13 @@ export default function Payments() {
     setSelectedIds(new Set(ids));
   };
 
+  const handleSelectCharges = (ids: number[]) => {
+    setSelectedChargeIds(new Set(ids));
+  };
+
   const clearSelection = () => {
     setSelectedIds(new Set());
+    setSelectedChargeIds(new Set());
   };
 
   // Task 14.1: Handle actions on selected reimbursements
@@ -86,6 +94,9 @@ export default function Payments() {
         case 'reject':
           // This will be handled by handleReject (Task 14.2)
           // Open rejection modal instead of direct action
+          isRejectingChargeRef.current = false;
+          setPendingActionIds(targetIds);
+          setIsRejectingCharge(false);
           setActiveModal('rejection');
           return; // Don't reload data yet, wait for modal confirmation
 
@@ -122,11 +133,12 @@ export default function Payments() {
 
   // Task 14.2: Handle rejection with reason
   const handleReject = async (rejectionReason: string) => {
-    const targetIds = Array.from(selectedIds);
+    const targetIds = pendingActionIds.length > 0 ? pendingActionIds : Array.from(selectedIds);
     
     if (targetIds.length === 0) {
       showToast('לא נבחרו החזרים', 'error');
       setActiveModal(null);
+      setPendingActionIds([]);
       return;
     }
 
@@ -136,6 +148,7 @@ export default function Payments() {
       
       // Close modal
       setActiveModal(null);
+      setPendingActionIds([]);
       
       // Reload data
       await loadData();
@@ -145,6 +158,82 @@ export default function Payments() {
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בדחיית ההחזרים', 'error');
       console.error('Error rejecting reimbursements:', error);
+    }
+  };
+
+  // Handle charge actions
+  const handleChargeAction = async (action: string, ids?: number[]) => {
+    const targetIds = ids || Array.from(selectedChargeIds);
+    
+    if (targetIds.length === 0) {
+      showToast('לא נבחרו חיובים', 'error');
+      return;
+    }
+
+    try {
+      switch (action) {
+        case 'approve':
+          await chargesAPI.batchApprove(targetIds);
+          showToast(`${targetIds.length} חיובים אושרו בהצלחה`, 'success');
+          break;
+
+        case 'reject':
+          isRejectingChargeRef.current = true;
+          setIsRejectingCharge(true);
+          setPendingActionIds(targetIds);
+          setActiveModal('rejection');
+          return;
+
+        case 'mark-review':
+          await chargesAPI.batchMarkForReview(targetIds);
+          showToast(`${targetIds.length} חיובים סומנו לבדיקה`, 'success');
+          break;
+
+        case 'return-pending':
+          for (const id of targetIds) {
+            await chargesAPI.returnToPending(id);
+          }
+          showToast(`${targetIds.length} חיובים הוחזרו לממתין`, 'success');
+          break;
+
+        default:
+          showToast('פעולה לא מוכרת', 'error');
+          return;
+      }
+
+      await loadData();
+      clearSelection();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בביצוע הפעולה', 'error');
+      console.error('Error performing charge action:', error);
+    }
+  };
+
+  const handleRejectCharges = async (rejectionReason: string) => {
+    const targetIds = pendingActionIds.length > 0 ? pendingActionIds : Array.from(selectedChargeIds);
+    
+    if (targetIds.length === 0) {
+      showToast('לא נבחרו חיובים', 'error');
+      setActiveModal(null);
+      setPendingActionIds([]);
+      setIsRejectingCharge(false);
+      isRejectingChargeRef.current = false;
+      return;
+    }
+
+    try {
+      await chargesAPI.batchReject(targetIds, rejectionReason);
+      showToast(`${targetIds.length} חיובים נדחו`, 'success');
+      
+      setActiveModal(null);
+      setPendingActionIds([]);
+      setIsRejectingCharge(false);
+      isRejectingChargeRef.current = false;
+      await loadData();
+      clearSelection();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בדחיית החיובים', 'error');
+      console.error('Error rejecting charges:', error);
     }
   };
 
@@ -186,9 +275,14 @@ export default function Payments() {
       return ['approve', 'reject', 'return-pending'];
     }
     
-    // If all selected are approved - no actions (payment handled via transfers)
+    // If all selected are approved - allow returning to pending or review
     if (statuses.size === 1 && statuses.has('approved')) {
-      return [];
+      return ['return-pending', 'mark-review'];
+    }
+    
+    // If all selected are rejected - allow returning to pending
+    if (statuses.size === 1 && statuses.has('rejected')) {
+      return ['return-pending'];
     }
     
     // Mixed statuses or other statuses - no batch actions available
@@ -203,6 +297,54 @@ export default function Payments() {
     const selectedReimbursements = allReimbursements.filter(r => selectedIds.has(r.id));
     
     return selectedReimbursements.reduce((sum, r) => sum + parseFloat(r.amount.toString()), 0);
+  };
+
+  // Helper functions for charges
+  const getAllCharges = (): Charge[] => {
+    if (!chargesData) return [];
+    return [
+      ...chargesData.pending,
+      ...chargesData.under_review,
+      ...chargesData.approved,
+      ...chargesData.rejected,
+      ...chargesData.paid,
+    ];
+  };
+
+  const getSelectedChargesTotalAmount = (): number => {
+    if (selectedChargeIds.size === 0) return 0;
+    
+    const allCharges = getAllCharges();
+    const selectedCharges = allCharges.filter(c => selectedChargeIds.has(c.id));
+    
+    return selectedCharges.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0);
+  };
+
+  const getAvailableChargeActions = (): string[] => {
+    if (selectedChargeIds.size === 0) return [];
+    
+    const allCharges = getAllCharges();
+    const selectedCharges = allCharges.filter(c => selectedChargeIds.has(c.id));
+    
+    const statuses = new Set(selectedCharges.map(c => c.status));
+    
+    if (statuses.size === 1 && statuses.has('pending')) {
+      return ['approve', 'reject', 'mark-review'];
+    }
+    
+    if (statuses.size === 1 && statuses.has('under_review')) {
+      return ['approve', 'reject', 'return-pending'];
+    }
+    
+    if (statuses.size === 1 && statuses.has('approved')) {
+      return ['return-pending', 'mark-review'];
+    }
+    
+    if (statuses.size === 1 && statuses.has('rejected')) {
+      return ['return-pending'];
+    }
+    
+    return [];
   };
 
   const formatCurrency = (amount: number) => {
@@ -248,21 +390,41 @@ export default function Payments() {
           <div style={styles.statsContainer}>
             <div style={styles.statCard} className="stat-card">
               <div style={styles.statLabel}>ממתינים לאישור</div>
-              <div style={styles.statValue}>{data.summary.pendingCount}</div>
+              <div style={styles.statValue}>
+                {data.summary.pendingCount}
+                {chargesData && chargesData.summary.pendingCount > 0 && (
+                  <span style={styles.chargesBadge}> +{chargesData.summary.pendingCount} חיובים</span>
+                )}
+              </div>
               <div style={styles.statAmount}>{formatCurrency(data.summary.totalPendingAmount)}</div>
             </div>
             <div style={styles.statCard} className="stat-card">
               <div style={styles.statLabel}>לבדיקה</div>
-              <div style={styles.statValue}>{data.summary.underReviewCount}</div>
+              <div style={styles.statValue}>
+                {data.summary.underReviewCount}
+                {chargesData && chargesData.summary.underReviewCount > 0 && (
+                  <span style={styles.chargesBadge}> +{chargesData.summary.underReviewCount} חיובים</span>
+                )}
+              </div>
             </div>
             <div style={styles.statCard} className="stat-card">
               <div style={styles.statLabel}>אושרו</div>
-              <div style={styles.statValue}>{data.summary.approvedCount}</div>
+              <div style={styles.statValue}>
+                {data.summary.approvedCount}
+                {chargesData && chargesData.summary.approvedCount > 0 && (
+                  <span style={styles.chargesBadge}> +{chargesData.summary.approvedCount} חיובים</span>
+                )}
+              </div>
               <div style={styles.statAmount}>{formatCurrency(data.summary.totalApprovedAmount)}</div>
             </div>
             <div style={styles.statCard} className="stat-card">
               <div style={styles.statLabel}>נדחו</div>
-              <div style={styles.statValue}>{data.summary.rejectedCount}</div>
+              <div style={styles.statValue}>
+                {data.summary.rejectedCount}
+                {chargesData && chargesData.summary.rejectedCount > 0 && (
+                  <span style={styles.chargesBadge}> +{chargesData.summary.rejectedCount} חיובים</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -277,6 +439,16 @@ export default function Payments() {
             totalAmount={getSelectedTotalAmount()}
             availableActions={getAvailableActions()}
             onAction={handleAction}
+          />
+        )}
+
+        {/* ActionBar for Charges */}
+        {selectedChargeIds.size > 0 && (
+          <ActionBar
+            selectedCount={selectedChargeIds.size}
+            totalAmount={getSelectedChargesTotalAmount()}
+            availableActions={getAvailableChargeActions()}
+            onAction={handleChargeAction}
           />
         )}
 
@@ -385,7 +557,13 @@ export default function Payments() {
               {chargesData.pending.length === 0 ? (
                 <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
               ) : (
-                <ChargesTable charges={chargesData.pending} status="pending" />
+                <ChargesTable 
+                  charges={chargesData.pending} 
+                  status="pending"
+                  onSelect={handleSelectCharges}
+                  selectedIds={Array.from(selectedChargeIds)}
+                  onAction={handleChargeAction}
+                />
               )}
             </div>
 
@@ -400,7 +578,13 @@ export default function Payments() {
               {chargesData.under_review.length === 0 ? (
                 <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
               ) : (
-                <ChargesTable charges={chargesData.under_review} status="under_review" />
+                <ChargesTable 
+                  charges={chargesData.under_review} 
+                  status="under_review"
+                  onSelect={handleSelectCharges}
+                  selectedIds={Array.from(selectedChargeIds)}
+                  onAction={handleChargeAction}
+                />
               )}
             </div>
 
@@ -415,7 +599,34 @@ export default function Payments() {
               {chargesData.approved.length === 0 ? (
                 <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
               ) : (
-                <ChargesTable charges={chargesData.approved} status="approved" />
+                <ChargesTable 
+                  charges={chargesData.approved} 
+                  status="approved"
+                  onSelect={handleSelectCharges}
+                  selectedIds={Array.from(selectedChargeIds)}
+                  onAction={handleChargeAction}
+                />
+              )}
+            </div>
+
+            {/* Rejected Charges */}
+            <div style={styles.section} className="section-animate">
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>
+                  חיובים נדחו ({chargesData.rejected.length})
+                </h3>
+                <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
+              </div>
+              {chargesData.rejected.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין חיובים נדחים</div>
+              ) : (
+                <ChargesTable 
+                  charges={chargesData.rejected} 
+                  status="rejected"
+                  onSelect={handleSelectCharges}
+                  selectedIds={Array.from(selectedChargeIds)}
+                  onAction={handleChargeAction}
+                />
               )}
             </div>
           </>
@@ -424,9 +635,27 @@ export default function Payments() {
         {/* Task 15.8: Modals */}
         <RejectionModal
           isOpen={activeModal === 'rejection'}
-          onClose={() => setActiveModal(null)}
-          onConfirm={handleReject}
-          count={selectedIds.size}
+          onClose={() => {
+            setActiveModal(null);
+            setPendingActionIds([]);
+            setIsRejectingCharge(false);
+            isRejectingChargeRef.current = false;
+          }}
+          onConfirm={(reason: string) => {
+            // Use ref to check which function to use (more reliable than state)
+            if (isRejectingChargeRef.current) {
+              handleRejectCharges(reason);
+            } else {
+              handleReject(reason);
+            }
+          }}
+          count={
+            pendingActionIds.length > 0 
+              ? pendingActionIds.length 
+              : isRejectingCharge
+                ? selectedChargeIds.size 
+                : selectedIds.size
+          }
         />
 
         {selectedReimbursement && (
@@ -444,8 +673,22 @@ export default function Payments() {
   );
 }
 
-// Simple Charges Table Component
-function ChargesTable({ charges, status }: { charges: Charge[]; status: string }) {
+// Charges Table Component with selection and actions
+function ChargesTable({ 
+  charges, 
+  status, 
+  onSelect, 
+  selectedIds, 
+  onAction 
+}: { 
+  charges: Charge[]; 
+  status: string;
+  onSelect: (ids: number[]) => void;
+  selectedIds: number[];
+  onAction: (action: string, ids?: number[]) => void;
+}) {
+  const [selectAll, setSelectAll] = useState(false);
+
   const formatCurrency = (amount: number) => {
     return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -465,11 +708,61 @@ function ChargesTable({ charges, status }: { charges: Charge[]; status: string }
     return statusMap[status] || status;
   };
 
+  const handleSelectAll = () => {
+    if (selectAll) {
+      onSelect([]);
+    } else {
+      onSelect(charges.map(c => c.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const handleSelectOne = (id: number) => {
+    if (selectedIds.includes(id)) {
+      onSelect(selectedIds.filter(sid => sid !== id));
+    } else {
+      onSelect([...selectedIds, id]);
+    }
+  };
+
+  const getAvailableActions = (charge: Charge): string[] => {
+    // For rejected charges, only allow returning to pending
+    if (charge.status === 'rejected') {
+      return ['return-pending'];
+    }
+    
+    // Return all possible actions except the current status
+    const allActions = ['approve', 'mark-review', 'return-pending', 'reject'];
+    
+    // Filter out actions that don't make sense for current status
+    if (charge.status === 'pending') {
+      return allActions.filter(a => a !== 'return-pending'); // Already pending
+    }
+    if (charge.status === 'under_review') {
+      return allActions; // Can go to any status
+    }
+    if (charge.status === 'approved') {
+      return allActions.filter(a => a !== 'approve'); // Already approved
+    }
+    if (charge.status === 'paid') {
+      return []; // Paid charges cannot be modified
+    }
+    return allActions;
+  };
+
   return (
     <div style={tableStyles.container}>
       <table style={tableStyles.table}>
         <thead>
           <tr style={tableStyles.headerRow}>
+            <th style={{...tableStyles.header, width: '40px'}}>
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={handleSelectAll}
+                style={tableStyles.checkbox}
+              />
+            </th>
             <th style={tableStyles.header}>משתמש</th>
             <th style={tableStyles.header}>קופה</th>
             <th style={tableStyles.header}>תיאור</th>
@@ -477,28 +770,95 @@ function ChargesTable({ charges, status }: { charges: Charge[]; status: string }
             <th style={tableStyles.header}>תאריך חיוב</th>
             <th style={tableStyles.header}>סטטוס</th>
             {status === 'approved' && <th style={tableStyles.header}>העברה</th>}
+            <th style={tableStyles.header}>פעולות</th>
           </tr>
         </thead>
         <tbody>
-          {charges.map((charge) => (
-            <tr key={charge.id} style={tableStyles.row}>
-              <td style={tableStyles.cell}>{charge.user_name}</td>
-              <td style={tableStyles.cell}>{charge.fund_name}</td>
-              <td style={tableStyles.cell}>{charge.description}</td>
-              <td style={{...tableStyles.cell, ...tableStyles.amountCell}}>
-                -{formatCurrency(charge.amount)}
-              </td>
-              <td style={tableStyles.cell}>{formatDate(charge.charge_date)}</td>
-              <td style={tableStyles.cell}>
-                <span style={tableStyles.statusBadge}>{getStatusText(charge.status)}</span>
-              </td>
-              {status === 'approved' && (
+          {charges.map((charge) => {
+            const actions = getAvailableActions(charge);
+            return (
+              <tr key={charge.id} style={tableStyles.row}>
                 <td style={tableStyles.cell}>
-                  {charge.payment_transfer_id ? `#${charge.payment_transfer_id}` : '-'}
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(charge.id)}
+                    onChange={() => handleSelectOne(charge.id)}
+                    style={tableStyles.checkbox}
+                  />
                 </td>
-              )}
-            </tr>
-          ))}
+                <td style={tableStyles.cell}>{charge.user_name}</td>
+                <td style={tableStyles.cell}>{charge.fund_name}</td>
+                <td style={tableStyles.cell}>
+                  <div>
+                    {charge.description}
+                    {charge.notes && (
+                      <div style={tableStyles.notes}>{charge.notes}</div>
+                    )}
+                  </div>
+                </td>
+                <td style={{...tableStyles.cell, ...tableStyles.amountCell}}>
+                  -{formatCurrency(charge.amount)}
+                </td>
+                <td style={tableStyles.cell}>{formatDate(charge.charge_date)}</td>
+                <td style={tableStyles.cell}>
+                  <span style={tableStyles.statusBadge}>{getStatusText(charge.status)}</span>
+                </td>
+                {status === 'approved' && (
+                  <td style={tableStyles.cell}>
+                    {charge.payment_transfer_id ? `#${charge.payment_transfer_id}` : '-'}
+                  </td>
+                )}
+                <td style={tableStyles.cell}>
+                  <div style={tableStyles.actionButtons}>
+                    {actions.includes('approve') && (
+                      <button
+                        onClick={() => onAction('approve', [charge.id])}
+                        style={{...tableStyles.actionButton, ...tableStyles.approveButton}}
+                        className="action-btn approve-btn"
+                        title="אשר חיוב"
+                        aria-label="אשר חיוב"
+                      >
+                        ✓
+                      </button>
+                    )}
+                    {actions.includes('mark-review') && (
+                      <button
+                        onClick={() => onAction('mark-review', [charge.id])}
+                        style={{...tableStyles.actionButton, ...tableStyles.reviewButton}}
+                        className="action-btn review-btn"
+                        title="סמן לבדיקה"
+                        aria-label="סמן לבדיקה"
+                      >
+                        🔍
+                      </button>
+                    )}
+                    {actions.includes('return-pending') && (
+                      <button
+                        onClick={() => onAction('return-pending', [charge.id])}
+                        style={{...tableStyles.actionButton, ...tableStyles.returnButton}}
+                        className="action-btn return-btn"
+                        title="החזר לממתין"
+                        aria-label="החזר לממתין"
+                      >
+                        ↩️
+                      </button>
+                    )}
+                    {actions.includes('reject') && (
+                      <button
+                        onClick={() => onAction('reject', [charge.id])}
+                        style={{...tableStyles.actionButton, ...tableStyles.rejectButton}}
+                        className="action-btn reject-btn"
+                        title="דחה חיוב"
+                        aria-label="דחה חיוב"
+                      >
+                        ✗
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -548,6 +908,53 @@ const tableStyles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     background: '#e2e8f0',
     color: '#4a5568',
+  },
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    cursor: 'pointer',
+  },
+  notes: {
+    fontSize: '12px',
+    color: '#718096',
+    fontStyle: 'italic',
+    marginTop: '4px',
+  },
+  actionButtons: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  actionButton: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#e2e8f0',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approveButton: {
+    background: '#48bb78',
+    color: 'white',
+  },
+  rejectButton: {
+    background: '#e53e3e',
+    color: 'white',
+  },
+  reviewButton: {
+    background: '#ecc94b',
+    color: 'white',
+  },
+  returnButton: {
+    background: '#4299e1',
+    color: 'white',
   },
 };
 
@@ -629,6 +1036,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     color: '#667eea',
     fontWeight: '600',
+  },
+  chargesBadge: {
+    fontSize: '12px',
+    color: '#e53e3e',
+    fontWeight: '500',
+    marginRight: '8px',
   },
   // Task 15.4-15.7: Section styles
   section: {
@@ -719,3 +1132,27 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-block',
   },
 };
+
+// Add hover styles for charge action buttons
+const chargeButtonHoverStyle = document.createElement('style');
+chargeButtonHoverStyle.textContent = `
+  .action-btn:hover {
+    transform: scale(1.1);
+  }
+  .approve-btn:hover {
+    background: #38a169 !important;
+  }
+  .reject-btn:hover {
+    background: #c53030 !important;
+  }
+  .review-btn:hover {
+    background: #d69e2e !important;
+  }
+  .return-btn:hover {
+    background: #3182ce !important;
+  }
+`;
+if (!document.head.querySelector('style[data-charge-buttons]')) {
+  chargeButtonHoverStyle.setAttribute('data-charge-buttons', 'true');
+  document.head.appendChild(chargeButtonHoverStyle);
+}

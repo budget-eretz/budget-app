@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
     container_name: budget-app-frontend
     environment:
-      VITE_API_URL: http://localhost:4567
+      VITE_API_URL: http://localhost:4567/api
     ports:
       - "3456:3456"
     volumes:

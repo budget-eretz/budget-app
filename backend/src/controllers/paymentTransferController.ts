@@ -204,7 +204,7 @@ export async function executePaymentTransfer(req: Request, res: Response) {
 
     await client.query('BEGIN');
 
-    // Get transfer details
+    // Get transfer details including total amount
     const transferResult = await client.query(
       `SELECT 
         pt.id,
@@ -212,6 +212,7 @@ export async function executePaymentTransfer(req: Request, res: Response) {
         pt.budget_type,
         pt.group_id,
         pt.status,
+        pt.total_amount,
         pt.reimbursement_count
       FROM payment_transfers pt
       WHERE pt.id = $1
@@ -245,6 +246,99 @@ export async function executePaymentTransfer(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה לבצע העברה זו' });
     }
 
+    // Check if transfer has negative amount (more charges than reimbursements)
+    const totalAmount = parseFloat(transfer.total_amount);
+    
+    if (totalAmount < 0) {
+      // Negative transfer: Delete transfer and create carry-forward charge
+      
+      // Get the fund_id from one of the charges (they should all be from the same budget type)
+      const fundResult = await client.query(
+        `SELECT c.fund_id
+        FROM charges c
+        WHERE c.payment_transfer_id = $1
+        LIMIT 1`,
+        [id]
+      );
+      
+      if (fundResult.rows.length === 0) {
+        // If no charges, get from reimbursements
+        const reimbFundResult = await client.query(
+          `SELECT r.fund_id
+          FROM reimbursements r
+          WHERE r.payment_transfer_id = $1
+          LIMIT 1`,
+          [id]
+        );
+        
+        if (reimbFundResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'לא נמצא קופה להעברה זו' });
+        }
+        
+        fundResult.rows[0] = reimbFundResult.rows[0];
+      }
+      
+      const fundId = fundResult.rows[0].fund_id;
+      const debtAmount = Math.abs(totalAmount);
+      
+      // Create a new approved charge for the debt amount
+      await client.query(
+        `INSERT INTO charges (
+          fund_id,
+          user_id,
+          amount,
+          description,
+          charge_date,
+          status,
+          reviewed_by,
+          reviewed_at,
+          notes
+        ) VALUES ($1, $2, $3, $4, NOW(), 'approved', $5, NOW(), $6)`,
+        [
+          fundId,
+          transfer.recipient_user_id,
+          debtAmount,
+          'יתרת חוב מהעברה קודמת',
+          user.userId,
+          `יתרת חוב בסך ${debtAmount} ש"ח שתקוזז מההחזר הבא`
+        ]
+      );
+      
+      // Mark all reimbursements and charges as paid (they cancel each other out)
+      await client.query(
+        `UPDATE reimbursements
+        SET 
+          status = 'paid',
+          updated_at = NOW()
+        WHERE payment_transfer_id = $1 AND status = 'approved'`,
+        [id]
+      );
+      
+      await client.query(
+        `UPDATE charges
+        SET 
+          status = 'paid',
+          updated_at = NOW()
+        WHERE payment_transfer_id = $1 AND status = 'approved'`,
+        [id]
+      );
+      
+      // Delete the transfer
+      await client.query(
+        `DELETE FROM payment_transfers WHERE id = $1`,
+        [id]
+      );
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        success: true, 
+        message: 'העברה נמחקה ויתרת החוב נשמרה להעברה הבאה',
+        carryForwardDebt: debtAmount
+      });
+    }
+
+    // Normal positive transfer: Execute as usual
     // Update transfer status to executed
     await client.query(
       `UPDATE payment_transfers

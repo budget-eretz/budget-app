@@ -362,73 +362,70 @@ export default function ReimbursementTable({
             👁️
           </button>
 
-          {/* Status-specific action buttons */}
-          {status === 'pending' && (
+          {/* Status-specific action buttons - show all relevant actions */}
+          {status !== 'paid' && (
             <>
-              <button
-                onClick={() => onAction('approve', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.approveBtn }}
-                className="action-btn approve-btn"
-                title="אשר החזר"
-                aria-label="אשר החזר"
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => onAction('mark-review', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.reviewBtn }}
-                className="action-btn review-btn"
-                title="סמן לבדיקה"
-                aria-label="סמן לבדיקה"
-              >
-                🔍
-              </button>
-              <button
-                onClick={() => onAction('reject', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.rejectBtn }}
-                className="action-btn reject-btn"
-                title="דחה החזר"
-                aria-label="דחה החזר"
-              >
-                ✗
-              </button>
+              {/* For rejected items, only show return to pending */}
+              {status === 'rejected' ? (
+                <button
+                  onClick={() => onAction('return-pending', [reimbursement.id])}
+                  style={{ ...styles.actionBtn, ...styles.returnBtn }}
+                  className="action-btn return-btn"
+                  title="החזר לממתין"
+                  aria-label="החזר לממתין"
+                >
+                  ↩️
+                </button>
+              ) : (
+                <>
+                  {status !== 'approved' && (
+                    <button
+                      onClick={() => onAction('approve', [reimbursement.id])}
+                      style={{ ...styles.actionBtn, ...styles.approveBtn }}
+                      className="action-btn approve-btn"
+                      title="אשר החזר"
+                      aria-label="אשר החזר"
+                    >
+                      ✓
+                    </button>
+                  )}
+                  {status !== 'under_review' && (
+                    <button
+                      onClick={() => onAction('mark-review', [reimbursement.id])}
+                      style={{ ...styles.actionBtn, ...styles.reviewBtn }}
+                      className="action-btn review-btn"
+                      title="סמן לבדיקה"
+                      aria-label="סמן לבדיקה"
+                    >
+                      🔍
+                    </button>
+                  )}
+                  {status !== 'pending' && (
+                    <button
+                      onClick={() => onAction('return-pending', [reimbursement.id])}
+                      style={{ ...styles.actionBtn, ...styles.returnBtn }}
+                      className="action-btn return-btn"
+                      title="החזר לממתין"
+                      aria-label="החזר לממתין"
+                    >
+                      ↩️
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onAction('reject', [reimbursement.id])}
+                    style={{ ...styles.actionBtn, ...styles.rejectBtn }}
+                    className="action-btn reject-btn"
+                    title="דחה החזר"
+                    aria-label="דחה החזר"
+                  >
+                    ✗
+                  </button>
+                </>
+              )}
             </>
           )}
 
-          {status === 'under_review' && (
-            <>
-              <button
-                onClick={() => onAction('approve', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.approveBtn }}
-                className="action-btn approve-btn"
-                title="אשר החזר"
-                aria-label="אשר החזר"
-              >
-                ✓
-              </button>
-              <button
-                onClick={() => onAction('return-pending', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.returnBtn }}
-                className="action-btn return-btn"
-                title="החזר לממתין"
-                aria-label="החזר לממתין"
-              >
-                ↩️
-              </button>
-              <button
-                onClick={() => onAction('reject', [reimbursement.id])}
-                style={{ ...styles.actionBtn, ...styles.rejectBtn }}
-                className="action-btn reject-btn"
-                title="דחה החזר"
-                aria-label="דחה החזר"
-              >
-                ✗
-              </button>
-            </>
-          )}
-
-          {/* Approved status - no individual actions, payment handled via transfers */}
-
+          {/* Show rejection reason for rejected items */}
           {status === 'rejected' && reimbursement.notes && (
             <span style={styles.rejectionNote} title={reimbursement.notes}>
               סיבה: {reimbursement.notes}

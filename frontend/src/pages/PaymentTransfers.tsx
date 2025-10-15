@@ -19,7 +19,7 @@ export default function PaymentTransfers() {
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
   const [transferToExecute, setTransferToExecute] = useState<number | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  
+
   // Filters
   const [recipientFilter, setRecipientFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -41,7 +41,7 @@ export default function PaymentTransfers() {
       ]);
 
       const transfers = transfersResponse.data as PaymentTransfer[];
-      
+
       // Separate by status
       setPendingTransfers(transfers.filter(t => t.status === 'pending'));
       setExecutedTransfers(transfers.filter(t => t.status === 'executed'));
@@ -57,7 +57,7 @@ export default function PaymentTransfers() {
   const handleTransferClick = async (transfer: PaymentTransfer) => {
     setLoadingDetails(true);
     setShowDetailsModal(true);
-    
+
     try {
       const response = await api.get(`/payment-transfers/${transfer.id}`);
       setSelectedTransferDetails(response.data);
@@ -75,12 +75,41 @@ export default function PaymentTransfers() {
     setShowExecuteConfirm(true);
   };
 
+  // Check if the transfer has negative amount (more charges than reimbursements)
+  const isNegativeTransfer = () => {
+    if (!transferToExecute) return false;
+    const transfer = pendingTransfers.find(t => t.id === transferToExecute);
+    return transfer && parseFloat(transfer.totalAmount.toString()) < 0;
+  };
+
+  const getTransferRecipientName = () => {
+    if (!transferToExecute) return '';
+    const transfer = pendingTransfers.find(t => t.id === transferToExecute);
+    return transfer?.recipientName || '';
+  };
+
+  const getTransferAmount = () => {
+    if (!transferToExecute) return 0;
+    const transfer = pendingTransfers.find(t => t.id === transferToExecute);
+    return transfer ? Math.abs(parseFloat(transfer.totalAmount.toString())) : 0;
+  };
+
   const handleExecuteConfirm = async () => {
     if (!transferToExecute) return;
 
     try {
-      await api.post(`/payment-transfers/${transferToExecute}/execute`);
-      showToast('ההעברה בוצעה בהצלחה', 'success');
+      const response = await api.post(`/payment-transfers/${transferToExecute}/execute`);
+
+      // Check if this was a negative transfer (carry-forward debt)
+      if (response.data.carryForwardDebt) {
+        showToast(
+          `יתרת חוב בסך ${formatCurrency(response.data.carryForwardDebt)} נשמרה להעברה הבאה`,
+          'success'
+        );
+      } else {
+        showToast('ההעברה בוצעה בהצלחה', 'success');
+      }
+
       setShowExecuteConfirm(false);
       setTransferToExecute(null);
       setShowDetailsModal(false);
@@ -146,7 +175,7 @@ export default function PaymentTransfers() {
         {/* Page Header with Statistics */}
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>העברות</h1>
-          
+
           {stats && (
             <div style={styles.statsContainer}>
               <div style={styles.statCard} className="stat-card">
@@ -198,7 +227,7 @@ export default function PaymentTransfers() {
                 onChange={(e) => setRecipientFilter(e.target.value)}
               />
             </div>
-            
+
             <div style={styles.filterGroup}>
               <label style={styles.filterLabel}>מתאריך</label>
               <input
@@ -208,7 +237,7 @@ export default function PaymentTransfers() {
                 onChange={(e) => setDateFromFilter(e.target.value)}
               />
             </div>
-            
+
             <div style={styles.filterGroup}>
               <label style={styles.filterLabel}>עד תאריך</label>
               <input
@@ -241,7 +270,7 @@ export default function PaymentTransfers() {
               </>
             ) : (
               <p style={styles.emptyText}>
-                {activeTab === 'pending' 
+                {activeTab === 'pending'
                   ? 'אין העברות ממתינות לביצוע'
                   : 'אין העברות שבוצעו'}
               </p>
@@ -277,21 +306,37 @@ export default function PaymentTransfers() {
             setShowExecuteConfirm(false);
             setTransferToExecute(null);
           }}
-          title="אישור ביצוע העברה"
+          title={isNegativeTransfer() ? "⚠️ יתרת חוב" : "אישור ביצוע העברה"}
         >
           <div style={styles.confirmContent}>
-            <p style={styles.confirmText}>
-              האם אתה בטוח שברצונך לבצע העברה זו?
-            </p>
-            <p style={styles.confirmSubtext}>
-              כל ההחזרים המשויכים להעברה יסומנו כשולמו.
-            </p>
+            {isNegativeTransfer() ? (
+              <>
+                <p style={styles.confirmText}>
+                  נראה שלחבר.ה <strong>{getTransferRecipientName()}</strong> יש יתרת חוב למעגל בסך <strong>{formatCurrency(getTransferAmount())}</strong>.
+                </p>
+                <p style={styles.confirmSubtext}>
+                  לכן העברה זו תמחק ויתרת החוב תעבור להעברה הבאה.
+                </p>
+                <p style={styles.confirmSubtext}>
+                  האם את.ה מאשר.ת?
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={styles.confirmText}>
+                  האם אתה בטוח שברצונך לבצע העברה זו?
+                </p>
+                <p style={styles.confirmSubtext}>
+                  כל ההחזרים והחיובים המשויכים להעברה יסומנו כשולמו.
+                </p>
+              </>
+            )}
             <div style={styles.confirmActions}>
               <Button
                 onClick={handleExecuteConfirm}
                 variant="primary"
               >
-                אשר ביצוע
+                {isNegativeTransfer() ? "אשר מחיקה" : "אשר ביצוע"}
               </Button>
               <Button
                 onClick={() => {

@@ -230,8 +230,12 @@ export async function markForReview(req: Request, res: Response) {
       return res.status(404).json({ error: 'חיוב לא נמצא' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'ניתן לסמן לבדיקה רק חיובים ממתינים' });
+    if (existing.rows[0].status === 'paid') {
+      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס של חיוב ששולם' });
+    }
+
+    if (existing.rows[0].status === 'under_review') {
+      return res.status(400).json({ error: 'החיוב כבר בבדיקה' });
     }
 
     const result = await pool.query(
@@ -271,8 +275,12 @@ export async function returnToPending(req: Request, res: Response) {
       return res.status(404).json({ error: 'חיוב לא נמצא' });
     }
 
-    if (existing.rows[0].status !== 'under_review') {
-      return res.status(400).json({ error: 'ניתן להחזיר לממתין רק חיובים שבבדיקה' });
+    if (existing.rows[0].status === 'paid') {
+      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס של חיוב ששולם' });
+    }
+
+    if (existing.rows[0].status === 'pending') {
+      return res.status(400).json({ error: 'החיוב כבר בסטטוס ממתין' });
     }
 
     const result = await pool.query(
@@ -334,8 +342,12 @@ export async function batchApprove(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending' && status !== 'under_review') {
-          errors.push({ id, error: 'ניתן לאשר רק חיובים ממתינים או בבדיקה' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של חיוב ששולם' });
+          continue;
+        }
+        if (status === 'approved') {
+          errors.push({ id, error: 'החיוב כבר מאושר' });
           continue;
         }
 
@@ -444,8 +456,12 @@ export async function batchReject(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending' && status !== 'under_review') {
-          errors.push({ id, error: 'ניתן לדחות רק חיובים ממתינים או בבדיקה' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של חיוב ששולם' });
+          continue;
+        }
+        if (status === 'rejected') {
+          errors.push({ id, error: 'החיוב כבר נדחה' });
           continue;
         }
 
@@ -542,8 +558,12 @@ export async function batchMarkForReview(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending') {
-          errors.push({ id, error: 'ניתן לסמן לבדיקה רק חיובים ממתינים' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של חיוב ששולם' });
+          continue;
+        }
+        if (status === 'under_review') {
+          errors.push({ id, error: 'החיוב כבר בבדיקה' });
           continue;
         }
 

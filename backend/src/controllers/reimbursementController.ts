@@ -124,7 +124,7 @@ export async function createReimbursement(req: Request, res: Response) {
     // Validate fund access
     const { validateFundAccess } = await import('../middleware/accessControl');
     const hasAccess = await validateFundAccess(user.userId, fundId);
-    
+
     if (!hasAccess) {
       return res.status(403).json({ error: 'אין לך הרשאה לגשת לקופה זו' });
     }
@@ -138,7 +138,7 @@ export async function createReimbursement(req: Request, res: Response) {
         'SELECT id FROM users WHERE id = $1',
         [recipientUserId]
       );
-      
+
       if (recipientCheck.rows.length === 0) {
         return res.status(400).json({ error: 'משתמש מקבל לא תקין' });
       }
@@ -167,7 +167,7 @@ export async function updateReimbursement(req: Request, res: Response) {
     // Validate ownership using middleware function
     const { validateReimbursementOwnership } = await import('../middleware/accessControl');
     const isOwner = await validateReimbursementOwnership(user.userId, parseInt(id));
-    
+
     if (!isOwner) {
       return res.status(403).json({ error: 'אין לך הרשאה לערוך בקשה זו' });
     }
@@ -192,7 +192,7 @@ export async function updateReimbursement(req: Request, res: Response) {
         'SELECT id FROM users WHERE id = $1',
         [recipientUserId]
       );
-      
+
       if (recipientCheck.rows.length === 0) {
         return res.status(400).json({ error: 'משתמש מקבל לא תקין' });
       }
@@ -226,7 +226,7 @@ export async function deleteReimbursement(req: Request, res: Response) {
     // Validate ownership using middleware function
     const { validateReimbursementOwnership } = await import('../middleware/accessControl');
     const isOwner = await validateReimbursementOwnership(user.userId, parseInt(id));
-    
+
     if (!isOwner) {
       return res.status(403).json({ error: 'אין לך הרשאה למחוק בקשה זו' });
     }
@@ -351,7 +351,7 @@ export async function rejectReimbursement(req: Request, res: Response) {
  * Use the payment transfers API to execute transfers instead.
  */
 export async function markAsPaid(req: Request, res: Response) {
-  return res.status(410).json({ 
+  return res.status(410).json({
     error: 'פעולה זו הוחלפה על ידי מערכת העברות התשלום',
     message: 'This endpoint is deprecated. Please use payment transfer execution instead.',
     deprecatedSince: '2025-01-07'
@@ -409,7 +409,7 @@ export async function markForReview(req: Request, res: Response) {
       return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
     }
 
-    // Check reimbursement exists and is pending
+    // Check reimbursement exists and is not paid or already under review
     const existing = await pool.query(
       'SELECT status FROM reimbursements WHERE id = $1',
       [id]
@@ -419,8 +419,12 @@ export async function markForReview(req: Request, res: Response) {
       return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'ניתן לסמן לבדיקה רק בקשות ממתינות' });
+    if (existing.rows[0].status === 'paid') {
+      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס של החזר ששולם' });
+    }
+
+    if (existing.rows[0].status === 'under_review') {
+      return res.status(400).json({ error: 'ההחזר כבר בבדיקה' });
     }
 
     // Update status to under_review
@@ -453,7 +457,7 @@ export async function returnToPending(req: Request, res: Response) {
       return res.status(403).json({ error: 'נדרשת הרשאת גזבר' });
     }
 
-    // Check reimbursement exists and is under_review
+    // Check reimbursement exists and is not paid
     const existing = await pool.query(
       'SELECT status FROM reimbursements WHERE id = $1',
       [id]
@@ -463,8 +467,12 @@ export async function returnToPending(req: Request, res: Response) {
       return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
     }
 
-    if (existing.rows[0].status !== 'under_review') {
-      return res.status(400).json({ error: 'ניתן להחזיר לממתין רק בקשות שבבדיקה' });
+    if (existing.rows[0].status === 'paid') {
+      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס של החזר ששולם' });
+    }
+
+    if (existing.rows[0].status === 'pending') {
+      return res.status(400).json({ error: 'ההחזר כבר בסטטוס ממתין' });
     }
 
     // Update status back to pending and clear under_review fields
@@ -489,7 +497,7 @@ export async function returnToPending(req: Request, res: Response) {
 
 export async function batchApprove(req: Request, res: Response) {
   let client;
-  
+
   try {
     const { reimbursementIds, notes } = req.body;
     const user = req.user!;
@@ -532,8 +540,12 @@ export async function batchApprove(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending' && status !== 'under_review') {
-          errors.push({ id, error: 'ניתן לאשר רק בקשות ממתינות או בבדיקה' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של החזר ששולם' });
+          continue;
+        }
+        if (status === 'approved') {
+          errors.push({ id, error: 'ההחזר כבר מאושר' });
           continue;
         }
 
@@ -580,14 +592,14 @@ export async function batchApprove(req: Request, res: Response) {
         console.error('Error during rollback:', rollbackError);
       }
     }
-    
+
     console.error('Batch approve error:', error);
-    
+
     // Handle specific database connection errors
     if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
       return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
-    
+
     res.status(500).json({ error: 'שגיאה באישור מרובה' });
   } finally {
     if (client) {
@@ -602,7 +614,7 @@ export async function batchApprove(req: Request, res: Response) {
 
 export async function batchReject(req: Request, res: Response) {
   let client;
-  
+
   try {
     const { reimbursementIds, rejectionReason } = req.body;
     const user = req.user!;
@@ -648,8 +660,12 @@ export async function batchReject(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending' && status !== 'under_review') {
-          errors.push({ id, error: 'ניתן לדחות רק בקשות ממתינות או בבדיקה' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של החזר ששולם' });
+          continue;
+        }
+        if (status === 'rejected') {
+          errors.push({ id, error: 'ההחזר כבר נדחה' });
           continue;
         }
 
@@ -688,13 +704,13 @@ export async function batchReject(req: Request, res: Response) {
         console.error('Error during rollback:', rollbackError);
       }
     }
-    
+
     console.error('Batch reject error:', error);
-    
+
     if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
       return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
-    
+
     res.status(500).json({ error: 'שגיאה בדחייה מרובה' });
   } finally {
     if (client) {
@@ -709,7 +725,7 @@ export async function batchReject(req: Request, res: Response) {
 
 export async function batchMarkForReview(req: Request, res: Response) {
   let client;
-  
+
   try {
     const { reimbursementIds, notes } = req.body;
     const user = req.user!;
@@ -751,8 +767,12 @@ export async function batchMarkForReview(req: Request, res: Response) {
         }
 
         const status = checkResult.rows[0].status;
-        if (status !== 'pending') {
-          errors.push({ id, error: 'ניתן לסמן לבדיקה רק בקשות ממתינות' });
+        if (status === 'paid') {
+          errors.push({ id, error: 'לא ניתן לשנות סטטוס של החזר ששולם' });
+          continue;
+        }
+        if (status === 'under_review') {
+          errors.push({ id, error: 'ההחזר כבר בבדיקה' });
           continue;
         }
 
@@ -791,13 +811,13 @@ export async function batchMarkForReview(req: Request, res: Response) {
         console.error('Error during rollback:', rollbackError);
       }
     }
-    
+
     console.error('Batch mark for review error:', error);
-    
+
     if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
       return res.status(503).json({ error: 'שגיאת חיבור למסד נתונים. נסה שוב.' });
     }
-    
+
     res.status(500).json({ error: 'שגיאה בסימון מרובה לבדיקה' });
   } finally {
     if (client) {
@@ -815,7 +835,7 @@ export async function batchMarkForReview(req: Request, res: Response) {
  * Use the payment transfers API to execute transfers instead.
  */
 export async function batchMarkAsPaid(req: Request, res: Response) {
-  return res.status(410).json({ 
+  return res.status(410).json({
     error: 'פעולה זו הוחלפה על ידי מערכת העברות התשלום',
     message: 'This endpoint is deprecated. Please use payment transfer execution instead.',
     deprecatedSince: '2025-01-07'
