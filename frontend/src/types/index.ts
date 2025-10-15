@@ -243,6 +243,23 @@ export interface ReimbursementsByStatus {
   };
 }
 
+export interface ChargesByStatus {
+  pending: Charge[];
+  under_review: Charge[];
+  approved: Charge[];
+  rejected: Charge[];
+  paid: Charge[];
+  summary: {
+    pendingCount: number;
+    underReviewCount: number;
+    approvedCount: number;
+    rejectedCount: number;
+    paidCount: number;
+    totalPendingAmount: number;
+    totalApprovedAmount: number;
+  };
+}
+
 export type GroupByOption = 'status' | 'user' | 'fund' | 'none';
 
 export interface Dashboard {

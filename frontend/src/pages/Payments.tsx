@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { reimbursementsAPI } from '../services/api';
-import { Reimbursement, ReimbursementsByStatus, GroupByOption } from '../types';
+import { reimbursementsAPI, chargesAPI } from '../services/api';
+import { Reimbursement, ReimbursementsByStatus, Charge, ChargesByStatus, GroupByOption } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -14,9 +14,11 @@ import ReimbursementDetailsModal from '../components/ReimbursementDetailsModal';
 export default function Payments() {
   // State management - Task 13.1
   const [data, setData] = useState<ReimbursementsByStatus | null>(null);
+  const [chargesData, setChargesData] = useState<ChargesByStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [groupBy, setGroupBy] = useState<GroupByOption>('status'); // Will be used in task 14.3
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // Will be used in task 15
+  const [selectedChargeIds, setSelectedChargeIds] = useState<Set<number>>(new Set());
   const [activeModal, setActiveModal] = useState<'details' | 'rejection' | null>(null); // Will be used in task 15.8
   const [selectedReimbursement, setSelectedReimbursement] = useState<Reimbursement | null>(null); // Will be used in task 15.8
   
@@ -32,8 +34,12 @@ export default function Payments() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await reimbursementsAPI.getTreasurerAll(groupBy);
-      setData(response.data);
+      const [reimbursementsResponse, chargesResponse] = await Promise.all([
+        reimbursementsAPI.getTreasurerAll(groupBy),
+        chargesAPI.getTreasurerAll(groupBy),
+      ]);
+      setData(reimbursementsResponse.data);
+      setChargesData(chargesResponse.data);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני ההעברות', 'error');
       console.error('Error loading treasurer data:', error);
@@ -362,6 +368,59 @@ export default function Payments() {
           )}
         </div>
 
+        {/* Charges Section */}
+        {chargesData && (
+          <>
+            <div style={styles.divider}></div>
+            <h2 style={styles.chargesSectionTitle}>חיובים</h2>
+            
+            {/* Pending Charges */}
+            <div style={styles.section} className="section-animate">
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>
+                  חיובים ממתינים לאישור ({chargesData.pending.length})
+                </h3>
+                <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
+              </div>
+              {chargesData.pending.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
+              ) : (
+                <ChargesTable charges={chargesData.pending} status="pending" />
+              )}
+            </div>
+
+            {/* Under Review Charges */}
+            <div style={styles.section} className="section-animate">
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>
+                  חיובים לבדיקה ({chargesData.under_review.length})
+                </h3>
+                <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
+              </div>
+              {chargesData.under_review.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
+              ) : (
+                <ChargesTable charges={chargesData.under_review} status="under_review" />
+              )}
+            </div>
+
+            {/* Approved Charges */}
+            <div style={styles.section} className="section-animate">
+              <div style={styles.sectionHeader}>
+                <h3 style={styles.sectionTitle}>
+                  חיובים אושרו ({chargesData.approved.length})
+                </h3>
+                <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
+              </div>
+              {chargesData.approved.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
+              ) : (
+                <ChargesTable charges={chargesData.approved} status="approved" />
+              )}
+            </div>
+          </>
+        )}
+
         {/* Task 15.8: Modals */}
         <RejectionModal
           isOpen={activeModal === 'rejection'}
@@ -384,6 +443,113 @@ export default function Payments() {
     </div>
   );
 }
+
+// Simple Charges Table Component
+function ChargesTable({ charges, status }: { charges: Charge[]; status: string }) {
+  const formatCurrency = (amount: number) => {
+    return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('he-IL');
+  };
+
+  const getStatusText = (status: string) => {
+    const statusMap: Record<string, string> = {
+      pending: 'ממתין לאישור',
+      under_review: 'לבדיקה',
+      approved: 'אושר',
+      rejected: 'נדחה',
+      paid: 'שולם',
+    };
+    return statusMap[status] || status;
+  };
+
+  return (
+    <div style={tableStyles.container}>
+      <table style={tableStyles.table}>
+        <thead>
+          <tr style={tableStyles.headerRow}>
+            <th style={tableStyles.header}>משתמש</th>
+            <th style={tableStyles.header}>קופה</th>
+            <th style={tableStyles.header}>תיאור</th>
+            <th style={tableStyles.header}>סכום</th>
+            <th style={tableStyles.header}>תאריך חיוב</th>
+            <th style={tableStyles.header}>סטטוס</th>
+            {status === 'approved' && <th style={tableStyles.header}>העברה</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {charges.map((charge) => (
+            <tr key={charge.id} style={tableStyles.row}>
+              <td style={tableStyles.cell}>{charge.user_name}</td>
+              <td style={tableStyles.cell}>{charge.fund_name}</td>
+              <td style={tableStyles.cell}>{charge.description}</td>
+              <td style={{...tableStyles.cell, ...tableStyles.amountCell}}>
+                -{formatCurrency(charge.amount)}
+              </td>
+              <td style={tableStyles.cell}>{formatDate(charge.charge_date)}</td>
+              <td style={tableStyles.cell}>
+                <span style={tableStyles.statusBadge}>{getStatusText(charge.status)}</span>
+              </td>
+              {status === 'approved' && (
+                <td style={tableStyles.cell}>
+                  {charge.payment_transfer_id ? `#${charge.payment_transfer_id}` : '-'}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const tableStyles: Record<string, React.CSSProperties> = {
+  container: {
+    background: 'white',
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    overflow: 'auto',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  headerRow: {
+    background: '#f7fafc',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  header: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    fontWeight: '600',
+    color: '#4a5568',
+    fontSize: '14px',
+  },
+  row: {
+    borderBottom: '1px solid #e2e8f0',
+    transition: 'background 0.2s',
+  },
+  cell: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    color: '#2d3748',
+    fontSize: '14px',
+  },
+  amountCell: {
+    fontWeight: '600',
+    color: '#e53e3e',
+  },
+  statusBadge: {
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    background: '#e2e8f0',
+    color: '#4a5568',
+  },
+};
 
 const styles: Record<string, React.CSSProperties> = {
   loading: {
@@ -537,5 +703,19 @@ const styles: Record<string, React.CSSProperties> = {
   statusRejected: {
     background: '#fee2e2',
     color: '#991b1b',
+  },
+  divider: {
+    height: '2px',
+    background: 'linear-gradient(to right, transparent, #e2e8f0, transparent)',
+    margin: '48px 0',
+  },
+  chargesSectionTitle: {
+    fontSize: '28px',
+    fontWeight: 'bold',
+    color: '#2d3748',
+    marginBottom: '24px',
+    paddingBottom: '12px',
+    borderBottom: '3px solid #e53e3e',
+    display: 'inline-block',
   },
 };

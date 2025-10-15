@@ -187,11 +187,25 @@ export const incomeComparisonAPI = {
 // Charges API
 export const chargesAPI = {
   getMy: (params?: { status?: string }) => api.get('/charges/my', { params }),
+  getById: (id: number) => api.get(`/charges/${id}`),
   create: (data: { fundId: number; amount: number; description: string; chargeDate: string }) =>
     api.post('/charges', data),
   update: (id: number, data: Partial<{ amount: number; description: string; chargeDate: string }>) =>
     api.patch(`/charges/${id}`, data),
   delete: (id: number) => api.delete(`/charges/${id}`),
+  
+  // Treasurer management functions
+  getTreasurerAll: (groupBy?: string) => api.get('/charges/treasurer/all', { params: { groupBy } }),
+  markForReview: (id: number, notes?: string) => api.post(`/charges/${id}/mark-review`, { notes }),
+  returnToPending: (id: number) => api.post(`/charges/${id}/return-to-pending`),
+  
+  // Batch operations
+  batchMarkForReview: (ids: number[], notes?: string) => 
+    api.post('/charges/batch/mark-review', { chargeIds: ids, notes }),
+  batchApprove: (ids: number[], notes?: string) => 
+    api.post('/charges/batch/approve', { chargeIds: ids, notes }),
+  batchReject: (ids: number[], rejectionReason: string) => 
+    api.post('/charges/batch/reject', { chargeIds: ids, rejectionReason }),
 };
 
 // Reports API
