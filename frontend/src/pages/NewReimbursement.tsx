@@ -5,6 +5,7 @@ import { BudgetWithFunds, BasicUser } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
+import '../styles/NewReimbursement.css';
 
 export default function NewReimbursement() {
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
@@ -20,7 +21,6 @@ export default function NewReimbursement() {
     amount: '',
     description: '',
     expenseDate: new Date().toISOString().split('T')[0],
-    receiptUrl: '',
     recipientUserId: '',
   });
 
@@ -81,7 +81,6 @@ export default function NewReimbursement() {
         amount: parseFloat(formData.amount),
         description: formData.description,
         expenseDate: formData.expenseDate,
-        receiptUrl: formData.receiptUrl || undefined,
         recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
       });
 
@@ -106,7 +105,7 @@ export default function NewReimbursement() {
     <div style={styles.container}>
       <Navigation />
 
-      <div style={styles.content}>
+      <div className="reimbursement-content" style={styles.content}>
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>הגשת בקשת החזר</h1>
         </div>
@@ -207,20 +206,6 @@ export default function NewReimbursement() {
               />
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>קישור לקבלה (אופציונלי)</label>
-              <input
-                type="url"
-                value={formData.receiptUrl}
-                onChange={(e) => setFormData({ ...formData, receiptUrl: e.target.value })}
-                style={styles.input}
-                placeholder="https://..."
-              />
-              <small style={{ color: '#718096', fontSize: '13px' }}>
-                ניתן להעלות קבלה לשירות חיצוני ולהדביק כאן את הקישור
-              </small>
-            </div>
-
             <div style={styles.actions}>
               <Button
                 type="button"
@@ -238,7 +223,7 @@ export default function NewReimbursement() {
         </div>
 
         {budgets.length > 0 && (
-          <div style={styles.sidebar}>
+          <div className="reimbursement-sidebar" style={styles.sidebar}>
             <h3 style={styles.sidebarTitle}>קופות זמינות</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (

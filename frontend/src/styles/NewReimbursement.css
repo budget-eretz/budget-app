@@ -127,3 +127,15 @@
 .cancel-button:hover {
   background: #cbd5e0;
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .reimbursement-content {
+    grid-template-columns: 1fr !important;
+    padding: 20px !important;
+  }
+
+  .reimbursement-sidebar {
+    display: none !important;
+  }
+}
