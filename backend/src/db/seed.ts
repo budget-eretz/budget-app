@@ -23,11 +23,12 @@ async function seed() {
     const hashedPassword = await bcrypt.hash('password123', 10);
 
     // Circle treasurer (no group)
+    const hashedPassword123456 = await bcrypt.hash('123456', 10);
     const circleUserResult = await client.query(`
       INSERT INTO users (email, password_hash, full_name, phone, is_circle_treasurer)
-      VALUES ('treasurer@circle.com', $1, 'דני כהן', '050-1234567', TRUE)
+      VALUES ('gizbarit@test.com', $1, 'גזברית מעגל', '050-1234567', TRUE)
       RETURNING id
-    `, [hashedPassword]);
+    `, [hashedPassword123456]);
 
     const circleTreasurerId = circleUserResult.rows[0].id;
 
@@ -117,7 +118,7 @@ async function seed() {
 
     console.log('✅ Sample data created successfully!');
     console.log('\n📝 Login credentials:');
-    console.log('Circle Treasurer: treasurer@circle.com / password123');
+    console.log('Circle Treasurer: gizbarit@test.com / 123456');
     console.log('Group Treasurer (North): treasurer@north.com / password123');
     console.log('Group Treasurer (Center): treasurer@center.com / password123');
     console.log('Member: member1@circle.com / password123');

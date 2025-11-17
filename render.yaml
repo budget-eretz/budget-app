@@ -13,7 +13,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: budget-app-db
+          name: budget-app-db-new
           property: connectionString
       # IMPORTANT: JWT_SECRET must be set manually in Render Dashboard
       # Using sync: false ensures it stays constant across deploys
@@ -39,6 +39,6 @@ services:
 
 databases:
   # PostgreSQL Database
-  - name: budget-app-db
+  - name: budget-app-db-new
     plan: free
     region: frankfurt
