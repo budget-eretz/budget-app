@@ -79,12 +79,12 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 'fit-content',
   },
   mobileLink: {
-    width: '52px',
-    height: '52px',
+    width: '25px',
+    height: '25px',
     padding: 0,
-    background: '#1a365d',
-    color: '#fff',
+    background: 'rgba(240, 244, 251, 0.22)',
+    color: '#1a365d',
     borderRadius: '50%',
-    fontSize: '24px',
+    fontSize: '15px',
   },
 };
