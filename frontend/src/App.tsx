@@ -18,6 +18,7 @@ import Profile from './pages/Profile';
 import Incomes from './pages/Incomes';
 import NewDirectExpense from './pages/NewDirectExpense';
 import EditDirectExpense from './pages/EditDirectExpense';
+import BugReportFooter from './components/BugReportFooter';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -91,6 +92,7 @@ function App() {
             <Route path="/direct-expenses/:id/edit" element={<TreasurerRoute><EditDirectExpense /></TreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
+          <BugReportFooter />
         </BrowserRouter>
       </ToastProvider>
     </AuthProvider>
