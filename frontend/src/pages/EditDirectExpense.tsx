@@ -85,7 +85,7 @@ const EditDirectExpense: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="reimbursement-form">
         <div className="form-group">
-          <label>קופה</label>
+          <label>סעיף</label>
           <input
             type="text"
             value={expense.fundName || ''}

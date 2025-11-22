@@ -118,7 +118,7 @@ export default function PaymentTransferDetailsModal({
                 <tr style={styles.tableHeaderRow}>
                   <th style={styles.tableHeader}>#</th>
                   <th style={styles.tableHeader}>תיאור</th>
-                  <th style={styles.tableHeader}>קופה</th>
+                  <th style={styles.tableHeader}>סעיף</th>
                   <th style={styles.tableHeader}>מגיש</th>
                   <th style={styles.tableHeader}>תאריך הוצאה</th>
                   <th style={styles.tableHeader}>סכום</th>

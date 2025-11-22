@@ -288,7 +288,7 @@ export default function ReimbursementTable({
     },
     {
       key: 'fund',
-      label: 'קופה',
+      label: 'סעיף',
       sortable: true,
       filterable: true,
       render: (reimbursement: Reimbursement) => (

@@ -1,12 +1,12 @@
 # מערכת ניהול תקציב להתאגדות שיתופית
 
-מערכת ניהול תקציב מתקדמת עבור מעגל שיתופי וקבוצות. המערכת מאפשרת ניהול תקציבים, קופות, תכנונים, החזרים והכנסות.
+מערכת ניהול תקציב מתקדמת עבור מעגל שיתופי וקבוצות. המערכת מאפשרת ניהול תקציבים, סעיפים, תכנונים, החזרים והכנסות.
 
 ## 🎯 תכונות
 
 ### גזבר מעגלי
 - ניהול תקציב כולל של המעגל
-- חלוקת תקציב לקופות מעגליות
+- חלוקת תקציב לסעיפים מעגליים
 - העברת תקציבים לקבוצות
 - אישור/דחיית בקשות החזר (דף "אישור החזרים")
 - ביצוע העברות תשלום (דף "העברות")
@@ -15,7 +15,7 @@
 
 ### גזבר קבוצתי
 - ניהול תקציב הקבוצה
-- חלוקה לקופות קבוצתיות
+- חלוקה לסעיפים קבוצתיים
 - אישור בקשות החזר של חברי הקבוצה (דף "אישור החזרים")
 - ביצוע העברות תשלום לחברי הקבוצה (דף "העברות")
 
@@ -29,11 +29,11 @@
 - צפייה בסיכום תשלומים (החזרים - חיובים)
 
 ### תכונות מתקדמות
-- **בקרת גישה לקופות**: קופות מעגליות זמינות לכולם, קופות קבוצתיות רק לחברי הקבוצה
+- **בקרת גישה לסעיפים**: סעיפים מעגליים זמינים לכולם, סעיפים קבוצתיים רק לחברי הקבוצה
 - **החזרים בשם אחרים**: אפשרות לשלוח תשלום למקבל שונה מהמגיש
 - **ניהול חיובים**: מעקב אחר חובות שמקוזזים מההחזרים
 - **סיכום תשלומים**: חישוב אוטומטי של נטו לתשלום (החזרים - חיובים)
-- **הגשה מהירה**: כפתורי הגשה ישירה מדפי הקופות
+- **הגשה מהירה**: כפתורי הגשה ישירה מדפי הסעיפים
 - **העברות תשלום אוטומטיות**: קיבוץ אוטומטי של החזרים מאושרים לפי מקבל וסוג תקציב לביצוע יעיל של תשלומים
 
 ### דפי גזבר
@@ -63,7 +63,7 @@
 2. **users** - משתמשים (חברים וגזברים)
 3. **user_groups** - קשרים רבים-לרבים בין משתמשים לקבוצות
 4. **budgets** - תקציבים (מעגליים וקבוצתיים)
-5. **funds** - קופות (חלוקת תקציב)
+5. **funds** - סעיפים (חלוקת תקציב)
 6. **planned_expenses** - תכנונים עתידיים
 7. **reimbursements** - בקשות החזר (כולל שדה recipient_user_id ו-payment_transfer_id)
 8. **payment_transfers** - העברות תשלום (קיבוץ החזרים מאושרים לפי מקבל וסוג תקציב)
@@ -264,10 +264,10 @@ npm run dev
 - `POST /api/budgets/transfer` - העברת תקציב
 
 ### Funds
-- `GET /api/funds?budgetId=X` - רשימת קופות
-- `POST /api/funds` - יצירת קופה (גזבר)
-- `PATCH /api/funds/:id` - עדכון קופה
-- `DELETE /api/funds/:id` - מחיקת קופה
+- `GET /api/funds?budgetId=X` - רשימת סעיפים
+- `POST /api/funds` - יצירת סעיף (גזבר)
+- `PATCH /api/funds/:id` - עדכון סעיף
+- `DELETE /api/funds/:id` - מחיקת סעיף
 
 ### Planned Expenses
 - `GET /api/planned-expenses` - רשימת תכנונים
@@ -302,11 +302,11 @@ npm run dev
 - `DELETE /api/charges/:id` - מחיקת חיוב (רק פעילים)
 
 ### Funds
-- `GET /api/funds` - רשימת קופות
-- `GET /api/funds/accessible` - קופות נגישות (מקובצות לפי תקציב עם בקרת גישה)
-- `POST /api/funds` - יצירת קופה (גזבר)
-- `PATCH /api/funds/:id` - עדכון קופה
-- `DELETE /api/funds/:id` - מחיקת קופה
+- `GET /api/funds` - רשימת סעיפים
+- `GET /api/funds/accessible` - סעיפים נגישים (מקובצים לפי תקציב עם בקרת גישה)
+- `POST /api/funds` - יצירת סעיף (גזבר)
+- `PATCH /api/funds/:id` - עדכון סעיף
+- `DELETE /api/funds/:id` - מחיקת סעיף
 
 ### Incomes
 - `GET /api/incomes` - רשימת הכנסות

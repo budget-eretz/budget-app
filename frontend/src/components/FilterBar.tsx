@@ -21,7 +21,7 @@ const FilterBar: React.FC<FilterBarProps> = ({ groupBy, onGroupByChange }) => {
         >
           <option value="none">הצג הכל</option>
           <option value="user">לפי חברים</option>
-          <option value="fund">לפי קופה</option>
+          <option value="fund">לפי סעיף</option>
         </select>
       </div>
     </div>

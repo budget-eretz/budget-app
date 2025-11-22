@@ -140,7 +140,7 @@ export default function Dashboard() {
         {/* Budgets and Funds Overview */}
         <section style={styles.section}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>תקציבים וקופות</h2>
+            <h2 style={styles.sectionTitle}>תקציבים וסעיפים</h2>
             {(user?.isCircleTreasurer || user?.isGroupTreasurer) && (
               <Button variant="primary" size="sm" onClick={() => navigate('/budgets')}>
                 ניהול תקציבים
@@ -185,7 +185,7 @@ export default function Dashboard() {
                       <table style={styles.table}>
                         <thead>
                           <tr>
-                            <th style={styles.th}>קופה</th>
+                            <th style={styles.th}>סעיף</th>
                             <th style={styles.th}>מוקצה</th>
                             <th style={styles.th}>הוצא</th>
                             <th style={styles.th}>מתוכנן</th>
@@ -245,7 +245,7 @@ export default function Dashboard() {
                       <table style={styles.table}>
                         <thead>
                           <tr>
-                            <th style={styles.th}>קופה</th>
+                            <th style={styles.th}>סעיף</th>
                             <th style={styles.th}>תקציב מוקצה</th>
                             <th style={styles.th}>הוצא</th>
                             <th style={styles.th}>מתוכנן</th>
@@ -316,7 +316,7 @@ export default function Dashboard() {
 
                 {budgetFunds.length === 0 && (
                   <div style={styles.emptyBudgetState}>
-                    <p>אין קופות בתקציב זה</p>
+                    <p>אין סעיפים בתקציב זה</p>
                   </div>
                 )}
               </div>
@@ -338,7 +338,7 @@ export default function Dashboard() {
                 <thead>
                   <tr>
                     <th style={styles.th}>מגיש</th>
-                    <th style={styles.th}>קופה</th>
+                    <th style={styles.th}>סעיף</th>
                     <th style={styles.th}>תיאור</th>
                     <th style={styles.th}>סכום</th>
                   </tr>
@@ -382,7 +382,7 @@ export default function Dashboard() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>קופה</th>
+                    <th style={styles.th}>סעיף</th>
                     <th style={styles.th}>תיאור</th>
                     <th style={styles.th}>סכום</th>
                     <th style={styles.th}>סטטוס</th>
@@ -451,7 +451,7 @@ export default function Dashboard() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={styles.th}>קופה</th>
+                      <th style={styles.th}>סעיף</th>
                       <th style={styles.th}>תיאור</th>
                       <th style={styles.th}>סכום</th>
                       <th style={styles.th}>תאריך מתוכנן</th>

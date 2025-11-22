@@ -99,7 +99,7 @@ const AllocationHistoryModal: React.FC<AllocationHistoryModalProps> = ({
 
         {!loading && !error && history.length === 0 && (
           <div className="empty-state">
-            אין היסטוריית הקצאות עבור קופה זו
+            אין היסטוריית הקצאות עבור סעיף זה
           </div>
         )}
 

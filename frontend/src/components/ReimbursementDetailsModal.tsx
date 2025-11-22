@@ -73,7 +73,7 @@ export default function ReimbursementDetailsModal({
           <div style={styles.grid}>
             <DetailRow label="מספר החזר" value={`#${reimbursement.id}`} />
             <DetailRow label="סכום" value={formatCurrency(reimbursement.amount)} />
-            <DetailRow label="קופה" value={reimbursement.fund_name || '-'} />
+            <DetailRow label="סעיף" value={reimbursement.fund_name || '-'} />
             <DetailRow label="תאריך הוצאה" value={formatDate(reimbursement.expense_date)} />
           </div>
           <div style={styles.fullWidth}>

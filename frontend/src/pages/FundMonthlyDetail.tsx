@@ -43,7 +43,7 @@ export default function FundMonthlyDetail() {
       setFund(response.data);
     } catch (error: any) {
       console.error('Failed to load fund:', error);
-      showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני הקופה', 'error');
+      showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני הסעיף', 'error');
     }
   };
 
@@ -149,7 +149,7 @@ export default function FundMonthlyDetail() {
             <button onClick={() => navigate(-1)} style={styles.backButton}>
               ← חזור
             </button>
-            <h1 style={styles.title}>{fund?.name || 'קופה'}</h1>
+            <h1 style={styles.title}>{fund?.name || 'סעיף'}</h1>
           </div>
           {isTreasurer && (
             <div style={{ display: 'flex', gap: '10px' }}>

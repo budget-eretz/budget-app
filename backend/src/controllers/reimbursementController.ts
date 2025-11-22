@@ -126,7 +126,7 @@ export async function createReimbursement(req: Request, res: Response) {
     const hasAccess = await validateFundAccess(user.userId, fundId);
 
     if (!hasAccess) {
-      return res.status(403).json({ error: 'אין לך הרשאה לגשת לקופה זו' });
+      return res.status(403).json({ error: 'אין לך הרשאה לגשת לסעיף זה' });
     }
 
     // Default recipient to submitter if not provided

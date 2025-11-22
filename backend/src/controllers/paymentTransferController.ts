@@ -273,7 +273,7 @@ export async function executePaymentTransfer(req: Request, res: Response) {
         
         if (reimbFundResult.rows.length === 0) {
           await client.query('ROLLBACK');
-          return res.status(400).json({ error: 'לא נמצא קופה להעברה זו' });
+          return res.status(400).json({ error: 'לא נמצא סעיף להעברה זו' });
         }
         
         fundResult.rows[0] = reimbFundResult.rows[0];

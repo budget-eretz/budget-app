@@ -76,7 +76,7 @@ export default function NewPlannedExpense() {
     e.preventDefault();
 
     if (!formData.fundId) {
-      showToast('יש לבחור קופה', 'error');
+      showToast('יש לבחור סעיף', 'error');
       return;
     }
 
@@ -142,7 +142,7 @@ export default function NewPlannedExpense() {
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>
-                בחר קופה <span style={{ color: '#e53e3e' }}>*</span>
+                בחר סעיף <span style={{ color: '#e53e3e' }}>*</span>
               </label>
               <select
                 value={formData.fundId}
@@ -150,7 +150,7 @@ export default function NewPlannedExpense() {
                 required
                 style={styles.select}
               >
-                <option value="">-- בחר קופה --</option>
+                <option value="">-- בחר סעיף --</option>
                 {budgets.map((budget) => (
                   <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
                     {budget.funds.map((fund) => (
@@ -224,7 +224,7 @@ export default function NewPlannedExpense() {
 
         {budgets.length > 0 && (
           <div style={styles.sidebar}>
-            <h3 style={styles.sidebarTitle}>קופות זמינות</h3>
+            <h3 style={styles.sidebarTitle}>סעיפים זמינים</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (
                 <div key={budget.id}>

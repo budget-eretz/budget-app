@@ -285,7 +285,7 @@ export default function GroupManagement() {
               האם אתה בטוח שברצונך למחוק את הקבוצה <strong>{groupToDelete.name}</strong>?
             </p>
             <p style={styles.deleteConfirmWarning}>
-              פעולה זו אינה ניתנת לביטול. ניתן למחוק את הקבוצה רק אם אין לה תקציבים או קופות משויכים.
+              פעולה זו אינה ניתנת לביטול. ניתן למחוק את הקבוצה רק אם אין לה תקציבים או סעיפים משויכים.
             </p>
             <div style={styles.deleteConfirmActions}>
               <Button 

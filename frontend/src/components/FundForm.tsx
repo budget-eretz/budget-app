@@ -43,9 +43,9 @@ export default function FundForm({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'שם הקופה הוא שדה חובה';
+      newErrors.name = 'שם הסעיף הוא שדה חובה';
     } else if (formData.name.length > 255) {
-      newErrors.name = 'שם הקופה ארוך מדי (מקסימום 255 תווים)';
+      newErrors.name = 'שם הסעיף ארוך מדי (מקסימום 255 תווים)';
     }
 
     if (!formData.allocatedAmount || formData.allocatedAmount <= 0) {
@@ -106,7 +106,7 @@ export default function FundForm({
     <Modal
       isOpen={true}
       onClose={onCancel}
-      title={fund ? 'עריכת קופה' : 'יצירת קופה חדשה'}
+      title={fund ? 'עריכת סעיף' : 'יצירת סעיף חדש'}
       size="md"
     >
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -121,7 +121,7 @@ export default function FundForm({
         {/* Name field */}
         <div style={styles.field}>
           <label style={styles.label}>
-            שם הקופה <span style={{ color: '#e53e3e' }}>*</span>
+            שם הסעיף <span style={{ color: '#e53e3e' }}>*</span>
           </label>
           <input
             type="text"
@@ -177,7 +177,7 @@ export default function FundForm({
               ...styles.textarea,
               ...(errors.description ? styles.inputError : {}),
             }}
-            placeholder="תיאור מפורט של מטרת הקופה..."
+            placeholder="תיאור מפורט של מטרת הסעיף..."
             maxLength={1000}
             rows={4}
             disabled={isLoading}
@@ -203,7 +203,7 @@ export default function FundForm({
             variant="primary"
             isLoading={isLoading}
           >
-            {fund ? 'עדכן קופה' : 'צור קופה'}
+            {fund ? 'עדכן סעיף' : 'צור סעיף'}
           </Button>
         </div>
       </form>

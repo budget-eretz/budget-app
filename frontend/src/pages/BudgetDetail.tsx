@@ -167,7 +167,7 @@ export default function BudgetDetail() {
         allocatedAmount: data.allocatedAmount,
         description: data.description,
       });
-      showToast('הקופה נוצרה בהצלחה', 'success');
+      showToast('הסעיף נוצר בהצלחה', 'success');
       setShowCreateFundModal(false);
       await loadBudgetData(); // Refresh data
     } catch (error: any) {
@@ -175,7 +175,7 @@ export default function BudgetDetail() {
 
       // Handle specific error cases
       if (error.response?.status === 403) {
-        showToast('אין לך הרשאה ליצור קופות בתקציב זה', 'error');
+        showToast('אין לך הרשאה ליצור סעיפים בתקציב זה', 'error');
         setShowCreateFundModal(false);
       } else if (error.response?.status === 400) {
         showToast(error.response?.data?.error || 'נתונים לא תקינים - בדוק את הסכום והשדות', 'error');
@@ -189,7 +189,7 @@ export default function BudgetDetail() {
       } else if (!error.response) {
         showToast('שגיאת רשת - אנא בדוק את החיבור לאינטרנט', 'error');
       } else {
-        showToast(error.response?.data?.error || 'שגיאה ביצירת הקופה', 'error');
+        showToast(error.response?.data?.error || 'שגיאה ביצירת הסעיף', 'error');
       }
       throw error;
     } finally {
@@ -207,7 +207,7 @@ export default function BudgetDetail() {
         allocatedAmount: data.allocatedAmount,
         description: data.description,
       });
-      showToast('הקופה עודכנה בהצלחה', 'success');
+      showToast('הסעיף עודכן בהצלחה', 'success');
       setShowEditFundModal(false);
       setEditingFund(null);
       await loadBudgetData(); // Refresh data
@@ -216,10 +216,10 @@ export default function BudgetDetail() {
 
       // Handle specific error cases
       if (error.response?.status === 403) {
-        showToast('אין לך הרשאה לערוך קופה זו', 'error');
+        showToast('אין לך הרשאה לערוך סעיף זה', 'error');
         setShowEditFundModal(false);
       } else if (error.response?.status === 404) {
-        showToast('הקופה לא נמצאה', 'error');
+        showToast('הסעיף לא נמצא', 'error');
         setShowEditFundModal(false);
         await loadBudgetData();
       } else if (error.response?.status === 400) {
@@ -230,7 +230,7 @@ export default function BudgetDetail() {
       } else if (!error.response) {
         showToast('שגיאת רשת - אנא בדוק את החיבור לאינטרנט', 'error');
       } else {
-        showToast(error.response?.data?.error || 'שגיאה בעדכון הקופה', 'error');
+        showToast(error.response?.data?.error || 'שגיאה בעדכון הסעיף', 'error');
       }
       throw error;
     } finally {
@@ -244,7 +244,7 @@ export default function BudgetDetail() {
     try {
       setSubmitting(true);
       await fundsAPI.delete(deletingFund.id);
-      showToast('הקופה נמחקה בהצלחה', 'success');
+      showToast('הסעיף נמחק בהצלחה', 'success');
       setShowDeleteFundConfirm(false);
       setDeletingFund(null);
       await loadBudgetData(); // Refresh data
@@ -253,19 +253,19 @@ export default function BudgetDetail() {
 
       // Handle specific error cases
       if (error.response?.status === 403) {
-        showToast('אין לך הרשאה למחוק קופה זו', 'error');
+        showToast('אין לך הרשאה למחוק סעיף זה', 'error');
       } else if (error.response?.status === 404) {
-        showToast('הקופה לא נמצאה', 'error');
+        showToast('הסעיף לא נמצא', 'error');
         await loadBudgetData();
       } else if (error.response?.status === 400) {
-        showToast(error.response?.data?.error || 'לא ניתן למחוק קופה עם הוצאות או תכנון קיימים', 'error');
+        showToast(error.response?.data?.error || 'לא ניתן למחוק סעיף עם הוצאות או תכנון קיימים', 'error');
       } else if (error.response?.status === 401) {
         showToast('נדרשת התחברות מחדש', 'error');
         navigate('/login');
       } else if (!error.response) {
         showToast('שגיאת רשת - אנא בדוק את החיבור לאינטרנט', 'error');
       } else {
-        showToast(error.response?.data?.error || 'שגיאה במחיקת הקופה', 'error');
+        showToast(error.response?.data?.error || 'שגיאה במחיקת הסעיף', 'error');
       }
     } finally {
       setSubmitting(false);
@@ -333,7 +333,7 @@ export default function BudgetDetail() {
         navigate('/budgets');
       } else if (error.response?.status === 400) {
         if (error.response?.data?.fundsCount) {
-          showToast(`לא ניתן למחוק תקציב עם ${error.response.data.fundsCount} קופות קיימות`, 'error');
+          showToast(`לא ניתן למחוק תקציב עם ${error.response.data.fundsCount} סעיפים קיימים`, 'error');
         } else {
           showToast(error.response?.data?.error || 'לא ניתן למחוק תקציב זה', 'error');
         }
@@ -522,7 +522,7 @@ export default function BudgetDetail() {
               </span>
             </div>
             <div style={styles.summaryItem}>
-              <span style={styles.summaryLabel}>מוקצה לקופות</span>
+              <span style={styles.summaryLabel}>מוקצה לסעיפים</span>
               <span style={{ ...styles.summaryValue, color: '#718096' }}>
                 {formatAmount(summary.totalAllocated)}
               </span>
@@ -551,7 +551,7 @@ export default function BudgetDetail() {
         {/* Monthly Status Table */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>מצב קופות חודשי</h2>
+            <h2 style={styles.sectionTitle}>מצב סעיפים חודשי</h2>
           </div>
 
           <MonthNavigator
@@ -573,7 +573,7 @@ export default function BudgetDetail() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>שם הקופה</th>
+                    <th style={styles.th}>שם הסעיף</th>
                     <th style={styles.th}>מוקצה</th>
                     <th style={styles.th}>הוצא</th>
                     <th style={styles.th}>מתוכנן</th>
@@ -621,20 +621,20 @@ export default function BudgetDetail() {
         {/* Annual Funds Overview Table */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>תמונת מצב שנתית - קופות</h2>
+            <h2 style={styles.sectionTitle}>תמונת מצב שנתית - סעיפים</h2>
             {hasPermission && (
               <Button variant="primary" onClick={openCreateFundModal}>
-                + צור קופה
+                + צור סעיף
               </Button>
             )}
           </div>
 
           {funds.length === 0 ? (
             <div style={styles.emptyState}>
-              <p style={styles.emptyText}>אין קופות בתקציב זה</p>
+              <p style={styles.emptyText}>אין סעיפים בתקציב זה</p>
               {hasPermission && (
                 <Button variant="primary" onClick={openCreateFundModal}>
-                  צור קופה ראשונה
+                  צור סעיף ראשון
                 </Button>
               )}
             </div>
@@ -643,7 +643,7 @@ export default function BudgetDetail() {
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>שם הקופה</th>
+                    <th style={styles.th}>שם הסעיף</th>
                     <th style={styles.th}>תקציב מוקצה</th>
                     <th style={styles.th}>הוצא</th>
                     <th style={styles.th}>מתוכנן</th>
@@ -778,18 +778,18 @@ export default function BudgetDetail() {
         <Modal
           isOpen={showDeleteFundConfirm}
           onClose={closeDeleteFundConfirm}
-          title="מחיקת קופה"
+          title="מחיקת סעיף"
           size="sm"
         >
           <div style={styles.deleteModal}>
             <p style={styles.deleteText}>
-              האם אתה בטוח שברצונך למחוק את הקופה "{deletingFund.name}"?
+              האם אתה בטוח שברצונך למחוק את הסעיף "{deletingFund.name}"?
             </p>
             {(deletingFund.spent_amount || deletingFund.planned_amount) && (
               <div style={styles.deleteWarning}>
                 <p style={styles.warningText}>⚠️ אזהרה:</p>
                 <p style={styles.warningDetails}>
-                  לקופה זו יש הוצאות או תכנון קיימים. מחיקתה עלולה להשפיע על נתונים אחרים במערכת.
+                  לסעיף זה יש הוצאות או תכנון קיימים. מחיקתו עלולה להשפיע על נתונים אחרים במערכת.
                 </p>
               </div>
             )}
@@ -839,7 +839,7 @@ export default function BudgetDetail() {
               <div style={styles.deleteWarning}>
                 <p style={styles.warningText}>⚠️ אזהרה:</p>
                 <p style={styles.warningDetails}>
-                  לתקציב זה יש {funds.length} קופות קיימות. לא ניתן למחוק תקציב עם קופות. יש למחוק תחילה את כל הקופות.
+                  לתקציב זה יש {funds.length} סעיפים קיימים. לא ניתן למחוק תקציב עם סעיפים. יש למחוק תחילה את כל הסעיפים.
                 </p>
               </div>
             )}

@@ -58,7 +58,7 @@ export default function NewCharge() {
     e.preventDefault();
 
     if (!formData.fundId) {
-      showToast('יש לבחור קופה', 'error');
+      showToast('יש לבחור סעיף', 'error');
       return;
     }
 
@@ -124,7 +124,7 @@ export default function NewCharge() {
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>
-                בחר קופה <span style={{ color: '#e53e3e' }}>*</span>
+                בחר סעיף <span style={{ color: '#e53e3e' }}>*</span>
               </label>
               <select
                 value={formData.fundId}
@@ -133,9 +133,9 @@ export default function NewCharge() {
                 disabled={isEditing}
                 style={{...styles.select, ...(isEditing ? {background: '#f7fafc', cursor: 'not-allowed'} : {})}}
               >
-                <option value="">-- בחר קופה --</option>
+                <option value="">-- בחר סעיף --</option>
                 {budgets.length === 0 ? (
-                  <option disabled>אין קופות זמינות</option>
+                  <option disabled>אין סעיפים זמינים</option>
                 ) : (
                   budgets.map((budget) => (
                     <optgroup 
@@ -153,7 +153,7 @@ export default function NewCharge() {
               </select>
               {isEditing && (
                 <span style={{fontSize: '12px', color: '#718096'}}>
-                  לא ניתן לשנות קופה בעריכה
+                  לא ניתן לשנות סעיף בעריכה
                 </span>
               )}
             </div>
@@ -220,7 +220,7 @@ export default function NewCharge() {
 
         {budgets.length > 0 && (
           <div style={styles.sidebar}>
-            <h3 style={styles.sidebarTitle}>קופות זמינות</h3>
+            <h3 style={styles.sidebarTitle}>סעיפים זמינים</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (
                 <div key={budget.id} style={styles.budgetSection}>

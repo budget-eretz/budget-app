@@ -764,7 +764,7 @@ function ChargesTable({
               />
             </th>
             <th style={tableStyles.header}>משתמש</th>
-            <th style={tableStyles.header}>קופה</th>
+            <th style={tableStyles.header}>סעיף</th>
             <th style={tableStyles.header}>תיאור</th>
             <th style={tableStyles.header}>סכום</th>
             <th style={tableStyles.header}>תאריך חיוב</th>

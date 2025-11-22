@@ -181,7 +181,7 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
     }
 
     if (isOverAllocated()) {
-      setError(`סכום ההקצאות עולה על תקציב הקופה. יתרה זמינה: ₪${getRemainingUnallocated().toFixed(2)}`);
+      setError(`סכום ההקצאות עולה על תקציב הסעיף. יתרה זמינה: ₪${getRemainingUnallocated().toFixed(2)}`);
       return;
     }
 

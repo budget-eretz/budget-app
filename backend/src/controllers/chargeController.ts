@@ -120,7 +120,7 @@ export async function createCharge(req: Request, res: Response) {
     const hasAccess = await validateFundAccess(user.userId, fundId);
 
     if (!hasAccess) {
-      return res.status(403).json({ error: 'אין לך הרשאה לגשת לקופה זו' });
+      return res.status(403).json({ error: 'אין לך הרשאה לגשת לסעיף זה' });
     }
 
     const result = await pool.query(

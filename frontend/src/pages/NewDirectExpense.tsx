@@ -30,7 +30,7 @@ const NewDirectExpense: React.FC = () => {
       setBudgets(response.data.budgets);
     } catch (error) {
       console.error('Error fetching funds:', error);
-      showToast('שגיאה בטעינת קופות', 'error');
+      showToast('שגיאה בטעינת סעיפים', 'error');
     }
   };
 
@@ -76,7 +76,7 @@ const NewDirectExpense: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="reimbursement-form">
         <div className="form-group">
-          <label htmlFor="fund">קופה *</label>
+          <label htmlFor="fund">סעיף *</label>
           <select
             id="fund"
             value={selectedFundId}
@@ -84,7 +84,7 @@ const NewDirectExpense: React.FC = () => {
             required
             disabled={!!preselectedFundId}
           >
-            <option value="">בחר קופה</option>
+            <option value="">בחר סעיף</option>
             {budgets.map((budget) => (
               <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
                 {budget.funds.map((fund) => (

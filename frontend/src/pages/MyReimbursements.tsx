@@ -237,7 +237,7 @@ export default function MyReimbursements() {
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>
-                    <th style={styles.tableHeader}>קופה</th>
+                    <th style={styles.tableHeader}>סעיף</th>
                     <th style={styles.tableHeader}>תיאור</th>
                     <th style={styles.tableHeader}>סכום</th>
                     <th style={styles.tableHeader}>תאריך הוצאה</th>
@@ -300,7 +300,7 @@ export default function MyReimbursements() {
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>
-                    <th style={styles.tableHeader}>קופה</th>
+                    <th style={styles.tableHeader}>סעיף</th>
                     <th style={styles.tableHeader}>תיאור</th>
                     <th style={styles.tableHeader}>סכום</th>
                     <th style={styles.tableHeader}>תאריך חיוב</th>
@@ -366,7 +366,7 @@ export default function MyReimbursements() {
           {deleteModal.item && (
             <div style={styles.deleteModalDetails}>
               <div>
-                <strong>קופה:</strong> {deleteModal.item.fund_name}
+                <strong>סעיף:</strong> {deleteModal.item.fund_name}
               </div>
               <div>
                 <strong>סכום:</strong> {formatCurrency(deleteModal.item.amount)}
