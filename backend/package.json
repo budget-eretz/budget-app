@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/start.js",
     "migrate": "tsx src/db/migrate.ts",
-    "seed": "tsx src/db/seed.ts",
+    "seed": "tsx src/db/seed-initial.ts",
+    "seed:init": "npm run seed",
     "db:setup": "npm run migrate && npm run seed"
   },
   "dependencies": {
