@@ -1,38 +1,20 @@
 import runMigrations from './db/migrate';
 import pool from './config/database';
-import bcrypt from 'bcrypt';
+import { runInitialSeed } from './db/seed-initial';
 
 async function seedIfEmpty() {
   const client = await pool.connect();
   try {
-    // Check if there are any users
-    const result = await client.query('SELECT COUNT(*) FROM users');
-    const userCount = parseInt(result.rows[0].count);
-    
-    if (userCount === 0) {
-      console.log('📦 No users found, creating circle treasurer...');
-      
-      await client.query('BEGIN');
-      
-      // Create circle treasurer only
-      const hashedPassword123456 = await bcrypt.hash('123456', 10);
-      
-      await client.query(`
-        INSERT INTO users (email, password_hash, full_name, phone, is_circle_treasurer)
-        VALUES ('gizbarit@test.com', $1, 'גזברית מעגל', '050-1234567', TRUE)
-      `, [hashedPassword123456]);
+    const { rows } = await client.query('SELECT COUNT(*) AS count FROM users');
+    const userCount = parseInt(rows[0].count, 10);
 
-      await client.query('COMMIT');
-      
-      console.log('✅ Circle treasurer created successfully!');
-      console.log('📝 Login: gizbarit@test.com / 123456');
+    if (userCount === 0) {
+      console.log('📦 No users found, running initial seed...');
+      await runInitialSeed({ closePool: false });
+      console.log('✅ Initial seed completed');
     } else {
       console.log(`✅ Database already has ${userCount} users, skipping seed`);
     }
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Seeding failed:', error);
-    throw error;
   } finally {
     client.release();
   }
