@@ -106,14 +106,24 @@ export default function Incomes() {
   const loadCircleBudget = useCallback(async () => {
     try {
       const response = await budgetsAPI.getAll();
-      const circleBudget = response.data.find((b: any) => !b.group_id);
-      if (circleBudget) {
+      const budgets = response.data || [];
+
+      // Prefer explicit type if provided, then fall back to missing group (snake_case or camelCase)
+      const circleBudget =
+        budgets.find((b: any) => b.type === 'circle') ||
+        budgets.find((b: any) => b.group_id === null || b.group_id === undefined) ||
+        budgets.find((b: any) => b.groupId === null || b.groupId === undefined);
+
+      if (circleBudget?.id) {
         setCircleBudgetId(circleBudget.id);
+      } else {
+        console.error('Circle budget not found in budgets list', budgets);
+        showToast('לא נמצא תקציב מעגל ראשי - לא ניתן להוסיף הכנסות', 'error');
       }
     } catch (error: any) {
       console.error('Error loading circle budget:', error);
     }
-  }, []);
+  }, [showToast]);
 
   const loadActualIncomes = useCallback(async () => {
     try {

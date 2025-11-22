@@ -24,8 +24,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<DashboardType | null>(null);
   const [monthlyStatus, setMonthlyStatus] = useState<MonthlyFundStatus[]>([]);
+  const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
+    const now = new Date();
+    return { month: now.getMonth() + 1, year: now.getFullYear() };
+  });
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     loadDashboard();
@@ -74,6 +80,20 @@ export default function Dashboard() {
       console.error('Failed to load monthly status:', error);
       // Don't show error - monthly status is optional
     }
+  };
+
+  const handleMonthChange = (offset: number) => {
+    setSelectedMonthYear(prev => {
+      const nextDate = new Date(prev.year, prev.month - 1 + offset, 1);
+      return {
+        month: nextDate.getMonth() + 1,
+        year: nextDate.getFullYear()
+      };
+    });
+  };
+
+  const resetToCurrentMonth = () => {
+    setSelectedMonthYear({ month: currentMonth, year: currentYear });
   };
 
   const handleDeletePlannedExpense = async (expenseId: number) => {
@@ -131,6 +151,19 @@ export default function Dashboard() {
     }
     return acc;
   }, {} as Record<number, MonthlyFundStatus[]>);
+
+  const getExpensesForMonth = (month: number, year: number) => {
+    return dashboard.myPlannedExpenses.filter(expense => {
+      if (!expense.planned_date) return false;
+      const expenseDate = new Date(expense.planned_date);
+      return expenseDate.getMonth() + 1 === month && expenseDate.getFullYear() === year;
+    });
+  };
+
+  const selectedMonthExpenses = getExpensesForMonth(selectedMonthYear.month, selectedMonthYear.year);
+  const selectedMonthLabel = `${getHebrewMonth(selectedMonthYear.month)} ${selectedMonthYear.year}`;
+  const isCurrentMonthSelected =
+    selectedMonthYear.month === currentMonth && selectedMonthYear.year === currentYear;
 
   return (
     <div style={styles.container}>
@@ -407,91 +440,97 @@ export default function Dashboard() {
 
         {/* My Planned Expenses - Current Month */}
         <section style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>
-              התכנונים שלי - {getHebrewMonth(new Date().getMonth() + 1)} {new Date().getFullYear()}
-              {' '}
-              ({(() => {
-                const currentMonth = new Date().getMonth() + 1;
-                const currentYear = new Date().getFullYear();
-                const currentMonthExpenses = dashboard.myPlannedExpenses.filter(expense => {
-                  if (!expense.planned_date) return false;
-                  const expenseDate = new Date(expense.planned_date);
-                  return expenseDate.getMonth() + 1 === currentMonth && expenseDate.getFullYear() === currentYear;
-                });
-                return currentMonthExpenses.length;
-              })()})
-            </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
+              <h2 style={{ ...styles.sectionTitle, marginBottom: 0 }}>
+                התכנונים שלי - {selectedMonthLabel} ({selectedMonthExpenses.length})
+              </h2>
+              <div style={styles.monthControls}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleMonthChange(-1)}
+                  style={styles.monthNavButton}
+                >
+                  החודש הקודם
+                </Button>
+                <span style={styles.monthLabel}>{selectedMonthLabel}</span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleMonthChange(1)}
+                  style={styles.monthNavButton}
+                >
+                  החודש הבא
+                </Button>
+                {!isCurrentMonthSelected && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={resetToCurrentMonth}
+                    style={{ ...styles.monthNavButton, background: '#e2e8f0', color: '#2d3748' }}
+                  >
+                    חזרה לחודש הנוכחי
+                  </Button>
+                )}
+              </div>
+            </div>
             <Button variant="primary" size="sm" onClick={() => navigate('/planned-expenses/new')}>
               + תכנון חדש
             </Button>
           </div>
-          {(() => {
-            const currentMonth = new Date().getMonth() + 1;
-            const currentYear = new Date().getFullYear();
-            const currentMonthExpenses = dashboard.myPlannedExpenses.filter(expense => {
-              if (!expense.planned_date) return false;
-              const expenseDate = new Date(expense.planned_date);
-              return expenseDate.getMonth() + 1 === currentMonth && expenseDate.getFullYear() === currentYear;
-            });
-
-            if (currentMonthExpenses.length === 0) {
-              return (
-                <div style={styles.emptyState}>
-                  <p>אין לך תכנונים לחודש הנוכחי</p>
-                  <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
-                    צור תכנון חדש
-                  </Button>
-                </div>
-              );
-            }
-
-            return (
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>סעיף</th>
-                      <th style={styles.th}>תיאור</th>
-                      <th style={styles.th}>סכום</th>
-                      <th style={styles.th}>תאריך מתוכנן</th>
-                      <th style={styles.th}>פעולות</th>
+          {selectedMonthExpenses.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p>אין לך תכנונים לחודש {selectedMonthLabel}</p>
+              <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
+                צור תכנון חדש
+              </Button>
+            </div>
+          ) : (
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>סעיף</th>
+                    <th style={styles.th}>תיאור</th>
+                    <th style={styles.th}>סכום</th>
+                    <th style={styles.th}>תאריך מתוכנן</th>
+                    <th style={styles.th}>פעולות</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedMonthExpenses.map(expense => (
+                    <tr key={expense.id} style={styles.tableRow}>
+                      <td style={styles.td}>{expense.fund_name}</td>
+                      <td style={styles.td}>{expense.description}</td>
+                      <td style={styles.td}>{formatCurrency(expense.amount)}</td>
+                      <td style={styles.td}>
+                        {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={styles.actionButtons}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
+                          >
+                            ערוך
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDeletePlannedExpense(expense.id)}
+                          >
+                            מחק
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {currentMonthExpenses.map(expense => (
-                      <tr key={expense.id} style={styles.tableRow}>
-                        <td style={styles.td}>{expense.fund_name}</td>
-                        <td style={styles.td}>{expense.description}</td>
-                        <td style={styles.td}>{formatCurrency(expense.amount)}</td>
-                        <td style={styles.td}>
-                          {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.actionButtons}>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
-                            >
-                              ערוך
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDeletePlannedExpense(expense.id)}
-                            >
-                              מחק
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       </div>
 
@@ -723,5 +762,22 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '16px',
     color: '#e53e3e',
+  },
+  monthControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  monthLabel: {
+    padding: '6px 12px',
+    background: '#edf2f7',
+    borderRadius: '9999px',
+    fontSize: '14px',
+    color: '#2d3748',
+    fontWeight: 600,
+  },
+  monthNavButton: {
+    minWidth: 'auto',
   },
 };
