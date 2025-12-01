@@ -29,6 +29,18 @@ export default function Payments() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  // Map table IDs to Hebrew display names
+  const tableDisplayNames: Record<string, string> = {
+    'reimbursements-pending': 'ממתינים לאישור',
+    'reimbursements-under_review': 'לבדיקה',
+    'reimbursements-approved': 'אושרו',
+    'reimbursements-rejected': 'נדחו',
+    'charges-pending': 'חיובים ממתינים לאישור',
+    'charges-under_review': 'חיובים לבדיקה',
+    'charges-approved': 'חיובים אושרו',
+    'charges-rejected': 'חיובים נדחו',
+  };
+
   // Load data on mount and when groupBy changes
   useEffect(() => {
     loadData();
@@ -437,174 +449,182 @@ export default function Payments() {
         <FilterBar groupBy={groupBy} onGroupByChange={handleGroupByChange} />
 
         {/* Task 15.4: Pending Section */}
-        <div style={styles.section} className="section-animate">
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>
-              ממתינים לאישור ({data.pending.length})
-            </h2>
-            <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
-          </div>
-          {activeTable && activeTable !== 'reimbursements-pending' ? (
-            <div style={styles.blockedMessage}>
-              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-            </div>
-          ) : (
-            <>
-              {selectedIds.size > 0 && activeTable === 'reimbursements-pending' && (
-                <ActionBar
-                  selectedCount={selectedIds.size}
-                  totalAmount={getSelectedTotalAmount()}
-                  availableActions={getAvailableActions()}
-                  onAction={handleAction}
-                  onClearSelection={clearSelection}
-                  tableName="ממתינים לאישור"
-                />
-              )}
-              {data.pending.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין החזרים ממתינים לאישור</div>
-              ) : (
-                <ReimbursementTable
-                  reimbursements={data.pending}
-                  status="pending"
-                  onSelect={(ids) => handleSelect(ids, 'reimbursements-pending')}
-                  selectedIds={Array.from(selectedIds)}
-                  onAction={handleAction}
-                  disabled={activeTable !== null && activeTable !== 'reimbursements-pending'}
-                />
-              )}
-            </>
+        <div style={styles.sectionWrapper} className="section-animate">
+          {selectedIds.size > 0 && activeTable === 'reimbursements-pending' && (
+            <ActionBar
+              selectedCount={selectedIds.size}
+              totalAmount={getSelectedTotalAmount()}
+              availableActions={getAvailableActions()}
+              onAction={handleAction}
+              onClearSelection={clearSelection}
+              tableName="ממתינים לאישור"
+            />
           )}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>
+                ממתינים לאישור ({data.pending.length})
+              </h2>
+              <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
+            </div>
+            {activeTable && activeTable !== 'reimbursements-pending' ? (
+              <div style={styles.blockedMessage}>
+                מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+              </div>
+            ) : (
+              <>
+                {data.pending.length === 0 ? (
+                  <div style={styles.emptyMessage} className="empty-message">אין החזרים ממתינים לאישור</div>
+                ) : (
+                  <ReimbursementTable
+                    reimbursements={data.pending}
+                    status="pending"
+                    onSelect={(ids) => handleSelect(ids, 'reimbursements-pending')}
+                    selectedIds={Array.from(selectedIds)}
+                    onAction={handleAction}
+                    disabled={activeTable !== null && activeTable !== 'reimbursements-pending'}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Task 15.5: Under Review Section */}
-        <div style={styles.section} className="section-animate">
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>
-              לבדיקה ({data.under_review.length})
-            </h2>
-            <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
-          </div>
-          {activeTable && activeTable !== 'reimbursements-under_review' ? (
-            <div style={styles.blockedMessage}>
-              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-            </div>
-          ) : (
-            <>
-              {selectedIds.size > 0 && activeTable === 'reimbursements-under_review' && (
-                <ActionBar
-                  selectedCount={selectedIds.size}
-                  totalAmount={getSelectedTotalAmount()}
-                  availableActions={getAvailableActions()}
-                  onAction={handleAction}
-                  onClearSelection={clearSelection}
-                  tableName="לבדיקה"
-                />
-              )}
-              {data.under_review.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין החזרים לבדיקה</div>
-              ) : (
-                <ReimbursementTable
-                  reimbursements={data.under_review}
-                  status="under_review"
-                  onSelect={(ids) => handleSelect(ids, 'reimbursements-under_review')}
-                  selectedIds={Array.from(selectedIds)}
-                  onAction={handleAction}
-                  disabled={activeTable !== null && activeTable !== 'reimbursements-under_review'}
-                />
-              )}
-            </>
+        <div style={styles.sectionWrapper} className="section-animate">
+          {selectedIds.size > 0 && activeTable === 'reimbursements-under_review' && (
+            <ActionBar
+              selectedCount={selectedIds.size}
+              totalAmount={getSelectedTotalAmount()}
+              availableActions={getAvailableActions()}
+              onAction={handleAction}
+              onClearSelection={clearSelection}
+              tableName="לבדיקה"
+            />
           )}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>
+                לבדיקה ({data.under_review.length})
+              </h2>
+              <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
+            </div>
+            {activeTable && activeTable !== 'reimbursements-under_review' ? (
+              <div style={styles.blockedMessage}>
+                מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+              </div>
+            ) : (
+              <>
+                {data.under_review.length === 0 ? (
+                  <div style={styles.emptyMessage} className="empty-message">אין החזרים לבדיקה</div>
+                ) : (
+                  <ReimbursementTable
+                    reimbursements={data.under_review}
+                    status="under_review"
+                    onSelect={(ids) => handleSelect(ids, 'reimbursements-under_review')}
+                    selectedIds={Array.from(selectedIds)}
+                    onAction={handleAction}
+                    disabled={activeTable !== null && activeTable !== 'reimbursements-under_review'}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Task 15.6: Approved Section */}
-        <div style={styles.section} className="section-animate">
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>
-              אושרו ({data.approved.length})
-            </h2>
-            <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
-          </div>
-          {activeTable && activeTable !== 'reimbursements-approved' ? (
-            <div style={styles.blockedMessage}>
-              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-            </div>
-          ) : (
-            <>
-              {data.approved.length > 0 && (
-                <div style={styles.transfersButtonContainer}>
-                  <Button 
-                    onClick={() => navigate('/payment-transfers')} 
-                    style={styles.executeTransfersButton}
-                  >
-                    💳 עבור לביצוע תשלומים
-                  </Button>
-                </div>
-              )}
-              {selectedIds.size > 0 && activeTable === 'reimbursements-approved' && (
-                <ActionBar
-                  selectedCount={selectedIds.size}
-                  totalAmount={getSelectedTotalAmount()}
-                  availableActions={getAvailableActions()}
-                  onAction={handleAction}
-                  onClearSelection={clearSelection}
-                  tableName="אושרו"
-                />
-              )}
-              {data.approved.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
-              ) : (
-                <ReimbursementTable
-                  reimbursements={data.approved}
-                  status="approved"
-                  onSelect={(ids) => handleSelect(ids, 'reimbursements-approved')}
-                  selectedIds={Array.from(selectedIds)}
-                  onAction={handleAction}
-                  showTransferInfo={true}
-                  disabled={activeTable !== null && activeTable !== 'reimbursements-approved'}
-                />
-              )}
-            </>
+        <div style={styles.sectionWrapper} className="section-animate">
+          {selectedIds.size > 0 && activeTable === 'reimbursements-approved' && (
+            <ActionBar
+              selectedCount={selectedIds.size}
+              totalAmount={getSelectedTotalAmount()}
+              availableActions={getAvailableActions()}
+              onAction={handleAction}
+              onClearSelection={clearSelection}
+              tableName="אושרו"
+            />
           )}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>
+                אושרו ({data.approved.length})
+              </h2>
+              <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
+            </div>
+            {activeTable && activeTable !== 'reimbursements-approved' ? (
+              <div style={styles.blockedMessage}>
+                מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+              </div>
+            ) : (
+              <>
+                {data.approved.length > 0 && (
+                  <div style={styles.transfersButtonContainer}>
+                    <Button 
+                      onClick={() => navigate('/payment-transfers')} 
+                      style={styles.executeTransfersButton}
+                    >
+                      💳 עבור לביצוע תשלומים
+                    </Button>
+                  </div>
+                )}
+                {data.approved.length === 0 ? (
+                  <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
+                ) : (
+                  <ReimbursementTable
+                    reimbursements={data.approved}
+                    status="approved"
+                    onSelect={(ids) => handleSelect(ids, 'reimbursements-approved')}
+                    selectedIds={Array.from(selectedIds)}
+                    onAction={handleAction}
+                    showTransferInfo={true}
+                    disabled={activeTable !== null && activeTable !== 'reimbursements-approved'}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Task 15.7: Rejected Section */}
-        <div style={styles.section} className="section-animate">
-          <div style={styles.sectionHeader}>
-            <h2 style={styles.sectionTitle}>
-              נדחו ({data.rejected.length})
-            </h2>
-            <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
-          </div>
-          {activeTable && activeTable !== 'reimbursements-rejected' ? (
-            <div style={styles.blockedMessage}>
-              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-            </div>
-          ) : (
-            <>
-              {selectedIds.size > 0 && activeTable === 'reimbursements-rejected' && (
-                <ActionBar
-                  selectedCount={selectedIds.size}
-                  totalAmount={getSelectedTotalAmount()}
-                  availableActions={getAvailableActions()}
-                  onAction={handleAction}
-                  onClearSelection={clearSelection}
-                  tableName="נדחו"
-                />
-              )}
-              {data.rejected.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין החזרים נדחים</div>
-              ) : (
-                <ReimbursementTable
-                  reimbursements={data.rejected}
-                  status="rejected"
-                  onSelect={(ids) => handleSelect(ids, 'reimbursements-rejected')}
-                  selectedIds={Array.from(selectedIds)}
-                  onAction={handleAction}
-                  disabled={activeTable !== null && activeTable !== 'reimbursements-rejected'}
-                />
-              )}
-            </>
+        <div style={styles.sectionWrapper} className="section-animate">
+          {selectedIds.size > 0 && activeTable === 'reimbursements-rejected' && (
+            <ActionBar
+              selectedCount={selectedIds.size}
+              totalAmount={getSelectedTotalAmount()}
+              availableActions={getAvailableActions()}
+              onAction={handleAction}
+              onClearSelection={clearSelection}
+              tableName="נדחו"
+            />
           )}
+          <div style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>
+                נדחו ({data.rejected.length})
+              </h2>
+              <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
+            </div>
+            {activeTable && activeTable !== 'reimbursements-rejected' ? (
+              <div style={styles.blockedMessage}>
+                מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+              </div>
+            ) : (
+              <>
+                {data.rejected.length === 0 ? (
+                  <div style={styles.emptyMessage} className="empty-message">אין החזרים נדחים</div>
+                ) : (
+                  <ReimbursementTable
+                    reimbursements={data.rejected}
+                    status="rejected"
+                    onSelect={(ids) => handleSelect(ids, 'reimbursements-rejected')}
+                    selectedIds={Array.from(selectedIds)}
+                    onAction={handleAction}
+                    disabled={activeTable !== null && activeTable !== 'reimbursements-rejected'}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Charges Section */}
@@ -614,163 +634,171 @@ export default function Payments() {
             <h2 style={styles.chargesSectionTitle}>חיובים</h2>
             
             {/* Pending Charges */}
-            <div style={styles.section} className="section-animate">
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>
-                  חיובים ממתינים לאישור ({chargesData.pending.length})
-                </h3>
-                <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
-              </div>
-              {activeTable && activeTable !== 'charges-pending' ? (
-                <div style={styles.blockedMessage}>
-                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-                </div>
-              ) : (
-                <>
-                  {selectedChargeIds.size > 0 && activeTable === 'charges-pending' && (
-                    <ActionBar
-                      selectedCount={selectedChargeIds.size}
-                      totalAmount={getSelectedChargesTotalAmount()}
-                      availableActions={getAvailableChargeActions()}
-                      onAction={handleChargeAction}
-                      onClearSelection={clearSelection}
-                      tableName="חיובים ממתינים לאישור"
-                    />
-                  )}
-                  {chargesData.pending.length === 0 ? (
-                    <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
-                  ) : (
-                    <ChargesTable 
-                      charges={chargesData.pending} 
-                      status="pending"
-                      onSelect={(ids) => handleSelectCharges(ids, 'charges-pending')}
-                      selectedIds={Array.from(selectedChargeIds)}
-                      onAction={handleChargeAction}
-                      disabled={activeTable !== null && activeTable !== 'charges-pending'}
-                    />
-                  )}
-                </>
+            <div style={styles.sectionWrapper} className="section-animate">
+              {selectedChargeIds.size > 0 && activeTable === 'charges-pending' && (
+                <ActionBar
+                  selectedCount={selectedChargeIds.size}
+                  totalAmount={getSelectedChargesTotalAmount()}
+                  availableActions={getAvailableChargeActions()}
+                  onAction={handleChargeAction}
+                  onClearSelection={clearSelection}
+                  tableName="חיובים ממתינים לאישור"
+                />
               )}
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.sectionTitle}>
+                    חיובים ממתינים לאישור ({chargesData.pending.length})
+                  </h3>
+                  <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
+                </div>
+                {activeTable && activeTable !== 'charges-pending' ? (
+                  <div style={styles.blockedMessage}>
+                    מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+                  </div>
+                ) : (
+                  <>
+                    {chargesData.pending.length === 0 ? (
+                      <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
+                    ) : (
+                      <ChargesTable 
+                        charges={chargesData.pending} 
+                        status="pending"
+                        onSelect={(ids) => handleSelectCharges(ids, 'charges-pending')}
+                        selectedIds={Array.from(selectedChargeIds)}
+                        onAction={handleChargeAction}
+                        disabled={activeTable !== null && activeTable !== 'charges-pending'}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Under Review Charges */}
-            <div style={styles.section} className="section-animate">
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>
-                  חיובים לבדיקה ({chargesData.under_review.length})
-                </h3>
-                <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
-              </div>
-              {activeTable && activeTable !== 'charges-under_review' ? (
-                <div style={styles.blockedMessage}>
-                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-                </div>
-              ) : (
-                <>
-                  {selectedChargeIds.size > 0 && activeTable === 'charges-under_review' && (
-                    <ActionBar
-                      selectedCount={selectedChargeIds.size}
-                      totalAmount={getSelectedChargesTotalAmount()}
-                      availableActions={getAvailableChargeActions()}
-                      onAction={handleChargeAction}
-                      onClearSelection={clearSelection}
-                      tableName="חיובים לבדיקה"
-                    />
-                  )}
-                  {chargesData.under_review.length === 0 ? (
-                    <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
-                  ) : (
-                    <ChargesTable 
-                      charges={chargesData.under_review} 
-                      status="under_review"
-                      onSelect={(ids) => handleSelectCharges(ids, 'charges-under_review')}
-                      selectedIds={Array.from(selectedChargeIds)}
-                      onAction={handleChargeAction}
-                      disabled={activeTable !== null && activeTable !== 'charges-under_review'}
-                    />
-                  )}
-                </>
+            <div style={styles.sectionWrapper} className="section-animate">
+              {selectedChargeIds.size > 0 && activeTable === 'charges-under_review' && (
+                <ActionBar
+                  selectedCount={selectedChargeIds.size}
+                  totalAmount={getSelectedChargesTotalAmount()}
+                  availableActions={getAvailableChargeActions()}
+                  onAction={handleChargeAction}
+                  onClearSelection={clearSelection}
+                  tableName="חיובים לבדיקה"
+                />
               )}
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.sectionTitle}>
+                    חיובים לבדיקה ({chargesData.under_review.length})
+                  </h3>
+                  <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
+                </div>
+                {activeTable && activeTable !== 'charges-under_review' ? (
+                  <div style={styles.blockedMessage}>
+                    מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+                  </div>
+                ) : (
+                  <>
+                    {chargesData.under_review.length === 0 ? (
+                      <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
+                    ) : (
+                      <ChargesTable 
+                        charges={chargesData.under_review} 
+                        status="under_review"
+                        onSelect={(ids) => handleSelectCharges(ids, 'charges-under_review')}
+                        selectedIds={Array.from(selectedChargeIds)}
+                        onAction={handleChargeAction}
+                        disabled={activeTable !== null && activeTable !== 'charges-under_review'}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Approved Charges */}
-            <div style={styles.section} className="section-animate">
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>
-                  חיובים אושרו ({chargesData.approved.length})
-                </h3>
-                <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
-              </div>
-              {activeTable && activeTable !== 'charges-approved' ? (
-                <div style={styles.blockedMessage}>
-                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-                </div>
-              ) : (
-                <>
-                  {selectedChargeIds.size > 0 && activeTable === 'charges-approved' && (
-                    <ActionBar
-                      selectedCount={selectedChargeIds.size}
-                      totalAmount={getSelectedChargesTotalAmount()}
-                      availableActions={getAvailableChargeActions()}
-                      onAction={handleChargeAction}
-                      onClearSelection={clearSelection}
-                      tableName="חיובים אושרו"
-                    />
-                  )}
-                  {chargesData.approved.length === 0 ? (
-                    <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
-                  ) : (
-                    <ChargesTable 
-                      charges={chargesData.approved} 
-                      status="approved"
-                      onSelect={(ids) => handleSelectCharges(ids, 'charges-approved')}
-                      selectedIds={Array.from(selectedChargeIds)}
-                      onAction={handleChargeAction}
-                      disabled={activeTable !== null && activeTable !== 'charges-approved'}
-                    />
-                  )}
-                </>
+            <div style={styles.sectionWrapper} className="section-animate">
+              {selectedChargeIds.size > 0 && activeTable === 'charges-approved' && (
+                <ActionBar
+                  selectedCount={selectedChargeIds.size}
+                  totalAmount={getSelectedChargesTotalAmount()}
+                  availableActions={getAvailableChargeActions()}
+                  onAction={handleChargeAction}
+                  onClearSelection={clearSelection}
+                  tableName="חיובים אושרו"
+                />
               )}
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.sectionTitle}>
+                    חיובים אושרו ({chargesData.approved.length})
+                  </h3>
+                  <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
+                </div>
+                {activeTable && activeTable !== 'charges-approved' ? (
+                  <div style={styles.blockedMessage}>
+                    מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+                  </div>
+                ) : (
+                  <>
+                    {chargesData.approved.length === 0 ? (
+                      <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
+                    ) : (
+                      <ChargesTable 
+                        charges={chargesData.approved} 
+                        status="approved"
+                        onSelect={(ids) => handleSelectCharges(ids, 'charges-approved')}
+                        selectedIds={Array.from(selectedChargeIds)}
+                        onAction={handleChargeAction}
+                        disabled={activeTable !== null && activeTable !== 'charges-approved'}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Rejected Charges */}
-            <div style={styles.section} className="section-animate">
-              <div style={styles.sectionHeader}>
-                <h3 style={styles.sectionTitle}>
-                  חיובים נדחו ({chargesData.rejected.length})
-                </h3>
-                <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
-              </div>
-              {activeTable && activeTable !== 'charges-rejected' ? (
-                <div style={styles.blockedMessage}>
-                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
-                </div>
-              ) : (
-                <>
-                  {selectedChargeIds.size > 0 && activeTable === 'charges-rejected' && (
-                    <ActionBar
-                      selectedCount={selectedChargeIds.size}
-                      totalAmount={getSelectedChargesTotalAmount()}
-                      availableActions={getAvailableChargeActions()}
-                      onAction={handleChargeAction}
-                      onClearSelection={clearSelection}
-                      tableName="חיובים נדחו"
-                    />
-                  )}
-                  {chargesData.rejected.length === 0 ? (
-                    <div style={styles.emptyMessage} className="empty-message">אין חיובים נדחים</div>
-                  ) : (
-                    <ChargesTable 
-                      charges={chargesData.rejected} 
-                      status="rejected"
-                      onSelect={(ids) => handleSelectCharges(ids, 'charges-rejected')}
-                      selectedIds={Array.from(selectedChargeIds)}
-                      onAction={handleChargeAction}
-                      disabled={activeTable !== null && activeTable !== 'charges-rejected'}
-                    />
-                  )}
-                </>
+            <div style={styles.sectionWrapper} className="section-animate">
+              {selectedChargeIds.size > 0 && activeTable === 'charges-rejected' && (
+                <ActionBar
+                  selectedCount={selectedChargeIds.size}
+                  totalAmount={getSelectedChargesTotalAmount()}
+                  availableActions={getAvailableChargeActions()}
+                  onAction={handleChargeAction}
+                  onClearSelection={clearSelection}
+                  tableName="חיובים נדחו"
+                />
               )}
+              <div style={styles.section}>
+                <div style={styles.sectionHeader}>
+                  <h3 style={styles.sectionTitle}>
+                    חיובים נדחו ({chargesData.rejected.length})
+                  </h3>
+                  <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
+                </div>
+                {activeTable && activeTable !== 'charges-rejected' ? (
+                  <div style={styles.blockedMessage}>
+                    מצב בחירה מרובה מופעל בטבלה "{tableDisplayNames[activeTable] || activeTable}". לא ניתן לעבוד על כמה טבלאות במקביל, יש לכבות את מצב הבחירה המרובה בטבלה הרלוונטית במידה ורוצים לעבוד בטבלה אחרת
+                  </div>
+                ) : (
+                  <>
+                    {chargesData.rejected.length === 0 ? (
+                      <div style={styles.emptyMessage} className="empty-message">אין חיובים נדחים</div>
+                    ) : (
+                      <ChargesTable 
+                        charges={chargesData.rejected} 
+                        status="rejected"
+                        onSelect={(ids) => handleSelectCharges(ids, 'charges-rejected')}
+                        selectedIds={Array.from(selectedChargeIds)}
+                        onAction={handleChargeAction}
+                        disabled={activeTable !== null && activeTable !== 'charges-rejected'}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -1197,8 +1225,12 @@ const styles: Record<string, React.CSSProperties> = {
     marginRight: '8px',
   },
   // Task 15.4-15.7: Section styles
-  section: {
+  sectionWrapper: {
     marginBottom: '32px',
+    position: 'relative' as const,
+  },
+  section: {
+    marginBottom: '0',
   },
   sectionHeader: {
     marginBottom: '16px',
