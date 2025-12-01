@@ -41,6 +41,7 @@ export default function ReimbursementTable({
   const [filterState, setFilterState] = useState<FilterState>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const disabledClickCountRef = useRef<number>(0);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -239,6 +240,13 @@ export default function ReimbursementTable({
 
   const hasActiveFilters = Object.keys(filterState).length > 0;
   const hasMultipleSelected = selectedIds.length > 1;
+
+  // Reset click counter when selection changes
+  useEffect(() => {
+    if (!hasMultipleSelected) {
+      disabledClickCountRef.current = 0;
+    }
+  }, [hasMultipleSelected]);
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -340,7 +348,11 @@ export default function ReimbursementTable({
       render: (reimbursement: Reimbursement) => {
         const handleSingleAction = (action: string, id: number) => {
           if (hasMultipleSelected) {
-            alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+            disabledClickCountRef.current += 1;
+            if (disabledClickCountRef.current >= 4) {
+              alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+              disabledClickCountRef.current = 0; // Reset after showing alert
+            }
             return;
           }
           onAction(action, [id]);
@@ -353,7 +365,11 @@ export default function ReimbursementTable({
               <button
                 onClick={() => {
                   if (hasMultipleSelected) {
-                    alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+                    disabledClickCountRef.current += 1;
+                    if (disabledClickCountRef.current >= 4) {
+                      alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+                      disabledClickCountRef.current = 0; // Reset after showing alert
+                    }
                     return;
                   }
                   window.open(reimbursement.receipt_url, '_blank');
