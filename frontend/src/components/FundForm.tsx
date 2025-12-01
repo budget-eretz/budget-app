@@ -131,7 +131,7 @@ export default function FundForm({
               ...styles.input,
               ...(errors.name ? styles.inputError : {}),
             }}
-            placeholder="לדוגמה: קופת פעילויות"
+            placeholder="לדוגמה: סעיף ימי הולדת"
             maxLength={255}
             disabled={isLoading}
           />

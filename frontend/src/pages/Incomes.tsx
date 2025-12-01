@@ -320,17 +320,15 @@ export default function Incomes() {
                   נהל קטגוריות
                 </Button>
               )}
-              {isCircleTreasurer && (
-                <Button
-                  onClick={() => {
-                    setEditingIncome(null);
-                    setShowIncomeModal(true);
-                  }}
-                  style={styles.primaryButton}
-                >
-                  הוסף הכנסה
-                </Button>
-              )}
+              <Button
+                onClick={() => {
+                  setEditingIncome(null);
+                  setShowIncomeModal(true);
+                }}
+                style={styles.primaryButton}
+              >
+                הוסף הכנסה
+              </Button>
             </div>
           </div>
         </div>
@@ -425,11 +423,25 @@ export default function Incomes() {
               onEdit={(id) => {
                 const income = incomes.find(i => i.id === id);
                 if (income) {
-                  setEditingIncome(income);
-                  setShowIncomeModal(true);
+                  // Allow users to edit their own incomes or treasurers to edit any income
+                  if (income.user_id === user?.id || isCircleTreasurer) {
+                    setEditingIncome(income);
+                    setShowIncomeModal(true);
+                  } else {
+                    showToast('אין לך הרשאה לערוך הכנסה זו', 'error');
+                  }
                 }
               }}
               onDelete={async (id) => {
+                const income = incomes.find(i => i.id === id);
+                if (!income) return;
+                
+                // Allow users to delete their own incomes or treasurers to delete any income
+                if (income.user_id !== user?.id && !isCircleTreasurer) {
+                  showToast('אין לך הרשאה למחוק הכנסה זו', 'error');
+                  return;
+                }
+                
                 if (window.confirm('האם אתה בטוח שברצונך למחוק הכנסה זו?')) {
                   try {
                     await incomesAPI.delete(id);
@@ -440,7 +452,7 @@ export default function Incomes() {
                   }
                 }
               }}
-              canEdit={isCircleTreasurer}
+              canEdit={true}
             />
           )}
         </div>

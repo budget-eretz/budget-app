@@ -150,9 +150,9 @@ export async function updateIncome(req: Request, res: Response) {
     const { amount, description, incomeDate, source } = req.body;
     const user = req.user!;
 
-    // Check if income exists
+    // Check if income exists and get owner
     const existing = await pool.query(
-      'SELECT id FROM incomes WHERE id = $1',
+      'SELECT id, user_id FROM incomes WHERE id = $1',
       [id]
     );
 
@@ -160,9 +160,12 @@ export async function updateIncome(req: Request, res: Response) {
       return res.status(404).json({ error: 'הכנסה לא נמצאה' });
     }
 
-    // Only treasurers can update incomes
-    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'רק גזברים יכולים לעדכן הכנסות' });
+    // Users can update their own incomes, treasurers can update any income
+    const isOwner = existing.rows[0].user_id === user.userId;
+    const isTreasurer = user.isCircleTreasurer || user.isGroupTreasurer;
+    
+    if (!isOwner && !isTreasurer) {
+      return res.status(403).json({ error: 'אין לך הרשאה לעדכן הכנסה זו' });
     }
 
     // Update income
@@ -204,9 +207,9 @@ export async function assignCategories(req: Request, res: Response) {
     const { categoryIds } = req.body;
     const user = req.user!;
 
-    // Check if income exists
+    // Check if income exists and get owner
     const existing = await pool.query(
-      'SELECT id FROM incomes WHERE id = $1',
+      'SELECT id, user_id FROM incomes WHERE id = $1',
       [id]
     );
 
@@ -214,9 +217,12 @@ export async function assignCategories(req: Request, res: Response) {
       return res.status(404).json({ error: 'הכנסה לא נמצאה' });
     }
 
-    // Only treasurers can assign categories
-    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'רק גזברים יכולים לשייך קטגוריות' });
+    // Users can assign categories to their own incomes, treasurers can assign to any income
+    const isOwner = existing.rows[0].user_id === user.userId;
+    const isTreasurer = user.isCircleTreasurer || user.isGroupTreasurer;
+    
+    if (!isOwner && !isTreasurer) {
+      return res.status(403).json({ error: 'אין לך הרשאה לשייך קטגוריות להכנסה זו' });
     }
 
     await client.query('BEGIN');
