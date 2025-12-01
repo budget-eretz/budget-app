@@ -182,8 +182,9 @@ export async function updateReimbursement(req: Request, res: Response) {
       return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'לא ניתן לערוך בקשה שכבר אושרה' });
+    // Allow editing only for pending and under_review statuses
+    if (existing.rows[0].status !== 'pending' && existing.rows[0].status !== 'under_review') {
+      return res.status(400).json({ error: 'לא ניתן לערוך בקשה שכבר אושרה או נדחתה' });
     }
 
     // Validate recipient exists if provided
@@ -241,8 +242,9 @@ export async function deleteReimbursement(req: Request, res: Response) {
       return res.status(404).json({ error: 'בקשת החזר לא נמצאה' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'לא ניתן למחוק בקשה שכבר אושרה' });
+    // Allow deleting only for pending and under_review statuses
+    if (existing.rows[0].status !== 'pending' && existing.rows[0].status !== 'under_review') {
+      return res.status(400).json({ error: 'לא ניתן למחוק בקשה שכבר אושרה או נדחתה' });
     }
 
     await pool.query('DELETE FROM reimbursements WHERE id = $1', [id]);

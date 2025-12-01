@@ -157,8 +157,9 @@ export async function updateCharge(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה לערוך חיוב זה' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'לא ניתן לערוך חיוב שכבר אושר' });
+    // Allow editing only for pending and under_review statuses
+    if (existing.rows[0].status !== 'pending' && existing.rows[0].status !== 'under_review') {
+      return res.status(400).json({ error: 'לא ניתן לערוך חיוב שכבר אושר או נדחה' });
     }
 
     const result = await pool.query(
@@ -198,8 +199,9 @@ export async function deleteCharge(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה למחוק חיוב זה' });
     }
 
-    if (existing.rows[0].status !== 'pending') {
-      return res.status(400).json({ error: 'לא ניתן למחוק חיוב שכבר אושר' });
+    // Allow deleting only for pending and under_review statuses
+    if (existing.rows[0].status !== 'pending' && existing.rows[0].status !== 'under_review') {
+      return res.status(400).json({ error: 'לא ניתן למחוק חיוב שכבר אושר או נדחה' });
     }
 
     await pool.query('DELETE FROM charges WHERE id = $1', [id]);

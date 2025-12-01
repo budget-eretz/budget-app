@@ -102,7 +102,7 @@ export default function NewReimbursement() {
         });
 
         showToast('בקשת ההחזר עודכנה בהצלחה', 'success');
-        navigate('/reimbursements/my');
+        navigate('/my-reimbursements');
       } else {
         // Create new reimbursement
         await reimbursementsAPI.create({
@@ -254,7 +254,7 @@ export default function NewReimbursement() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate(isEditMode ? '/reimbursements/my' : '/dashboard')}
+                onClick={() => navigate(isEditMode ? '/my-reimbursements' : '/dashboard')}
                 disabled={submitting}
               >
                 ביטול

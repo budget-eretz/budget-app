@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'paid';
+type StatusFilter = 'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
 
 export default function MyReimbursements() {
   const navigate = useNavigate();
@@ -94,6 +94,7 @@ export default function MyReimbursements() {
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
       pending: 'ממתין לאישור',
+      under_review: 'לבדיקה',
       approved: 'אושר',
       rejected: 'נדחה',
       paid: 'שולם',
@@ -111,6 +112,7 @@ export default function MyReimbursements() {
 
     const colorMap: Record<string, React.CSSProperties> = {
       pending: { ...baseStyle, background: '#fef5e7', color: '#d68910' },
+      under_review: { ...baseStyle, background: '#fff3cd', color: '#856404' },
       approved: { ...baseStyle, background: '#d4edda', color: '#155724' },
       rejected: { ...baseStyle, background: '#f8d7da', color: '#721c24' },
       paid: { ...baseStyle, background: '#d1ecf1', color: '#0c5460' },
@@ -199,6 +201,15 @@ export default function MyReimbursements() {
               ממתין ({reimbursements.filter((r) => r.status === 'pending').length})
             </button>
             <button
+              onClick={() => setStatusFilter('under_review')}
+              style={{
+                ...styles.filterTab,
+                ...(statusFilter === 'under_review' ? styles.filterTabActive : {}),
+              }}
+            >
+              לבדיקה ({reimbursements.filter((r) => r.status === 'under_review').length})
+            </button>
+            <button
               onClick={() => setStatusFilter('approved')}
               style={{
                 ...styles.filterTab,
@@ -273,7 +284,7 @@ export default function MyReimbursements() {
                         <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
                       </td>
                       <td style={styles.tableCell}>
-                        {reimb.status === 'pending' && (
+                        {(reimb.status === 'pending' || reimb.status === 'under_review') && (
                           <div style={styles.tableActions}>
                             <Button variant="secondary" size="sm" onClick={() => handleEditReimbursement(reimb)}>
                               ערוך
@@ -330,7 +341,7 @@ export default function MyReimbursements() {
                         <span style={getStatusStyle(charge.status)}>{getStatusText(charge.status)}</span>
                       </td>
                       <td style={styles.tableCell}>
-                        {charge.status === 'pending' && (
+                        {(charge.status === 'pending' || charge.status === 'under_review') && (
                           <div style={styles.tableActions}>
                             <Button variant="secondary" size="sm" onClick={() => handleEditCharge(charge)}>
                               ערוך
