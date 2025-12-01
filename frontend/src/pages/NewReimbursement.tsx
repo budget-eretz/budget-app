@@ -16,6 +16,10 @@ export default function NewReimbursement() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Check if we're editing an existing reimbursement
+  const editingReimbursement = (location.state as any)?.reimbursement;
+  const isEditMode = !!editingReimbursement;
+
   const [formData, setFormData] = useState({
     fundId: '',
     amount: '',
@@ -29,6 +33,18 @@ export default function NewReimbursement() {
   }, []);
 
   useEffect(() => {
+    // Handle editing mode - populate form with existing reimbursement data
+    if (editingReimbursement) {
+      setFormData({
+        fundId: editingReimbursement.fund_id?.toString() || '',
+        amount: editingReimbursement.amount?.toString() || '',
+        description: editingReimbursement.description || '',
+        expenseDate: editingReimbursement.expense_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+        recipientUserId: editingReimbursement.recipient_user_id?.toString() || '',
+      });
+      return;
+    }
+
     // Handle pre-selected fund from navigation (query param or state)
     const params = new URLSearchParams(location.search);
     const fundIdFromQuery = params.get('fundId');
@@ -38,7 +54,7 @@ export default function NewReimbursement() {
     if (preSelectedFundId) {
       setFormData(prev => ({ ...prev, fundId: preSelectedFundId }));
     }
-  }, [location, budgets]);
+  }, [location, budgets, editingReimbursement]);
 
   const loadData = async () => {
     try {
@@ -76,24 +92,38 @@ export default function NewReimbursement() {
 
     setSubmitting(true);
     try {
-      await reimbursementsAPI.create({
-        fundId: parseInt(formData.fundId),
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        expenseDate: formData.expenseDate,
-        recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
-      });
+      if (isEditMode) {
+        // Update existing reimbursement
+        await reimbursementsAPI.update(editingReimbursement.id, {
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          expenseDate: formData.expenseDate,
+          recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
+        });
 
-      showToast('בקשת ההחזר הוגשה בהצלחה! ניתן להגיש החזר נוסף', 'success');
-      
-      // Reset form completely
-      setFormData({
-        fundId: '',
-        amount: '',
-        description: '',
-        expenseDate: new Date().toISOString().split('T')[0],
-        recipientUserId: '',
-      });
+        showToast('בקשת ההחזר עודכנה בהצלחה', 'success');
+        navigate('/reimbursements/my');
+      } else {
+        // Create new reimbursement
+        await reimbursementsAPI.create({
+          fundId: parseInt(formData.fundId),
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          expenseDate: formData.expenseDate,
+          recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
+        });
+
+        showToast('בקשת ההחזר הוגשה בהצלחה! ניתן להגיש החזר נוסף', 'success');
+        
+        // Reset form completely
+        setFormData({
+          fundId: '',
+          amount: '',
+          description: '',
+          expenseDate: new Date().toISOString().split('T')[0],
+          recipientUserId: '',
+        });
+      }
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בהגשת הבקשה', 'error');
     } finally {
@@ -115,7 +145,7 @@ export default function NewReimbursement() {
 
       <div className="reimbursement-content" style={styles.content}>
         <div style={styles.pageHeader}>
-          <h1 style={styles.title}>הגשת בקשת החזר</h1>
+          <h1 style={styles.title}>{isEditMode ? 'עריכת בקשת החזר' : 'הגשת בקשת החזר'}</h1>
         </div>
         <div style={styles.formCard}>
           <form onSubmit={handleSubmit} style={styles.form}>
@@ -128,6 +158,7 @@ export default function NewReimbursement() {
                 onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
                 required
                 style={styles.select}
+                disabled={isEditMode}
               >
                 <option value="">-- בחר סעיף --</option>
                 {budgets.length === 0 ? (
@@ -147,6 +178,11 @@ export default function NewReimbursement() {
                   ))
                 )}
               </select>
+              {isEditMode && (
+                <small style={{ color: '#718096', fontSize: '13px' }}>
+                  לא ניתן לשנות את הסעיף בעת עריכה
+                </small>
+              )}
             </div>
 
             <div style={styles.field}>
@@ -218,13 +254,13 @@ export default function NewReimbursement() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(isEditMode ? '/reimbursements/my' : '/dashboard')}
                 disabled={submitting}
               >
                 ביטול
               </Button>
               <Button type="submit" variant="primary" isLoading={submitting}>
-                הגש בקשה
+                {isEditMode ? 'עדכן' : 'הגש בקשה'}
               </Button>
             </div>
           </form>

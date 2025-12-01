@@ -502,9 +502,16 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
           </div>
-          <div style={styles.infoNote}>
-            💡 לביצוע תשלומים, עבור לעמוד העברות
-          </div>
+          {data.approved.length > 0 && (
+            <div style={styles.transfersButtonContainer}>
+              <Button 
+                onClick={() => navigate('/payment-transfers')} 
+                style={styles.executeTransfersButton}
+              >
+                💳 עבור לביצוע תשלומים
+              </Button>
+            </div>
+          )}
           {data.approved.length === 0 ? (
             <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
           ) : (
@@ -1068,16 +1075,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     border: '1px solid #e2e8f0',
   },
-  infoNote: {
-    background: '#eff6ff',
-    border: '1px solid #bfdbfe',
-    borderRadius: '8px',
-    padding: '12px 16px',
+  transfersButtonContainer: {
+    display: 'flex',
+    justifyContent: 'center',
     marginBottom: '16px',
-    color: '#1e40af',
-    fontSize: '14px',
-    fontWeight: '500',
-    textAlign: 'center',
+  },
+  executeTransfersButton: {
+    fontSize: '16px',
+    fontWeight: '600',
+    padding: '14px 32px',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    boxShadow: '0 4px 6px rgba(102, 126, 234, 0.3)',
   },
   emptyState: {
     background: 'white',
@@ -1133,7 +1146,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-// Add hover styles for charge action buttons
+// Add hover styles for charge action buttons and execute transfers button
 const chargeButtonHoverStyle = document.createElement('style');
 chargeButtonHoverStyle.textContent = `
   .action-btn:hover {
