@@ -365,7 +365,6 @@ export default function ReimbursementTable({
                 className={`action-btn receipt-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                 title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'צפה בקבלה'}
                 aria-label="צפה בקבלה"
-                disabled={hasMultipleSelected}
               >
                 📄
               </button>
@@ -381,7 +380,6 @@ export default function ReimbursementTable({
               className={`action-btn details-btn ${hasMultipleSelected ? 'disabled' : ''}`}
               title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'פרטים'}
               aria-label="הצג פרטים"
-              disabled={hasMultipleSelected}
             >
               👁️
             </button>
@@ -401,7 +399,6 @@ export default function ReimbursementTable({
                     className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                     title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
                     aria-label="החזר לממתין"
-                    disabled={hasMultipleSelected}
                   >
                     ↩️
                   </button>
@@ -418,7 +415,6 @@ export default function ReimbursementTable({
                         className={`action-btn approve-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                         title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'אשר החזר'}
                         aria-label="אשר החזר"
-                        disabled={hasMultipleSelected}
                       >
                         ✓
                       </button>
@@ -434,7 +430,6 @@ export default function ReimbursementTable({
                         className={`action-btn review-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                         title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'סמן לבדיקה'}
                         aria-label="סמן לבדיקה"
-                        disabled={hasMultipleSelected}
                       >
                         🔍
                       </button>
@@ -450,7 +445,6 @@ export default function ReimbursementTable({
                         className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                         title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
                         aria-label="החזר לממתין"
-                        disabled={hasMultipleSelected}
                       >
                         ↩️
                       </button>
@@ -465,7 +459,6 @@ export default function ReimbursementTable({
                       className={`action-btn reject-btn ${hasMultipleSelected ? 'disabled' : ''}`}
                       title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'דחה החזר'}
                       aria-label="דחה החזר"
-                      disabled={hasMultipleSelected}
                     >
                       ✗
                     </button>
@@ -651,52 +644,32 @@ tableHoverStyle.textContent = `
   .table-row:hover {
     background: #f7fafc;
   }
-  .action-btn:hover {
+  .action-btn:not(.disabled):hover {
     transform: scale(1.1);
   }
-  .approve-btn:hover {
+  .approve-btn:not(.disabled):hover {
     background: #38a169 !important;
   }
-  .reject-btn:hover {
+  .reject-btn:not(.disabled):hover {
     background: #c53030 !important;
   }
-  .review-btn:hover {
+  .review-btn:not(.disabled):hover {
     background: #d69e2e !important;
   }
-  .return-btn:hover {
+  .return-btn:not(.disabled):hover {
     background: #4299e1 !important;
   }
-  .paid-btn:hover {
+  .paid-btn:not(.disabled):hover {
     background: #38a169 !important;
   }
-  .details-btn:hover {
+  .details-btn:not(.disabled):hover {
     background: #718096 !important;
   }
-  .receipt-btn:hover {
+  .receipt-btn:not(.disabled):hover {
     background: #667eea !important;
   }
   .action-btn.disabled {
     cursor: not-allowed !important;
-    opacity: 0.4 !important;
-  }
-  .action-btn.disabled:hover {
-    transform: none !important;
-    background: #e2e8f0 !important;
-  }
-  .action-btn.approve-btn.disabled:hover {
-    background: #48bb78 !important;
-    opacity: 0.4 !important;
-  }
-  .action-btn.reject-btn.disabled:hover {
-    background: #e53e3e !important;
-    opacity: 0.4 !important;
-  }
-  .action-btn.review-btn.disabled:hover {
-    background: #ecc94b !important;
-    opacity: 0.4 !important;
-  }
-  .action-btn.return-btn.disabled:hover {
-    background: #4299e1 !important;
     opacity: 0.4 !important;
   }
 `;
@@ -918,6 +891,5 @@ const styles: Record<string, React.CSSProperties> = {
   disabledBtn: {
     opacity: 0.4,
     cursor: 'not-allowed',
-    pointerEvents: 'auto',
   },
 };
