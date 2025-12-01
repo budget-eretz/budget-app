@@ -62,14 +62,21 @@
 1. **groups** - קבוצות במעגל
 2. **users** - משתמשים (חברים וגזברים)
 3. **user_groups** - קשרים רבים-לרבים בין משתמשים לקבוצות
-4. **budgets** - תקציבים (מעגליים וקבוצתיים)
+4. **budgets** - תקציבים (מעגליים וקבוצתיים, כולל תקציב "הכנסות" ייעודי)
 5. **funds** - סעיפים (חלוקת תקציב)
 6. **planned_expenses** - תכנונים עתידיים
 7. **reimbursements** - בקשות החזר (כולל שדה recipient_user_id ו-payment_transfer_id)
 8. **payment_transfers** - העברות תשלום (קיבוץ החזרים מאושרים לפי מקבל וסוג תקציב)
 9. **charges** - חיובים (חובות למעגל/קבוצה)
-10. **incomes** - הכנסות
+10. **incomes** - הכנסות (נכנסות אוטומטית לתקציב "הכנסות")
 11. **budget_transfers** - העברות תקציב
+
+### 💡 תקציב הכנסות
+המערכת כוללת תקציב ייעודי בשם "הכנסות" שנוצר אוטומטית:
+- כל הכנסה חדשה נכנסת אוטומטית לתקציב זה
+- סכום התקציב מתעדכן אוטומטית עם כל הוספה/עדכון/מחיקה של הכנסה
+- Migration 023 מעביר הכנסות קיימות מתקציבים אחרים לתקציב הכנסות
+- ראה `INCOME_BUDGET_MIGRATION.md` לפרטים נוספים
 
 ## 🚀 התחלה
 
@@ -310,7 +317,8 @@ npm run dev
 
 ### Incomes
 - `GET /api/incomes` - רשימת הכנסות
-- `POST /api/incomes` - רישום הכנסה
+- `POST /api/incomes` - רישום הכנסה (נכנסת אוטומטית לתקציב "הכנסות")
+- `PATCH /api/incomes/:id` - עדכון הכנסה
 - `DELETE /api/incomes/:id` - מחיקת הכנסה
 
 ### Users & Groups

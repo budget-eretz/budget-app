@@ -729,7 +729,6 @@ export default function Incomes() {
           onSubmit={async (data) => {
             try {
               const apiData = {
-                budgetId: circleBudgetId,
                 amount: data.amount,
                 source: data.source,
                 description: data.description,

@@ -39,7 +39,8 @@ backend/
 │   │   └── userController.ts
 │   ├── db/          # Database utilities, migrations, seeds
 │   │   ├── migrate.ts
-│   │   └── seed.ts
+│   │   ├── seed.ts
+│   │   └── check-income-budget.ts  # Verification script for income budget
 │   ├── middleware/   # Express middleware (auth, validation)
 │   │   ├── accessControl.ts
 │   │   └── auth.ts
@@ -338,11 +339,13 @@ Many-to-many relationship between expected incomes and categories:
 ### Income Endpoints (Enhanced)
 - `GET /api/incomes` - Get all incomes with filters (date, source, category, year, month)
 - `GET /api/incomes/:id` - Get single income by ID
-- `POST /api/incomes` - Create new income (treasurer only)
-- `PATCH /api/incomes/:id` - Update income (treasurer only)
-- `DELETE /api/incomes/:id` - Delete income (treasurer only)
+- `POST /api/incomes` - Create new income (treasurer only, **no budgetId required** - automatically uses "הכנסות" budget)
+- `PATCH /api/incomes/:id` - Update income (treasurer only, automatically updates budget total)
+- `DELETE /api/incomes/:id` - Delete income (treasurer only, automatically updates budget total)
 - `POST /api/incomes/:id/categories` - Assign categories to income
 - `DELETE /api/incomes/:id/categories/:catId` - Remove category from income
+
+**Note**: All actual income entries automatically go to a dedicated "הכנסות" (Income) budget. The system creates this budget if it doesn't exist and automatically maintains its total amount.
 
 ### Expected Income Endpoints (New)
 - `GET /api/expected-incomes` - Get expected incomes with filters (budget, year, month, source, category, frequency)

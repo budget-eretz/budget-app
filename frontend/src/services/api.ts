@@ -105,7 +105,6 @@ export const incomesAPI = {
   }) => api.get('/incomes', { params }),
   getById: (id: number) => api.get(`/incomes/${id}`),
   create: (data: { 
-    budgetId: number; 
     amount: number; 
     source: string; 
     description?: string; 

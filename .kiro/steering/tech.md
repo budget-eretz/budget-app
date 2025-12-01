@@ -77,6 +77,9 @@ make shell-db
 # Run migrations
 npm run migrate             # Backend directory
 make migrate               # Root with Docker
+
+# Verify income budget (check script)
+npm run check:income-budget # Backend directory - verifies "הכנסות" budget exists and all incomes are properly assigned
 ```
 
 ## Environment Configuration

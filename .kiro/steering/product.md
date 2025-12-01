@@ -479,6 +479,11 @@ A comprehensive income tracking system that allows treasurers to track actual in
 
 **Actual Income Recording**:
 - Record income received from members or other sources
+- **Automatic Income Budget**: All actual income entries automatically go to a dedicated "הכנסות" (Income) budget
+  - System automatically creates/finds the income budget when adding income
+  - No need to select budget manually - simplified user experience
+  - Budget total automatically updates when income is added, edited, or deleted
+  - All income consolidated in one place for easy tracking
 - Assign multiple categories to each income entry
 - Track income date, amount, description, and source
 - Edit and delete income entries (treasurer only)

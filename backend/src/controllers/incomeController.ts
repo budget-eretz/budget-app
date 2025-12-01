@@ -94,20 +94,48 @@ export async function getIncomes(req: Request, res: Response) {
 export async function createIncome(req: Request, res: Response) {
   const client = await pool.connect();
   try {
-    const { budgetId, amount, source, description, incomeDate, categoryIds } = req.body;
+    const { amount, source, description, incomeDate, categoryIds } = req.body;
     const user = req.user!;
 
     await client.query('BEGIN');
 
-    // Insert income
+    // Get or create the income budget (הכנסות)
+    let incomeBudgetResult = await client.query(
+      `SELECT id FROM budgets WHERE name = 'הכנסות' AND group_id IS NULL`
+    );
+
+    let incomeBudgetId: number;
+
+    if (incomeBudgetResult.rows.length === 0) {
+      // Create income budget if it doesn't exist
+      const createBudgetResult = await client.query(
+        `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, created_at, updated_at)
+         VALUES ('הכנסות', 0, NULL, EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER, $1, NOW(), NOW())
+         RETURNING id`,
+        [user.userId]
+      );
+      incomeBudgetId = createBudgetResult.rows[0].id;
+    } else {
+      incomeBudgetId = incomeBudgetResult.rows[0].id;
+    }
+
+    // Insert income with the income budget
     const result = await client.query(
       `INSERT INTO incomes (budget_id, user_id, amount, source, description, income_date)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [budgetId, user.userId, amount, source, description || null, incomeDate]
+      [incomeBudgetId, user.userId, amount, source, description || null, incomeDate]
     );
 
     const income = result.rows[0];
+
+    // Update income budget total amount
+    await client.query(
+      `UPDATE budgets 
+       SET total_amount = total_amount + $1, updated_at = NOW()
+       WHERE id = $2`,
+      [amount, incomeBudgetId]
+    );
 
     // Assign categories if provided
     if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
@@ -145,18 +173,22 @@ export async function createIncome(req: Request, res: Response) {
 }
 
 export async function updateIncome(req: Request, res: Response) {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     const { amount, description, incomeDate, source } = req.body;
     const user = req.user!;
 
-    // Check if income exists and get owner
-    const existing = await pool.query(
-      'SELECT id, user_id FROM incomes WHERE id = $1',
+    await client.query('BEGIN');
+
+    // Check if income exists and get owner and current amount
+    const existing = await client.query(
+      'SELECT id, user_id, amount, budget_id FROM incomes WHERE id = $1',
       [id]
     );
 
     if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'הכנסה לא נמצאה' });
     }
 
@@ -165,11 +197,15 @@ export async function updateIncome(req: Request, res: Response) {
     const isTreasurer = user.isCircleTreasurer || user.isGroupTreasurer;
     
     if (!isOwner && !isTreasurer) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'אין לך הרשאה לעדכן הכנסה זו' });
     }
 
+    const oldAmount = parseFloat(existing.rows[0].amount);
+    const budgetId = existing.rows[0].budget_id;
+
     // Update income
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE incomes 
        SET amount = COALESCE($1, amount),
            description = COALESCE($2, description),
@@ -181,6 +217,19 @@ export async function updateIncome(req: Request, res: Response) {
     );
 
     const income = result.rows[0];
+
+    // Update budget total amount if amount changed
+    if (amount && amount !== oldAmount) {
+      const amountDiff = parseFloat(amount) - oldAmount;
+      await client.query(
+        `UPDATE budgets 
+         SET total_amount = total_amount + $1, updated_at = NOW()
+         WHERE id = $2`,
+        [amountDiff, budgetId]
+      );
+    }
+
+    await client.query('COMMIT');
 
     // Fetch categories for the updated income
     const categoriesResult = await pool.query(
@@ -195,8 +244,11 @@ export async function updateIncome(req: Request, res: Response) {
 
     res.json(income);
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Update income error:', error);
     res.status(500).json({ error: 'עדכון הכנסה נכשל' });
+  } finally {
+    client.release();
   }
 }
 
@@ -270,29 +322,51 @@ export async function assignCategories(req: Request, res: Response) {
 }
 
 export async function deleteIncome(req: Request, res: Response) {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     const user = req.user!;
 
-    // Check ownership or treasurer permission
-    const existing = await pool.query(
-      'SELECT user_id FROM incomes WHERE id = $1',
+    await client.query('BEGIN');
+
+    // Check ownership or treasurer permission and get amount
+    const existing = await client.query(
+      'SELECT user_id, amount, budget_id FROM incomes WHERE id = $1',
       [id]
     );
 
     if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Income not found' });
     }
 
     if (existing.rows[0].user_id !== user.userId && !user.isCircleTreasurer && !user.isGroupTreasurer) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Cannot delete others incomes' });
     }
 
-    await pool.query('DELETE FROM incomes WHERE id = $1', [id]);
+    const amount = parseFloat(existing.rows[0].amount);
+    const budgetId = existing.rows[0].budget_id;
+
+    // Delete income
+    await client.query('DELETE FROM incomes WHERE id = $1', [id]);
+
+    // Update budget total amount
+    await client.query(
+      `UPDATE budgets 
+       SET total_amount = total_amount - $1, updated_at = NOW()
+       WHERE id = $2`,
+      [amount, budgetId]
+    );
+
+    await client.query('COMMIT');
 
     res.json({ message: 'Income deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Delete income error:', error);
     res.status(500).json({ error: 'Failed to delete income' });
+  } finally {
+    client.release();
   }
 }

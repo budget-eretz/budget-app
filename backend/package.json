@@ -10,7 +10,8 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed-initial.ts",
     "seed:init": "npm run seed",
-    "db:setup": "npm run migrate && npm run seed"
+    "db:setup": "npm run migrate && npm run seed",
+    "check:income-budget": "tsx src/db/check-income-budget.ts"
   },
   "dependencies": {
     "express": "^4.18.2",
