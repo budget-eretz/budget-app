@@ -8,6 +8,7 @@ interface ReimbursementTableProps {
   selectedIds: number[];
   onAction: (action: string, ids: number[]) => void;
   showTransferInfo?: boolean;
+  disabled?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -36,6 +37,7 @@ export default function ReimbursementTable({
   selectedIds,
   onAction,
   showTransferInfo = false,
+  disabled = false,
 }: ReimbursementTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
@@ -55,6 +57,7 @@ export default function ReimbursementTable({
   }, []);
   
   const handleSelectAll = () => {
+    if (disabled) return;
     if (selectedIds.length === reimbursements.length) {
       // Deselect all
       onSelect([]);
@@ -65,6 +68,7 @@ export default function ReimbursementTable({
   };
 
   const handleSelectOne = (id: number) => {
+    if (disabled) return;
     if (selectedIds.includes(id)) {
       // Deselect
       onSelect(selectedIds.filter(selectedId => selectedId !== id));
@@ -271,7 +275,8 @@ export default function ReimbursementTable({
           type="checkbox"
           checked={selectedIds.includes(reimbursement.id)}
           onChange={() => handleSelectOne(reimbursement.id)}
-          style={styles.checkbox}
+          style={{...styles.checkbox, ...(disabled ? styles.disabledCheckbox : {})}}
+          disabled={disabled}
         />
       ),
     },
@@ -566,8 +571,9 @@ export default function ReimbursementTable({
                       }
                     }}
                     onChange={handleSelectAll}
-                    style={styles.checkbox}
+                    style={{...styles.checkbox, ...(disabled ? styles.disabledCheckbox : {})}}
                     title={isAllSelected ? 'בטל בחירת הכל' : 'סמן הכל'}
+                    disabled={disabled}
                   />
                 ) : (
                   <div style={styles.headerContent}>
@@ -906,6 +912,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   disabledBtn: {
     opacity: 0.4,
+    cursor: 'not-allowed',
+  },
+  disabledCheckbox: {
+    opacity: 0.3,
     cursor: 'not-allowed',
   },
 };

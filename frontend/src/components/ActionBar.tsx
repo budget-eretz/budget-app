@@ -5,6 +5,8 @@ interface ActionBarProps {
   totalAmount: number;
   availableActions: string[];
   onAction: (action: string) => void;
+  onClearSelection: () => void;
+  tableName?: string; // Name of the table for display
 }
 
 const ActionBar: React.FC<ActionBarProps> = ({
@@ -12,6 +14,8 @@ const ActionBar: React.FC<ActionBarProps> = ({
   totalAmount,
   availableActions,
   onAction,
+  onClearSelection,
+  tableName,
 }) => {
   if (selectedCount === 0) {
     return null;
@@ -43,6 +47,13 @@ const ActionBar: React.FC<ActionBarProps> = ({
           <span className="total-amount">
             סכום כולל: ₪{(totalAmount || 0).toFixed(2)}
           </span>
+          <button
+            className="action-button action-clear"
+            onClick={onClearSelection}
+            title="בטל בחירה"
+          >
+            ✕ בטל בחירה
+          </button>
         </div>
         <div className="action-bar-buttons">
           {availableActions.map((action) => (

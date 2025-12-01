@@ -24,6 +24,7 @@ export default function Payments() {
   const [activeModal, setActiveModal] = useState<'details' | 'rejection' | null>(null); // Will be used in task 15.8
   const [selectedReimbursement, setSelectedReimbursement] = useState<Reimbursement | null>(null); // Will be used in task 15.8
   const isRejectingChargeRef = React.useRef(false); // Ref to track rejection type reliably
+  const [activeTable, setActiveTable] = useState<string | null>(null); // Track which table has active selection
   
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -52,17 +53,20 @@ export default function Payments() {
   };
 
   // Selection logic - Task 13.3
-  const handleSelect = (ids: number[]) => {
+  const handleSelect = (ids: number[], tableName: string) => {
     setSelectedIds(new Set(ids));
+    setActiveTable(ids.length > 0 ? tableName : null);
   };
 
-  const handleSelectCharges = (ids: number[]) => {
+  const handleSelectCharges = (ids: number[], tableName: string) => {
     setSelectedChargeIds(new Set(ids));
+    setActiveTable(ids.length > 0 ? tableName : null);
   };
 
   const clearSelection = () => {
     setSelectedIds(new Set());
     setSelectedChargeIds(new Set());
+    setActiveTable(null);
   };
 
   // Task 14.1: Handle actions on selected reimbursements
@@ -432,26 +436,6 @@ export default function Payments() {
         {/* Task 15.2: FilterBar */}
         <FilterBar groupBy={groupBy} onGroupByChange={handleGroupByChange} />
 
-        {/* Task 15.3: ActionBar (conditional) */}
-        {selectedIds.size > 0 && (
-          <ActionBar
-            selectedCount={selectedIds.size}
-            totalAmount={getSelectedTotalAmount()}
-            availableActions={getAvailableActions()}
-            onAction={handleAction}
-          />
-        )}
-
-        {/* ActionBar for Charges */}
-        {selectedChargeIds.size > 0 && (
-          <ActionBar
-            selectedCount={selectedChargeIds.size}
-            totalAmount={getSelectedChargesTotalAmount()}
-            availableActions={getAvailableChargeActions()}
-            onAction={handleChargeAction}
-          />
-        )}
-
         {/* Task 15.4: Pending Section */}
         <div style={styles.section} className="section-animate">
           <div style={styles.sectionHeader}>
@@ -460,16 +444,35 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
           </div>
-          {data.pending.length === 0 ? (
-            <div style={styles.emptyMessage} className="empty-message">אין החזרים ממתינים לאישור</div>
+          {activeTable && activeTable !== 'reimbursements-pending' ? (
+            <div style={styles.blockedMessage}>
+              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+            </div>
           ) : (
-            <ReimbursementTable
-              reimbursements={data.pending}
-              status="pending"
-              onSelect={handleSelect}
-              selectedIds={Array.from(selectedIds)}
-              onAction={handleAction}
-            />
+            <>
+              {selectedIds.size > 0 && activeTable === 'reimbursements-pending' && (
+                <ActionBar
+                  selectedCount={selectedIds.size}
+                  totalAmount={getSelectedTotalAmount()}
+                  availableActions={getAvailableActions()}
+                  onAction={handleAction}
+                  onClearSelection={clearSelection}
+                  tableName="ממתינים לאישור"
+                />
+              )}
+              {data.pending.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין החזרים ממתינים לאישור</div>
+              ) : (
+                <ReimbursementTable
+                  reimbursements={data.pending}
+                  status="pending"
+                  onSelect={(ids) => handleSelect(ids, 'reimbursements-pending')}
+                  selectedIds={Array.from(selectedIds)}
+                  onAction={handleAction}
+                  disabled={activeTable !== null && activeTable !== 'reimbursements-pending'}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -481,16 +484,35 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
           </div>
-          {data.under_review.length === 0 ? (
-            <div style={styles.emptyMessage} className="empty-message">אין החזרים לבדיקה</div>
+          {activeTable && activeTable !== 'reimbursements-under_review' ? (
+            <div style={styles.blockedMessage}>
+              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+            </div>
           ) : (
-            <ReimbursementTable
-              reimbursements={data.under_review}
-              status="under_review"
-              onSelect={handleSelect}
-              selectedIds={Array.from(selectedIds)}
-              onAction={handleAction}
-            />
+            <>
+              {selectedIds.size > 0 && activeTable === 'reimbursements-under_review' && (
+                <ActionBar
+                  selectedCount={selectedIds.size}
+                  totalAmount={getSelectedTotalAmount()}
+                  availableActions={getAvailableActions()}
+                  onAction={handleAction}
+                  onClearSelection={clearSelection}
+                  tableName="לבדיקה"
+                />
+              )}
+              {data.under_review.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין החזרים לבדיקה</div>
+              ) : (
+                <ReimbursementTable
+                  reimbursements={data.under_review}
+                  status="under_review"
+                  onSelect={(ids) => handleSelect(ids, 'reimbursements-under_review')}
+                  selectedIds={Array.from(selectedIds)}
+                  onAction={handleAction}
+                  disabled={activeTable !== null && activeTable !== 'reimbursements-under_review'}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -502,27 +524,46 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
           </div>
-          {data.approved.length > 0 && (
-            <div style={styles.transfersButtonContainer}>
-              <Button 
-                onClick={() => navigate('/payment-transfers')} 
-                style={styles.executeTransfersButton}
-              >
-                💳 עבור לביצוע תשלומים
-              </Button>
+          {activeTable && activeTable !== 'reimbursements-approved' ? (
+            <div style={styles.blockedMessage}>
+              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
             </div>
-          )}
-          {data.approved.length === 0 ? (
-            <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
           ) : (
-            <ReimbursementTable
-              reimbursements={data.approved}
-              status="approved"
-              onSelect={handleSelect}
-              selectedIds={Array.from(selectedIds)}
-              onAction={handleAction}
-              showTransferInfo={true}
-            />
+            <>
+              {data.approved.length > 0 && (
+                <div style={styles.transfersButtonContainer}>
+                  <Button 
+                    onClick={() => navigate('/payment-transfers')} 
+                    style={styles.executeTransfersButton}
+                  >
+                    💳 עבור לביצוע תשלומים
+                  </Button>
+                </div>
+              )}
+              {selectedIds.size > 0 && activeTable === 'reimbursements-approved' && (
+                <ActionBar
+                  selectedCount={selectedIds.size}
+                  totalAmount={getSelectedTotalAmount()}
+                  availableActions={getAvailableActions()}
+                  onAction={handleAction}
+                  onClearSelection={clearSelection}
+                  tableName="אושרו"
+                />
+              )}
+              {data.approved.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין החזרים מאושרים</div>
+              ) : (
+                <ReimbursementTable
+                  reimbursements={data.approved}
+                  status="approved"
+                  onSelect={(ids) => handleSelect(ids, 'reimbursements-approved')}
+                  selectedIds={Array.from(selectedIds)}
+                  onAction={handleAction}
+                  showTransferInfo={true}
+                  disabled={activeTable !== null && activeTable !== 'reimbursements-approved'}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -534,16 +575,35 @@ export default function Payments() {
             </h2>
             <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
           </div>
-          {data.rejected.length === 0 ? (
-            <div style={styles.emptyMessage} className="empty-message">אין החזרים נדחים</div>
+          {activeTable && activeTable !== 'reimbursements-rejected' ? (
+            <div style={styles.blockedMessage}>
+              מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+            </div>
           ) : (
-            <ReimbursementTable
-              reimbursements={data.rejected}
-              status="rejected"
-              onSelect={handleSelect}
-              selectedIds={Array.from(selectedIds)}
-              onAction={handleAction}
-            />
+            <>
+              {selectedIds.size > 0 && activeTable === 'reimbursements-rejected' && (
+                <ActionBar
+                  selectedCount={selectedIds.size}
+                  totalAmount={getSelectedTotalAmount()}
+                  availableActions={getAvailableActions()}
+                  onAction={handleAction}
+                  onClearSelection={clearSelection}
+                  tableName="נדחו"
+                />
+              )}
+              {data.rejected.length === 0 ? (
+                <div style={styles.emptyMessage} className="empty-message">אין החזרים נדחים</div>
+              ) : (
+                <ReimbursementTable
+                  reimbursements={data.rejected}
+                  status="rejected"
+                  onSelect={(ids) => handleSelect(ids, 'reimbursements-rejected')}
+                  selectedIds={Array.from(selectedIds)}
+                  onAction={handleAction}
+                  disabled={activeTable !== null && activeTable !== 'reimbursements-rejected'}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -561,16 +621,35 @@ export default function Payments() {
                 </h3>
                 <span style={{...styles.statusBadge, ...styles.statusPending}}>⏳</span>
               </div>
-              {chargesData.pending.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
+              {activeTable && activeTable !== 'charges-pending' ? (
+                <div style={styles.blockedMessage}>
+                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+                </div>
               ) : (
-                <ChargesTable 
-                  charges={chargesData.pending} 
-                  status="pending"
-                  onSelect={handleSelectCharges}
-                  selectedIds={Array.from(selectedChargeIds)}
-                  onAction={handleChargeAction}
-                />
+                <>
+                  {selectedChargeIds.size > 0 && activeTable === 'charges-pending' && (
+                    <ActionBar
+                      selectedCount={selectedChargeIds.size}
+                      totalAmount={getSelectedChargesTotalAmount()}
+                      availableActions={getAvailableChargeActions()}
+                      onAction={handleChargeAction}
+                      onClearSelection={clearSelection}
+                      tableName="חיובים ממתינים לאישור"
+                    />
+                  )}
+                  {chargesData.pending.length === 0 ? (
+                    <div style={styles.emptyMessage} className="empty-message">אין חיובים ממתינים לאישור</div>
+                  ) : (
+                    <ChargesTable 
+                      charges={chargesData.pending} 
+                      status="pending"
+                      onSelect={(ids) => handleSelectCharges(ids, 'charges-pending')}
+                      selectedIds={Array.from(selectedChargeIds)}
+                      onAction={handleChargeAction}
+                      disabled={activeTable !== null && activeTable !== 'charges-pending'}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -582,16 +661,35 @@ export default function Payments() {
                 </h3>
                 <span style={{...styles.statusBadge, ...styles.statusUnderReview}}>🔍</span>
               </div>
-              {chargesData.under_review.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
+              {activeTable && activeTable !== 'charges-under_review' ? (
+                <div style={styles.blockedMessage}>
+                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+                </div>
               ) : (
-                <ChargesTable 
-                  charges={chargesData.under_review} 
-                  status="under_review"
-                  onSelect={handleSelectCharges}
-                  selectedIds={Array.from(selectedChargeIds)}
-                  onAction={handleChargeAction}
-                />
+                <>
+                  {selectedChargeIds.size > 0 && activeTable === 'charges-under_review' && (
+                    <ActionBar
+                      selectedCount={selectedChargeIds.size}
+                      totalAmount={getSelectedChargesTotalAmount()}
+                      availableActions={getAvailableChargeActions()}
+                      onAction={handleChargeAction}
+                      onClearSelection={clearSelection}
+                      tableName="חיובים לבדיקה"
+                    />
+                  )}
+                  {chargesData.under_review.length === 0 ? (
+                    <div style={styles.emptyMessage} className="empty-message">אין חיובים לבדיקה</div>
+                  ) : (
+                    <ChargesTable 
+                      charges={chargesData.under_review} 
+                      status="under_review"
+                      onSelect={(ids) => handleSelectCharges(ids, 'charges-under_review')}
+                      selectedIds={Array.from(selectedChargeIds)}
+                      onAction={handleChargeAction}
+                      disabled={activeTable !== null && activeTable !== 'charges-under_review'}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -603,16 +701,35 @@ export default function Payments() {
                 </h3>
                 <span style={{...styles.statusBadge, ...styles.statusApproved}}>✓</span>
               </div>
-              {chargesData.approved.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
+              {activeTable && activeTable !== 'charges-approved' ? (
+                <div style={styles.blockedMessage}>
+                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+                </div>
               ) : (
-                <ChargesTable 
-                  charges={chargesData.approved} 
-                  status="approved"
-                  onSelect={handleSelectCharges}
-                  selectedIds={Array.from(selectedChargeIds)}
-                  onAction={handleChargeAction}
-                />
+                <>
+                  {selectedChargeIds.size > 0 && activeTable === 'charges-approved' && (
+                    <ActionBar
+                      selectedCount={selectedChargeIds.size}
+                      totalAmount={getSelectedChargesTotalAmount()}
+                      availableActions={getAvailableChargeActions()}
+                      onAction={handleChargeAction}
+                      onClearSelection={clearSelection}
+                      tableName="חיובים אושרו"
+                    />
+                  )}
+                  {chargesData.approved.length === 0 ? (
+                    <div style={styles.emptyMessage} className="empty-message">אין חיובים מאושרים</div>
+                  ) : (
+                    <ChargesTable 
+                      charges={chargesData.approved} 
+                      status="approved"
+                      onSelect={(ids) => handleSelectCharges(ids, 'charges-approved')}
+                      selectedIds={Array.from(selectedChargeIds)}
+                      onAction={handleChargeAction}
+                      disabled={activeTable !== null && activeTable !== 'charges-approved'}
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -624,16 +741,35 @@ export default function Payments() {
                 </h3>
                 <span style={{...styles.statusBadge, ...styles.statusRejected}}>✗</span>
               </div>
-              {chargesData.rejected.length === 0 ? (
-                <div style={styles.emptyMessage} className="empty-message">אין חיובים נדחים</div>
+              {activeTable && activeTable !== 'charges-rejected' ? (
+                <div style={styles.blockedMessage}>
+                  מצב בחירה מרובה מופעל בטבלה "{activeTable}". לא ניתן לעבוד בכמה טבלאות במקביל.
+                </div>
               ) : (
-                <ChargesTable 
-                  charges={chargesData.rejected} 
-                  status="rejected"
-                  onSelect={handleSelectCharges}
-                  selectedIds={Array.from(selectedChargeIds)}
-                  onAction={handleChargeAction}
-                />
+                <>
+                  {selectedChargeIds.size > 0 && activeTable === 'charges-rejected' && (
+                    <ActionBar
+                      selectedCount={selectedChargeIds.size}
+                      totalAmount={getSelectedChargesTotalAmount()}
+                      availableActions={getAvailableChargeActions()}
+                      onAction={handleChargeAction}
+                      onClearSelection={clearSelection}
+                      tableName="חיובים נדחו"
+                    />
+                  )}
+                  {chargesData.rejected.length === 0 ? (
+                    <div style={styles.emptyMessage} className="empty-message">אין חיובים נדחים</div>
+                  ) : (
+                    <ChargesTable 
+                      charges={chargesData.rejected} 
+                      status="rejected"
+                      onSelect={(ids) => handleSelectCharges(ids, 'charges-rejected')}
+                      selectedIds={Array.from(selectedChargeIds)}
+                      onAction={handleChargeAction}
+                      disabled={activeTable !== null && activeTable !== 'charges-rejected'}
+                    />
+                  )}
+                </>
               )}
             </div>
           </>
@@ -686,13 +822,15 @@ function ChargesTable({
   status, 
   onSelect, 
   selectedIds, 
-  onAction 
+  onAction,
+  disabled = false,
 }: { 
   charges: Charge[]; 
   status: string;
   onSelect: (ids: number[]) => void;
   selectedIds: number[];
   onAction: (action: string, ids?: number[]) => void;
+  disabled?: boolean;
 }) {
   const [selectAll, setSelectAll] = useState(false);
 
@@ -716,6 +854,7 @@ function ChargesTable({
   };
 
   const handleSelectAll = () => {
+    if (disabled) return;
     if (selectAll) {
       onSelect([]);
     } else {
@@ -725,6 +864,7 @@ function ChargesTable({
   };
 
   const handleSelectOne = (id: number) => {
+    if (disabled) return;
     if (selectedIds.includes(id)) {
       onSelect(selectedIds.filter(sid => sid !== id));
     } else {
@@ -767,7 +907,8 @@ function ChargesTable({
                 type="checkbox"
                 checked={selectAll}
                 onChange={handleSelectAll}
-                style={tableStyles.checkbox}
+                style={{...tableStyles.checkbox, ...(disabled ? tableStyles.disabledCheckbox : {})}}
+                disabled={disabled}
               />
             </th>
             <th style={tableStyles.header}>משתמש</th>
@@ -790,7 +931,8 @@ function ChargesTable({
                     type="checkbox"
                     checked={selectedIds.includes(charge.id)}
                     onChange={() => handleSelectOne(charge.id)}
-                    style={tableStyles.checkbox}
+                    style={{...tableStyles.checkbox, ...(disabled ? tableStyles.disabledCheckbox : {})}}
+                    disabled={disabled}
                   />
                 </td>
                 <td style={tableStyles.cell}>{charge.user_name}</td>
@@ -962,6 +1104,10 @@ const tableStyles: Record<string, React.CSSProperties> = {
   returnButton: {
     background: '#4299e1',
     color: 'white',
+  },
+  disabledCheckbox: {
+    opacity: 0.3,
+    cursor: 'not-allowed',
   },
 };
 
@@ -1143,6 +1289,17 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: '12px',
     borderBottom: '3px solid #e53e3e',
     display: 'inline-block',
+  },
+  blockedMessage: {
+    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    padding: '32px',
+    borderRadius: '8px',
+    textAlign: 'center',
+    color: '#92400e',
+    fontSize: '16px',
+    fontWeight: '600',
+    border: '2px solid #fbbf24',
+    boxShadow: '0 2px 8px rgba(251, 191, 36, 0.2)',
   },
 };
 

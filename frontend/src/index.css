@@ -159,6 +159,19 @@ input:focus {
   background: #4b5563;
 }
 
+.action-clear {
+  background: #ffffff;
+  color: #667eea;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-size: 0.95rem;
+  padding: 0.5rem 1rem;
+}
+
+.action-clear:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .action-bar {
