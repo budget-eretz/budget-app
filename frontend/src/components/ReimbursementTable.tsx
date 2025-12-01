@@ -238,6 +238,7 @@ export default function ReimbursementTable({
   };
 
   const hasActiveFilters = Object.keys(filterState).length > 0;
+  const hasMultipleSelected = selectedIds.length > 1;
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -336,103 +337,152 @@ export default function ReimbursementTable({
       label: 'פעולות',
       sortable: false,
       filterable: false,
-      render: (reimbursement: Reimbursement) => (
-        <div style={styles.actionsCell}>
-          {/* Receipt button */}
-          {reimbursement.receipt_url && (
+      render: (reimbursement: Reimbursement) => {
+        const handleSingleAction = (action: string, id: number) => {
+          if (hasMultipleSelected) {
+            alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+            return;
+          }
+          onAction(action, [id]);
+        };
+
+        return (
+          <div style={styles.actionsCell}>
+            {/* Receipt button */}
+            {reimbursement.receipt_url && (
+              <button
+                onClick={() => {
+                  if (hasMultipleSelected) {
+                    alert('לא ניתן לבצע פעולות על החזר יחיד כאשר מסומנים מספר החזרים. אנא בטל את הבחירה המרובה או השתמש בכפתורי הפעולות המרובות.');
+                    return;
+                  }
+                  window.open(reimbursement.receipt_url, '_blank');
+                }}
+                style={{
+                  ...styles.actionBtn,
+                  ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                }}
+                className={`action-btn receipt-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'צפה בקבלה'}
+                aria-label="צפה בקבלה"
+                disabled={hasMultipleSelected}
+              >
+                📄
+              </button>
+            )}
+            
+            {/* Details button */}
             <button
-              onClick={() => window.open(reimbursement.receipt_url, '_blank')}
-              style={styles.actionBtn}
-              className="action-btn receipt-btn"
-              title="צפה בקבלה"
-              aria-label="צפה בקבלה"
+              onClick={() => handleSingleAction('details', reimbursement.id)}
+              style={{
+                ...styles.actionBtn,
+                ...(hasMultipleSelected ? styles.disabledBtn : {}),
+              }}
+              className={`action-btn details-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+              title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'פרטים'}
+              aria-label="הצג פרטים"
+              disabled={hasMultipleSelected}
             >
-              📄
+              👁️
             </button>
-          )}
-          
-          {/* Details button */}
-          <button
-            onClick={() => onAction('details', [reimbursement.id])}
-            style={styles.actionBtn}
-            className="action-btn details-btn"
-            title="פרטים"
-            aria-label="הצג פרטים"
-          >
-            👁️
-          </button>
 
-          {/* Status-specific action buttons - show all relevant actions */}
-          {status !== 'paid' && (
-            <>
-              {/* For rejected items, only show return to pending */}
-              {status === 'rejected' ? (
-                <button
-                  onClick={() => onAction('return-pending', [reimbursement.id])}
-                  style={{ ...styles.actionBtn, ...styles.returnBtn }}
-                  className="action-btn return-btn"
-                  title="החזר לממתין"
-                  aria-label="החזר לממתין"
-                >
-                  ↩️
-                </button>
-              ) : (
-                <>
-                  {status !== 'approved' && (
-                    <button
-                      onClick={() => onAction('approve', [reimbursement.id])}
-                      style={{ ...styles.actionBtn, ...styles.approveBtn }}
-                      className="action-btn approve-btn"
-                      title="אשר החזר"
-                      aria-label="אשר החזר"
-                    >
-                      ✓
-                    </button>
-                  )}
-                  {status !== 'under_review' && (
-                    <button
-                      onClick={() => onAction('mark-review', [reimbursement.id])}
-                      style={{ ...styles.actionBtn, ...styles.reviewBtn }}
-                      className="action-btn review-btn"
-                      title="סמן לבדיקה"
-                      aria-label="סמן לבדיקה"
-                    >
-                      🔍
-                    </button>
-                  )}
-                  {status !== 'pending' && (
-                    <button
-                      onClick={() => onAction('return-pending', [reimbursement.id])}
-                      style={{ ...styles.actionBtn, ...styles.returnBtn }}
-                      className="action-btn return-btn"
-                      title="החזר לממתין"
-                      aria-label="החזר לממתין"
-                    >
-                      ↩️
-                    </button>
-                  )}
+            {/* Status-specific action buttons - show all relevant actions */}
+            {status !== 'paid' && (
+              <>
+                {/* For rejected items, only show return to pending */}
+                {status === 'rejected' ? (
                   <button
-                    onClick={() => onAction('reject', [reimbursement.id])}
-                    style={{ ...styles.actionBtn, ...styles.rejectBtn }}
-                    className="action-btn reject-btn"
-                    title="דחה החזר"
-                    aria-label="דחה החזר"
+                    onClick={() => handleSingleAction('return-pending', reimbursement.id)}
+                    style={{
+                      ...styles.actionBtn,
+                      ...styles.returnBtn,
+                      ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                    }}
+                    className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                    title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
+                    aria-label="החזר לממתין"
+                    disabled={hasMultipleSelected}
                   >
-                    ✗
+                    ↩️
                   </button>
-                </>
-              )}
-            </>
-          )}
+                ) : (
+                  <>
+                    {status !== 'approved' && (
+                      <button
+                        onClick={() => handleSingleAction('approve', reimbursement.id)}
+                        style={{
+                          ...styles.actionBtn,
+                          ...styles.approveBtn,
+                          ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                        }}
+                        className={`action-btn approve-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                        title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'אשר החזר'}
+                        aria-label="אשר החזר"
+                        disabled={hasMultipleSelected}
+                      >
+                        ✓
+                      </button>
+                    )}
+                    {status !== 'under_review' && (
+                      <button
+                        onClick={() => handleSingleAction('mark-review', reimbursement.id)}
+                        style={{
+                          ...styles.actionBtn,
+                          ...styles.reviewBtn,
+                          ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                        }}
+                        className={`action-btn review-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                        title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'סמן לבדיקה'}
+                        aria-label="סמן לבדיקה"
+                        disabled={hasMultipleSelected}
+                      >
+                        🔍
+                      </button>
+                    )}
+                    {status !== 'pending' && (
+                      <button
+                        onClick={() => handleSingleAction('return-pending', reimbursement.id)}
+                        style={{
+                          ...styles.actionBtn,
+                          ...styles.returnBtn,
+                          ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                        }}
+                        className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                        title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
+                        aria-label="החזר לממתין"
+                        disabled={hasMultipleSelected}
+                      >
+                        ↩️
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleSingleAction('reject', reimbursement.id)}
+                      style={{
+                        ...styles.actionBtn,
+                        ...styles.rejectBtn,
+                        ...(hasMultipleSelected ? styles.disabledBtn : {}),
+                      }}
+                      className={`action-btn reject-btn ${hasMultipleSelected ? 'disabled' : ''}`}
+                      title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'דחה החזר'}
+                      aria-label="דחה החזר"
+                      disabled={hasMultipleSelected}
+                    >
+                      ✗
+                    </button>
+                  </>
+                )}
+              </>
+            )}
 
-          {/* Show rejection reason for rejected items */}
-          {status === 'rejected' && reimbursement.notes && (
-            <span style={styles.rejectionNote} title={reimbursement.notes}>
-              סיבה: {reimbursement.notes}
-            </span>
-          )}
-        </div>
-      ),
+            {/* Show rejection reason for rejected items */}
+            {status === 'rejected' && reimbursement.notes && (
+              <span style={styles.rejectionNote} title={reimbursement.notes}>
+                סיבה: {reimbursement.notes}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -624,6 +674,30 @@ tableHoverStyle.textContent = `
   }
   .receipt-btn:hover {
     background: #667eea !important;
+  }
+  .action-btn.disabled {
+    cursor: not-allowed !important;
+    opacity: 0.4 !important;
+  }
+  .action-btn.disabled:hover {
+    transform: none !important;
+    background: #e2e8f0 !important;
+  }
+  .action-btn.approve-btn.disabled:hover {
+    background: #48bb78 !important;
+    opacity: 0.4 !important;
+  }
+  .action-btn.reject-btn.disabled:hover {
+    background: #e53e3e !important;
+    opacity: 0.4 !important;
+  }
+  .action-btn.review-btn.disabled:hover {
+    background: #ecc94b !important;
+    opacity: 0.4 !important;
+  }
+  .action-btn.return-btn.disabled:hover {
+    background: #4299e1 !important;
+    opacity: 0.4 !important;
   }
 `;
 if (!document.head.querySelector('style[data-reimbursement-table]')) {
@@ -840,5 +914,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   noTransfer: {
     color: '#cbd5e0',
+  },
+  disabledBtn: {
+    opacity: 0.4,
+    cursor: 'not-allowed',
+    pointerEvents: 'auto',
   },
 };
