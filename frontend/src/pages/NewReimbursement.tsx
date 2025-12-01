@@ -84,8 +84,16 @@ export default function NewReimbursement() {
         recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
       });
 
-      showToast('בקשת ההחזר הוגשה בהצלחה', 'success');
-      navigate('/my-reimbursements');
+      showToast('בקשת ההחזר הוגשה בהצלחה! ניתן להגיש החזר נוסף', 'success');
+      
+      // Reset form completely
+      setFormData({
+        fundId: '',
+        amount: '',
+        description: '',
+        expenseDate: new Date().toISOString().split('T')[0],
+        recipientUserId: '',
+      });
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בהגשת הבקשה', 'error');
     } finally {
