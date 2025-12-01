@@ -315,13 +315,24 @@ This separation allows for:
 
 #### Monthly Allocation Management
 
-**Allocation Manager Modal** (ניהול הקצאות חודשיות):
-- Accessible from fund detail pages (treasurer only)
+**Fund-Level Allocation Manager Modal** (ניהול הקצאות חודשיות):
+- Accessible from individual fund detail pages (treasurer only)
 - Toggle between fixed and variable allocation modes
 - Real-time validation against total fund budget
 - Visual summary showing total allocated, remaining unallocated
 - Prevents over-allocation with clear error messages
 - Saves allocation history for audit trail
+
+**Budget-Level Allocation Manager Modal** (ניהול הקצאות חודשיות - ברמת תקציב):
+- Accessible from budget detail page via "ניהול הקצאות חודשיות" button (treasurer only)
+- Manage allocations for all funds in a budget from one centralized interface
+- Expandable/collapsible sections for each fund
+- Each fund displays: total budget, allocated amount, remaining unallocated
+- Toggle between fixed and variable allocation modes per fund independently
+- Real-time validation per fund against individual fund budgets
+- Visual indicators: red for over-allocation, green for available budget
+- Batch save all fund allocations at once
+- Efficient workflow for treasurers managing multiple funds
 
 **Fixed Allocation Mode**:
 - Enter a single monthly amount

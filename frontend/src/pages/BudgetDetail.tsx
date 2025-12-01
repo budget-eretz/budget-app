@@ -10,6 +10,7 @@ import BudgetForm from '../components/BudgetForm';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import MonthNavigator from '../components/MonthNavigator';
+import BudgetMonthlyAllocationManager from '../components/BudgetMonthlyAllocationManager';
 
 export default function BudgetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +37,7 @@ export default function BudgetDetail() {
   const [deletingFund, setDeletingFund] = useState<Fund | null>(null);
   const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
   const [showDeleteBudgetConfirm, setShowDeleteBudgetConfirm] = useState(false);
+  const [showBudgetAllocationManager, setShowBudgetAllocationManager] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -134,10 +136,23 @@ export default function BudgetDetail() {
         fundName: status.fund_name,
         year: status.year,
         month: status.month,
-        allocatedAmount: status.allocated_amount,
-        spentAmount: status.spent_amount,
-        plannedAmount: status.planned_amount,
-        remainingAmount: status.remaining_amount,
+        allocated: status.allocated_amount || 0,
+        actual: {
+          spent: status.spent_amount || 0,
+          remaining: status.remaining_amount || 0,
+        },
+        planning: {
+          planned: status.planned_amount || 0,
+          unplanned: (status.allocated_amount || 0) - (status.planned_amount || 0),
+        },
+        variance: {
+          planned: status.planned_amount || 0,
+          actual: status.spent_amount || 0,
+          difference: (status.spent_amount || 0) - (status.planned_amount || 0),
+          percentage: status.planned_amount > 0 
+            ? ((status.spent_amount || 0) / status.planned_amount) * 100 
+            : 0,
+        },
         allocationType: status.allocation_type,
       }));
 
@@ -395,6 +410,19 @@ export default function BudgetDetail() {
     setShowDeleteBudgetConfirm(false);
   };
 
+  const openBudgetAllocationManager = () => {
+    setShowBudgetAllocationManager(true);
+  };
+
+  const closeBudgetAllocationManager = () => {
+    setShowBudgetAllocationManager(false);
+  };
+
+  const handleBudgetAllocationSuccess = async () => {
+    await loadBudgetData();
+    await loadMonthlyStatus(selectedYear, selectedMonth);
+  };
+
   // Check if user has permission to manage this budget
   const canManageBudget = () => {
     if (!user || !budget) return false;
@@ -552,6 +580,11 @@ export default function BudgetDetail() {
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>מצב סעיפים חודשי</h2>
+            {hasPermission && funds.length > 0 && (
+              <Button variant="primary" onClick={openBudgetAllocationManager}>
+                📅 ניהול הקצאות חודשיות
+              </Button>
+            )}
           </div>
 
           <MonthNavigator
@@ -583,8 +616,8 @@ export default function BudgetDetail() {
                 </thead>
                 <tbody>
                   {monthlyStatuses.map(status => {
-                    const usagePercent = status.allocatedAmount > 0
-                      ? (status.spentAmount / status.allocatedAmount) * 100
+                    const usagePercent = status.allocated > 0
+                      ? (status.actual.spent / status.allocated) * 100
                       : 0;
                     const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
 
@@ -597,11 +630,11 @@ export default function BudgetDetail() {
                         <td style={styles.td}>
                           <strong>{status.fundName}</strong>
                         </td>
-                        <td style={styles.td}>{formatAmount(status.allocatedAmount)}</td>
-                        <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.spentAmount)}</td>
-                        <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.plannedAmount)}</td>
+                        <td style={styles.td}>{formatAmount(status.allocated)}</td>
+                        <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.actual.spent)}</td>
+                        <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.planning.planned)}</td>
                         <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
-                          {formatAmount(status.remainingAmount)}
+                          {formatAmount(status.actual.remaining)}
                         </td>
                         <td style={styles.td}>
                           <div style={styles.progressContainer}>
@@ -861,6 +894,17 @@ export default function BudgetDetail() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Budget Monthly Allocation Manager Modal */}
+      {showBudgetAllocationManager && budget && (
+        <BudgetMonthlyAllocationManager
+          budgetId={budget.id}
+          budgetName={budget.name}
+          funds={funds}
+          onClose={closeBudgetAllocationManager}
+          onSuccess={handleBudgetAllocationSuccess}
+        />
       )}
     </div>
   );

@@ -93,6 +93,7 @@ frontend/
 │   │   ├── Modal.tsx
 │   │   ├── MonthNavigator.tsx
 │   │   ├── MonthlyAllocationManager.tsx
+│   │   ├── BudgetMonthlyAllocationManager.tsx
 │   │   ├── MonthlyExpenseTable.tsx
 │   │   ├── MonthlyFundStatusCard.tsx
 │   │   ├── MonthlyPlannedExpenseTable.tsx
@@ -451,7 +452,7 @@ Main payment transfer execution page (העברות):
 ### Monthly Fund Tracking Components (New)
 
 #### MonthlyAllocationManager.tsx
-Modal component for managing monthly fund allocations (treasurer only):
+Modal component for managing monthly fund allocations for a single fund (treasurer only):
 - Toggle between fixed and variable allocation modes
 - Fixed mode: Single amount input with annual calculation
 - Variable mode: Grid of 12 month inputs with Hebrew month names
@@ -460,6 +461,20 @@ Modal component for managing monthly fund allocations (treasurer only):
 - Prevents over-allocation with error messages
 - Saves to fund_monthly_allocations table
 - Creates audit trail in fund_allocation_history
+- Accessed from individual fund detail pages
+
+#### BudgetMonthlyAllocationManager.tsx
+Modal component for managing monthly allocations for all funds in a budget (treasurer only):
+- Manage allocations for all funds in a budget from one place
+- Expandable/collapsible sections for each fund
+- Each fund shows: budget, allocated, remaining
+- Toggle between fixed and variable allocation modes per fund
+- Fixed mode: Single monthly amount with annual calculation
+- Variable mode: Grid of 12 month inputs with Hebrew month names
+- Real-time validation per fund against fund budget
+- Visual indicators for over-allocation (red) and available budget (green)
+- Batch save all fund allocations at once
+- Accessed from budget detail page via "ניהול הקצאות חודשיות" button
 
 #### AllocationHistoryModal.tsx
 Modal component for viewing allocation change history:
