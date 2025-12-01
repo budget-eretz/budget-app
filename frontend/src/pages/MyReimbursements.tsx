@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
+import ReimbursementDetailsModal from '../components/ReimbursementDetailsModal';
 
 type StatusFilter = 'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
 
@@ -27,6 +28,13 @@ export default function MyReimbursements() {
     item: null,
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [detailsModal, setDetailsModal] = useState<{
+    isOpen: boolean;
+    reimbursement: Reimbursement | null;
+  }>({
+    isOpen: false,
+    reimbursement: null,
+  });
 
   useEffect(() => {
     loadData();
@@ -60,6 +68,10 @@ export default function MyReimbursements() {
 
   const handleDeleteClick = (type: 'reimbursement' | 'charge', item: Reimbursement | Charge) => {
     setDeleteModal({ isOpen: true, type, item });
+  };
+
+  const handleViewDetails = (reimbursement: Reimbursement) => {
+    setDetailsModal({ isOpen: true, reimbursement });
   };
 
   const handleDeleteConfirm = async () => {
@@ -284,16 +296,21 @@ export default function MyReimbursements() {
                         <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
                       </td>
                       <td style={styles.tableCell}>
-                        {(reimb.status === 'pending' || reimb.status === 'under_review') && (
-                          <div style={styles.tableActions}>
-                            <Button variant="secondary" size="sm" onClick={() => handleEditReimbursement(reimb)}>
-                              ערוך
-                            </Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDeleteClick('reimbursement', reimb)}>
-                              מחק
-                            </Button>
-                          </div>
-                        )}
+                        <div style={styles.tableActions}>
+                          <Button variant="secondary" size="sm" onClick={() => handleViewDetails(reimb)}>
+                            צפה בפרטים
+                          </Button>
+                          {(reimb.status === 'pending' || reimb.status === 'under_review') && (
+                            <>
+                              <Button variant="secondary" size="sm" onClick={() => handleEditReimbursement(reimb)}>
+                                ערוך
+                              </Button>
+                              <Button variant="danger" size="sm" onClick={() => handleDeleteClick('reimbursement', reimb)}>
+                                מחק
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -360,6 +377,13 @@ export default function MyReimbursements() {
           </section>
         )}
       </div>
+
+      {/* Reimbursement Details Modal */}
+      <ReimbursementDetailsModal
+        isOpen={detailsModal.isOpen}
+        onClose={() => setDetailsModal({ isOpen: false, reimbursement: null })}
+        reimbursement={detailsModal.reimbursement}
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal
