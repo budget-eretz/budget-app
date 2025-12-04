@@ -71,16 +71,26 @@ export async function getDashboard(req: Request, res: Response) {
 
     // Get pending reimbursements (for treasurers)
     if (user.isCircleTreasurer || user.isGroupTreasurer) {
-      const pendingQuery = `
-        SELECT r.*, f.name as fund_name, u.full_name as user_name
+      let pendingQuery = `
+        SELECT r.*, f.name as fund_name, u.full_name as user_name, b.group_id
         FROM reimbursements r
         JOIN funds f ON r.fund_id = f.id
+        JOIN budgets b ON f.budget_id = b.id
         JOIN users u ON r.user_id = u.id
         WHERE r.status = 'pending'
-        ORDER BY r.created_at ASC
       `;
+      const pendingParams: any[] = [];
 
-      const pending = await pool.query(pendingQuery);
+      // Filter by access control
+      if (!user.isCircleTreasurer && user.groupIds && user.groupIds.length > 0) {
+        // Group treasurer: only see reimbursements from their groups
+        pendingQuery += ` AND (b.group_id = ANY($1) OR b.group_id IS NULL)`;
+        pendingParams.push(user.groupIds);
+      }
+
+      pendingQuery += ` ORDER BY r.created_at ASC`;
+
+      const pending = await pool.query(pendingQuery, pendingParams);
       dashboard.pendingReimbursements = pending.rows;
     }
 
