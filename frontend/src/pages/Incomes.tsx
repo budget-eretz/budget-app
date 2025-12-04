@@ -684,39 +684,55 @@ export default function Incomes() {
 
       {/* Modals */}
       {showCategoryModal && (
-        <CategoryManager
-          categories={categories}
-          onCreateCategory={async (data) => {
-            try {
-              await incomeCategoriesAPI.create(data);
-              showToast('קטגוריה נוצרה בהצלחה', 'success');
-              loadCategories();
-            } catch (error: any) {
-              showToast(error.response?.data?.error || 'שגיאה ביצירת קטגוריה', 'error');
-              throw error;
-            }
-          }}
-          onUpdateCategory={async (id, data) => {
-            try {
-              await incomeCategoriesAPI.update(id, data);
-              showToast('קטגוריה עודכנה בהצלחה', 'success');
-              loadCategories();
-            } catch (error: any) {
-              showToast(error.response?.data?.error || 'שגיאה בעדכון קטגוריה', 'error');
-              throw error;
-            }
-          }}
-          onDeleteCategory={async (id) => {
-            try {
-              await incomeCategoriesAPI.delete(id);
-              showToast('קטגוריה נמחקה בהצלחה', 'success');
-              loadCategories();
-            } catch (error: any) {
-              showToast(error.response?.data?.error || 'שגיאה במחיקת קטגוריה', 'error');
-              throw error;
-            }
-          }}
-        />
+        <div style={styles.modalOverlay} onClick={() => setShowCategoryModal(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>ניהול קטגוריות הכנסות</h2>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                style={styles.modalCloseBtn}
+                title="סגור"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={styles.modalBody}>
+              <CategoryManager
+                categories={categories}
+                onCreateCategory={async (data) => {
+                  try {
+                    await incomeCategoriesAPI.create(data);
+                    showToast('קטגוריה נוצרה בהצלחה', 'success');
+                    loadCategories();
+                  } catch (error: any) {
+                    showToast(error.response?.data?.error || 'שגיאה ביצירת קטגוריה', 'error');
+                    throw error;
+                  }
+                }}
+                onUpdateCategory={async (id, data) => {
+                  try {
+                    await incomeCategoriesAPI.update(id, data);
+                    showToast('קטגוריה עודכנה בהצלחה', 'success');
+                    loadCategories();
+                  } catch (error: any) {
+                    showToast(error.response?.data?.error || 'שגיאה בעדכון קטגוריה', 'error');
+                    throw error;
+                  }
+                }}
+                onDeleteCategory={async (id) => {
+                  try {
+                    await incomeCategoriesAPI.delete(id);
+                    showToast('קטגוריה נמחקה בהצלחה', 'success');
+                    loadCategories();
+                  } catch (error: any) {
+                    showToast(error.response?.data?.error || 'שגיאה במחיקת קטגוריה', 'error');
+                    throw error;
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {showIncomeModal && circleBudgetId && (
@@ -1080,5 +1096,57 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     cursor: 'pointer',
     transition: 'all 0.2s',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: '20px',
+  },
+  modalContent: {
+    background: 'white',
+    borderRadius: '12px',
+    maxWidth: '800px',
+    width: '100%',
+    maxHeight: '90vh',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '24px',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  modalTitle: {
+    fontSize: '24px',
+    fontWeight: '600',
+    color: '#2d3748',
+    margin: 0,
+  },
+  modalCloseBtn: {
+    background: 'none',
+    border: 'none',
+    fontSize: '24px',
+    color: '#718096',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    transition: 'all 0.2s',
+    lineHeight: 1,
+  },
+  modalBody: {
+    padding: '24px',
+    overflowY: 'auto',
+    flex: 1,
   },
 };
