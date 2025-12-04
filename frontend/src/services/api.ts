@@ -69,7 +69,7 @@ export const reimbursementsAPI = {
   getById: (id: number) => api.get(`/reimbursements/${id}`),
   create: (data: { fundId: number; amount: number; description: string; expenseDate: string; receiptUrl?: string; recipientUserId?: number }) =>
     api.post('/reimbursements', data),
-  update: (id: number, data: Partial<{ amount: number; description: string; expenseDate: string; receiptUrl: string; recipientUserId: number }>) =>
+  update: (id: number, data: Partial<{ fundId: number; amount: number; description: string; expenseDate: string; receiptUrl: string; recipientUserId: number }>) =>
     api.patch(`/reimbursements/${id}`, data),
   delete: (id: number) => api.delete(`/reimbursements/${id}`),
   approve: (id: number, notes?: string) => api.post(`/reimbursements/${id}/approve`, { notes }),
@@ -189,7 +189,7 @@ export const chargesAPI = {
   getById: (id: number) => api.get(`/charges/${id}`),
   create: (data: { fundId: number; amount: number; description: string; chargeDate: string }) =>
     api.post('/charges', data),
-  update: (id: number, data: Partial<{ amount: number; description: string; chargeDate: string }>) =>
+  update: (id: number, data: Partial<{ fundId: number; amount: number; description: string; chargeDate: string }>) =>
     api.patch(`/charges/${id}`, data),
   delete: (id: number) => api.delete(`/charges/${id}`),
   

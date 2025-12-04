@@ -63,7 +63,7 @@ export async function createPlannedExpense(req: Request, res: Response) {
 export async function updatePlannedExpense(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { amount, description, plannedDate, status } = req.body;
+    const { fundId, amount, description, plannedDate, status } = req.body;
     const user = req.user!;
 
     // Check ownership
@@ -80,16 +80,27 @@ export async function updatePlannedExpense(req: Request, res: Response) {
       return res.status(403).json({ error: 'Cannot update others planned expenses' });
     }
 
+    // Validate fund access if fundId is being changed
+    if (fundId) {
+      const { validateFundAccess } = await import('../middleware/accessControl');
+      const hasAccess = await validateFundAccess(user.userId, fundId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'אין לך הרשאה לסעיף זה' });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE planned_expenses
-       SET amount = COALESCE($1, amount),
-           description = COALESCE($2, description),
-           planned_date = COALESCE($3, planned_date),
-           status = COALESCE($4, status),
+       SET fund_id = COALESCE($1, fund_id),
+           amount = COALESCE($2, amount),
+           description = COALESCE($3, description),
+           planned_date = COALESCE($4, planned_date),
+           status = COALESCE($5, status),
            updated_at = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING *`,
-      [amount, description, plannedDate, status, id]
+      [fundId, amount, description, plannedDate, status, id]
     );
 
     res.json(result.rows[0]);

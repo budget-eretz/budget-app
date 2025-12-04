@@ -140,7 +140,7 @@ export async function createCharge(req: Request, res: Response) {
 export async function updateCharge(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { amount, description, chargeDate } = req.body;
+    const { fundId, amount, description, chargeDate } = req.body;
     const user = req.user!;
 
     // Check ownership
@@ -162,15 +162,26 @@ export async function updateCharge(req: Request, res: Response) {
       return res.status(400).json({ error: 'לא ניתן לערוך חיוב שכבר אושר או נדחה' });
     }
 
+    // Validate fund access if fundId is being changed
+    if (fundId) {
+      const { validateFundAccess } = await import('../middleware/accessControl');
+      const hasAccess = await validateFundAccess(user.userId, fundId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'אין לך הרשאה לסעיף זה' });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE charges
-       SET amount = COALESCE($1, amount),
-           description = COALESCE($2, description),
-           charge_date = COALESCE($3, charge_date),
+       SET fund_id = COALESCE($1, fund_id),
+           amount = COALESCE($2, amount),
+           description = COALESCE($3, description),
+           charge_date = COALESCE($4, charge_date),
            updated_at = NOW()
-       WHERE id = $4
+       WHERE id = $5
        RETURNING *`,
-      [amount, description, chargeDate, id]
+      [fundId, amount, description, chargeDate, id]
     );
 
     res.json(result.rows[0]);

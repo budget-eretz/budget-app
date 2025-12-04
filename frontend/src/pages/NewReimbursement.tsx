@@ -95,6 +95,7 @@ export default function NewReimbursement() {
       if (isEditMode) {
         // Update existing reimbursement
         await reimbursementsAPI.update(editingReimbursement.id, {
+          fundId: parseInt(formData.fundId),
           amount: parseFloat(formData.amount),
           description: formData.description,
           expenseDate: formData.expenseDate,
@@ -158,7 +159,6 @@ export default function NewReimbursement() {
                 onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
                 required
                 style={styles.select}
-                disabled={isEditMode}
               >
                 <option value="">-- בחר סעיף --</option>
                 {budgets.length === 0 ? (
@@ -178,11 +178,6 @@ export default function NewReimbursement() {
                   ))
                 )}
               </select>
-              {isEditMode && (
-                <small style={{ color: '#718096', fontSize: '13px' }}>
-                  לא ניתן לשנות את הסעיף בעת עריכה
-                </small>
-              )}
             </div>
 
             <div style={styles.field}>

@@ -161,7 +161,7 @@ export async function createReimbursement(req: Request, res: Response) {
 export async function updateReimbursement(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { amount, description, expenseDate, receiptUrl, recipientUserId } = req.body;
+    const { fundId, amount, description, expenseDate, receiptUrl, recipientUserId } = req.body;
     const user = req.user!;
 
     // Validate ownership using middleware function
@@ -187,6 +187,16 @@ export async function updateReimbursement(req: Request, res: Response) {
       return res.status(400).json({ error: 'לא ניתן לערוך בקשה שכבר אושרה או נדחתה' });
     }
 
+    // Validate fund access if fundId is being changed
+    if (fundId) {
+      const { validateFundAccess } = await import('../middleware/accessControl');
+      const hasAccess = await validateFundAccess(user.userId, fundId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'אין לך הרשאה לסעיף זה' });
+      }
+    }
+
     // Validate recipient exists if provided
     if (recipientUserId) {
       const recipientCheck = await pool.query(
@@ -201,15 +211,16 @@ export async function updateReimbursement(req: Request, res: Response) {
 
     const result = await pool.query(
       `UPDATE reimbursements
-       SET amount = COALESCE($1, amount),
-           description = COALESCE($2, description),
-           expense_date = COALESCE($3, expense_date),
-           receipt_url = COALESCE($4, receipt_url),
-           recipient_user_id = COALESCE($5, recipient_user_id),
+       SET fund_id = COALESCE($1, fund_id),
+           amount = COALESCE($2, amount),
+           description = COALESCE($3, description),
+           expense_date = COALESCE($4, expense_date),
+           receipt_url = COALESCE($5, receipt_url),
+           recipient_user_id = COALESCE($6, recipient_user_id),
            updated_at = NOW()
-       WHERE id = $6
+       WHERE id = $7
        RETURNING *`,
-      [amount, description, expenseDate, receiptUrl, recipientUserId, id]
+      [fundId, amount, description, expenseDate, receiptUrl, recipientUserId, id]
     );
 
     res.json(result.rows[0]);

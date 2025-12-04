@@ -76,6 +76,7 @@ export default function NewCharge() {
     try {
       if (isEditing) {
         await chargesAPI.update(editingCharge.id, {
+          fundId: parseInt(formData.fundId),
           amount: parseFloat(formData.amount),
           description: formData.description,
           chargeDate: formData.chargeDate,
@@ -130,8 +131,7 @@ export default function NewCharge() {
                 value={formData.fundId}
                 onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
                 required
-                disabled={isEditing}
-                style={{...styles.select, ...(isEditing ? {background: '#f7fafc', cursor: 'not-allowed'} : {})}}
+                style={styles.select}
               >
                 <option value="">-- בחר סעיף --</option>
                 {budgets.length === 0 ? (
@@ -151,11 +151,6 @@ export default function NewCharge() {
                   ))
                 )}
               </select>
-              {isEditing && (
-                <span style={{fontSize: '12px', color: '#718096'}}>
-                  לא ניתן לשנות סעיף בעריכה
-                </span>
-              )}
             </div>
 
             <div style={styles.field}>
