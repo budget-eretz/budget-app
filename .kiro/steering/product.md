@@ -605,8 +605,11 @@ The Incomes page (`/incomes`) is a comprehensive single-page interface with mult
 
 **Circle/Group Members**:
 - View only their own income entries (where they are the source)
-- Cannot create, edit, or delete income entries
+- Cannot create, edit, or delete actual income entries
 - Cannot manage categories
+- **Can create, edit, and delete expected income entries for themselves only**
+- Can add monthly expected income planning for their own future income
+- Cannot create annual expected income plans (treasurer-only feature)
 
 #### Key Features
 

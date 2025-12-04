@@ -525,18 +525,16 @@ export default function Incomes() {
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>תכנון הכנסות חודשי</h2>
-            {isCircleTreasurer && (
-              <Button
-                onClick={() => {
-                  setExpectedIncomeMode('monthly');
-                  setEditingExpectedIncome(null);
-                  setShowExpectedIncomeModal(true);
-                }}
-                style={styles.primaryButton}
-              >
-                הוסף הכנסה צפויה לחודש זה
-              </Button>
-            )}
+            <Button
+              onClick={() => {
+                setExpectedIncomeMode('monthly');
+                setEditingExpectedIncome(null);
+                setShowExpectedIncomeModal(true);
+              }}
+              style={styles.primaryButton}
+            >
+              הוסף הכנסה צפויה לחודש זה
+            </Button>
           </div>
 
           {/* Month Navigator */}
@@ -559,13 +557,26 @@ export default function Incomes() {
               onEdit={(id) => {
                 const expectedIncome = expectedIncomes.find(ei => ei.id === id);
                 if (expectedIncome) {
-                  setEditingExpectedIncome(expectedIncome);
-                  setExpectedIncomeMode(expectedIncome.is_manual ? 'monthly' : 'annual');
-                  setShowExpectedIncomeModal(true);
+                  // Allow users to edit their own expected incomes or treasurers to edit any
+                  if (expectedIncome.user_id === user?.id || isCircleTreasurer) {
+                    setEditingExpectedIncome(expectedIncome);
+                    setExpectedIncomeMode(expectedIncome.is_manual ? 'monthly' : 'annual');
+                    setShowExpectedIncomeModal(true);
+                  } else {
+                    showToast('אין לך הרשאה לערוך הכנסה צפויה זו', 'error');
+                  }
                 }
               }}
               onDelete={async (id) => {
                 const expectedIncome = expectedIncomes.find(ei => ei.id === id);
+                if (!expectedIncome) return;
+                
+                // Allow users to delete their own expected incomes or treasurers to delete any
+                if (expectedIncome.user_id !== user?.id && !isCircleTreasurer) {
+                  showToast('אין לך הרשאה למחוק הכנסה צפויה זו', 'error');
+                  return;
+                }
+                
                 const isManual = expectedIncome?.is_manual;
                 const confirmMessage = isManual
                   ? 'האם אתה בטוח שברצונך למחוק הכנסה צפויה זו?'
@@ -581,7 +592,7 @@ export default function Incomes() {
                   }
                 }
               }}
-              canEdit={isCircleTreasurer}
+              canEdit={true}
             />
           )}
         </div>

@@ -270,6 +270,13 @@ export async function createMonthlyExpectedIncome(req: Request, res: Response) {
       return res.status(400).json({ error: 'חודש לא תקין' });
     }
 
+    // Access control: non-treasurers can only add expected income for themselves
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      if (!userId || userId !== user.userId) {
+        return res.status(403).json({ error: 'ניתן להוסיף הכנסה צפויה רק על עצמך' });
+      }
+    }
+
     await client.query('BEGIN');
 
     // Create manual expected income
@@ -325,7 +332,7 @@ export async function updateExpectedIncome(req: Request, res: Response) {
 
     // Check if expected income exists
     const existing = await pool.query(
-      'SELECT id, is_manual FROM expected_incomes WHERE id = $1',
+      'SELECT id, is_manual, user_id, created_by FROM expected_incomes WHERE id = $1',
       [id]
     );
 
@@ -334,10 +341,14 @@ export async function updateExpectedIncome(req: Request, res: Response) {
     }
 
     const isManual = existing.rows[0].is_manual;
+    const existingUserId = existing.rows[0].user_id;
+    const createdBy = existing.rows[0].created_by;
 
-    // Only treasurers can update expected incomes
+    // Access control: non-treasurers can only update their own expected incomes
     if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'רק גזברים יכולים לעדכן הכנסות צפויות' });
+      if (existingUserId !== user.userId && createdBy !== user.userId) {
+        return res.status(403).json({ error: 'ניתן לעדכן רק הכנסות צפויות שלך' });
+      }
     }
 
     let result;
@@ -398,7 +409,7 @@ export async function deleteExpectedIncome(req: Request, res: Response) {
 
     // Check if expected income exists
     const existing = await pool.query(
-      'SELECT id, is_manual, parent_annual_id FROM expected_incomes WHERE id = $1',
+      'SELECT id, is_manual, parent_annual_id, user_id, created_by FROM expected_incomes WHERE id = $1',
       [id]
     );
 
@@ -406,9 +417,14 @@ export async function deleteExpectedIncome(req: Request, res: Response) {
       return res.status(404).json({ error: 'הכנסה צפויה לא נמצאה' });
     }
 
-    // Only treasurers can delete expected incomes
+    const existingUserId = existing.rows[0].user_id;
+    const createdBy = existing.rows[0].created_by;
+
+    // Access control: non-treasurers can only delete their own expected incomes
     if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'רק גזברים יכולים למחוק הכנסות צפויות' });
+      if (existingUserId !== user.userId && createdBy !== user.userId) {
+        return res.status(403).json({ error: 'ניתן למחוק רק הכנסות צפויות שלך' });
+      }
     }
 
     const isManual = existing.rows[0].is_manual;
@@ -459,7 +475,7 @@ export async function assignCategories(req: Request, res: Response) {
 
     // Check if expected income exists
     const existing = await pool.query(
-      'SELECT id FROM expected_incomes WHERE id = $1',
+      'SELECT id, user_id, created_by FROM expected_incomes WHERE id = $1',
       [id]
     );
 
@@ -467,9 +483,14 @@ export async function assignCategories(req: Request, res: Response) {
       return res.status(404).json({ error: 'הכנסה צפויה לא נמצאה' });
     }
 
-    // Only treasurers can assign categories
+    const existingUserId = existing.rows[0].user_id;
+    const createdBy = existing.rows[0].created_by;
+
+    // Access control: non-treasurers can only assign categories to their own expected incomes
     if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
-      return res.status(403).json({ error: 'רק גזברים יכולים לשייך קטגוריות' });
+      if (existingUserId !== user.userId && createdBy !== user.userId) {
+        return res.status(403).json({ error: 'ניתן לשייך קטגוריות רק להכנסות צפויות שלך' });
+      }
     }
 
     await client.query('BEGIN');

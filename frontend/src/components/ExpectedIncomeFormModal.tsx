@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { ExpectedIncome, IncomeCategory, BasicUser } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface ExpectedIncomeFormModalProps {
   isOpen: boolean;
@@ -41,6 +42,9 @@ export default function ExpectedIncomeFormModal({
   defaultYear,
   defaultMonth,
 }: ExpectedIncomeFormModalProps) {
+  const { user } = useAuth();
+  const isCircleTreasurer = user?.isCircleTreasurer || false;
+  
   const [formData, setFormData] = useState<ExpectedIncomeFormData>({
     source_name: '',
     user_id: undefined,
@@ -74,9 +78,12 @@ export default function ExpectedIncomeFormModal({
         });
       } else {
         // Create mode - reset form
+        // For non-treasurers, default to their own user ID
+        const defaultUserId = !isCircleTreasurer && user?.id ? user.id : undefined;
+        
         setFormData({
           source_name: '',
-          user_id: undefined,
+          user_id: defaultUserId,
           amount: 0,
           description: '',
           year: defaultYear || new Date().getFullYear(),
@@ -88,7 +95,7 @@ export default function ExpectedIncomeFormModal({
       }
       setErrors({});
     }
-  }, [isOpen, expectedIncome, users, mode, defaultYear, defaultMonth]);
+  }, [isOpen, expectedIncome, users, mode, defaultYear, defaultMonth, isCircleTreasurer, user]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -230,15 +237,21 @@ export default function ExpectedIncomeFormModal({
                 ...styles.select,
                 ...(errors.source ? styles.inputError : {}),
               }}
+              disabled={!isCircleTreasurer}
             >
               <option value="">-- בחר חבר --</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.fullName}
-                </option>
-              ))}
+              {users
+                .filter(u => isCircleTreasurer || u.id === user?.id)
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName}
+                  </option>
+                ))}
             </select>
             {errors.source && <span style={styles.errorText}>{errors.source}</span>}
+            {!isCircleTreasurer && (
+              <span style={styles.infoText}>ניתן להוסיף הכנסה צפויה רק על עצמך</span>
+            )}
           </div>
         ) : (
           <div style={styles.formGroup}>
@@ -526,6 +539,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     color: '#e53e3e',
     marginTop: '4px',
+  },
+  infoText: {
+    fontSize: '13px',
+    color: '#718096',
+    marginTop: '4px',
+    fontStyle: 'italic',
   },
   formActions: {
     display: 'flex',
