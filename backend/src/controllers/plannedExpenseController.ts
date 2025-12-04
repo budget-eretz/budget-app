@@ -46,11 +46,16 @@ export async function createPlannedExpense(req: Request, res: Response) {
     const { fundId, amount, description, plannedDate } = req.body;
     const user = req.user!;
 
+    // Validate required fields
+    if (!plannedDate) {
+      return res.status(400).json({ error: 'תאריך מתוכנן הוא שדה חובה' });
+    }
+
     const result = await pool.query(
       `INSERT INTO planned_expenses (fund_id, user_id, amount, description, planned_date)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [fundId, user.userId, amount, description, plannedDate || null]
+      [fundId, user.userId, amount, description, plannedDate]
     );
 
     res.status(201).json(result.rows[0]);

@@ -76,7 +76,7 @@ export interface PlannedExpense {
   user_name?: string;
   amount: number;
   description: string;
-  planned_date?: string;
+  planned_date: string;
   status: 'planned' | 'executed' | 'cancelled';
   created_at: string;
 }

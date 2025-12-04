@@ -62,7 +62,7 @@ export default function NewPlannedExpense() {
           fundId: expense.fund_id.toString(),
           amount: expense.amount.toString(),
           description: expense.description,
-          plannedDate: expense.planned_date ? expense.planned_date.split('T')[0] : '',
+          plannedDate: expense.planned_date.split('T')[0],
         });
       }
     } catch (error: any) {
@@ -85,6 +85,11 @@ export default function NewPlannedExpense() {
       return;
     }
 
+    if (!formData.plannedDate) {
+      showToast('יש לבחור תאריך מתוכנן', 'error');
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (isEditMode && id) {
@@ -93,7 +98,7 @@ export default function NewPlannedExpense() {
           fundId: parseInt(formData.fundId),
           amount: parseFloat(formData.amount),
           description: formData.description,
-          plannedDate: formData.plannedDate || undefined,
+          plannedDate: formData.plannedDate,
         });
         showToast('התכנון עודכן בהצלחה', 'success');
         navigate('/dashboard');
@@ -103,7 +108,7 @@ export default function NewPlannedExpense() {
           fundId: parseInt(formData.fundId),
           amount: parseFloat(formData.amount),
           description: formData.description,
-          plannedDate: formData.plannedDate || undefined,
+          plannedDate: formData.plannedDate,
         });
         showToast('התכנון נוצר בהצלחה', 'success');
         
@@ -201,11 +206,14 @@ export default function NewPlannedExpense() {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>תאריך מתוכנן (אופציונלי)</label>
+              <label style={styles.label}>
+                תאריך מתוכנן <span style={{ color: '#e53e3e' }}>*</span>
+              </label>
               <input
                 type="date"
                 value={formData.plannedDate}
                 onChange={(e) => setFormData({ ...formData, plannedDate: e.target.value })}
+                required
                 style={styles.input}
               />
               <small style={{ color: '#718096', fontSize: '13px' }}>
