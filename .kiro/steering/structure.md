@@ -34,6 +34,7 @@ backend/
 │   │   ├── incomeController.ts
 │   │   ├── paymentTransferController.ts
 │   │   ├── plannedExpenseController.ts
+│   │   ├── recurringTransferController.ts
 │   │   ├── reimbursementController.ts
 │   │   ├── reportController.ts
 │   │   └── userController.ts
@@ -58,6 +59,7 @@ backend/
 │   │   ├── incomeRoutes.ts
 │   │   ├── paymentTransferRoutes.ts
 │   │   ├── plannedExpenseRoutes.ts
+│   │   ├── recurringTransferRoutes.ts
 │   │   ├── reimbursementRoutes.ts
 │   │   ├── reportRoutes.ts
 │   │   └── userRoutes.ts
@@ -101,6 +103,8 @@ frontend/
 │   │   ├── Navigation.tsx
 │   │   ├── PaymentTransferDetailsModal.tsx
 │   │   ├── PaymentTransferTable.tsx
+│   │   ├── RecurringTransferFormModal.tsx
+│   │   ├── RecurringTransferTable.tsx
 │   │   ├── ReimbursementDetailsModal.tsx
 │   │   ├── ReimbursementTable.tsx
 │   │   ├── RejectionModal.tsx
@@ -199,6 +203,21 @@ New table for tracking direct expenses from funds:
 - `created_by`: Treasurer who created the expense
 - `created_at`: Timestamp when expense was created
 - `updated_at`: Timestamp when expense was last updated
+
+### Recurring Transfers Table
+Table for tracking regular recurring transfers to members:
+- `id`: Primary key
+- `recipient_user_id`: User receiving the transfer (references users table)
+- `fund_id`: Fund from which transfer is made (references funds table)
+- `amount`: Transfer amount (positive value)
+- `description`: Transfer description (e.g., "דמי קופת חולים", "תשלום טלפון")
+- `start_date`: Date when transfers begin
+- `end_date`: Optional end date for time-limited transfers
+- `frequency`: Transfer frequency ('monthly', 'quarterly', 'annual')
+- `status`: Transfer status ('active', 'paused', 'cancelled')
+- `created_by`: Treasurer who created the transfer (references users table)
+- `created_at`: Timestamp when transfer was created
+- `updated_at`: Timestamp when transfer was last updated
 
 ### Fund Monthly Allocations Table
 Table for tracking monthly budget allocations per fund:
@@ -303,6 +322,14 @@ Many-to-many relationship between expected incomes and categories:
 - `POST /api/direct-expenses` - Create new direct expense (treasurer only, with fund access validation)
 - `PATCH /api/direct-expenses/:id` - Update direct expense (treasurer only, with fund access validation)
 - `DELETE /api/direct-expenses/:id` - Delete direct expense (treasurer only, with fund access validation)
+
+### Recurring Transfer Endpoints (New)
+- `GET /api/recurring-transfers` - Get all recurring transfers (treasurer only, filtered by access control)
+- `GET /api/recurring-transfers/my` - Get user's recurring transfers
+- `GET /api/recurring-transfers/:id` - Get single recurring transfer by ID
+- `POST /api/recurring-transfers` - Create recurring transfer (treasurer only)
+- `PATCH /api/recurring-transfers/:id` - Update recurring transfer (treasurer only)
+- `DELETE /api/recurring-transfers/:id` - Delete recurring transfer (treasurer only)
 
 ### Fund Endpoints (Enhanced)
 - `GET /api/funds` - List all funds
@@ -534,6 +561,31 @@ Full page for monthly fund detail and management:
 - "היסטוריית הקצאות" button (treasurer only) - opens AllocationHistoryModal
 - Real-time data loading per selected month
 - Access control based on fund permissions
+
+### Recurring Transfer Components (New)
+
+#### RecurringTransferFormModal.tsx
+Modal form component for creating/editing recurring transfers:
+- Recipient selection dropdown (all users)
+- Fund selection grouped by budget (circle/group)
+- Amount input with validation (positive numbers only)
+- Description text field
+- Frequency selector (monthly, quarterly, annual)
+- Start date picker (required)
+- End date picker (optional)
+- Save and cancel actions
+- Validation and Hebrew error messages
+- RTL-friendly layout
+
+#### RecurringTransferTable.tsx
+Table component for displaying recurring transfers:
+- Columns: recipient, fund, amount, description, frequency, start date, end date, status
+- Status badges with color coding (active/paused/cancelled)
+- Frequency labels in Hebrew (חודשי/רבעוני/שנתי)
+- Optional actions column with edit, delete, and pause/resume buttons
+- Responsive grid layout
+- Hebrew RTL support
+- Empty state message when no transfers exist
 
 ### Income Tracking Components (New)
 

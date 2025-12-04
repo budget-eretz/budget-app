@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { reimbursementsAPI, chargesAPI } from '../services/api';
-import { Reimbursement, Charge, PaymentSummary } from '../types';
+import { reimbursementsAPI, chargesAPI, recurringTransfersAPI } from '../services/api';
+import { Reimbursement, Charge, PaymentSummary, RecurringTransfer } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
 import ReimbursementDetailsModal from '../components/ReimbursementDetailsModal';
+import RecurringTransferTable from '../components/RecurringTransferTable';
 
 type StatusFilter = 'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
 
@@ -16,6 +17,7 @@ export default function MyReimbursements() {
   const [loading, setLoading] = useState(true);
   const [reimbursements, setReimbursements] = useState<Reimbursement[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
+  const [recurringTransfers, setRecurringTransfers] = useState<RecurringTransfer[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deleteModal, setDeleteModal] = useState<{ 
@@ -43,14 +45,16 @@ export default function MyReimbursements() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [reimbResponse, chargesResponse, summaryResponse] = await Promise.all([
+      const [reimbResponse, chargesResponse, summaryResponse, recurringResponse] = await Promise.all([
         reimbursementsAPI.getMy(),
         chargesAPI.getMy(),
         reimbursementsAPI.getSummary(),
+        recurringTransfersAPI.getMy(),
       ]);
       setReimbursements(reimbResponse.data);
       setCharges(chargesResponse.data);
       setSummary(summaryResponse.data);
+      setRecurringTransfers(recurringResponse.data);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת הנתונים', 'error');
     } finally {
@@ -376,6 +380,20 @@ export default function MyReimbursements() {
             </div>
           </section>
         )}
+
+        {/* Recurring Transfers Section */}
+        {recurringTransfers.length > 0 && (
+          <section style={styles.section}>
+            <h2 style={styles.sectionTitle}>העברות חודשיות קבועות ({recurringTransfers.length})</h2>
+            <p style={styles.sectionDescription}>
+              העברות אלו מבוצעות באופן אוטומטי על ידי גזברית המעגל
+            </p>
+            <RecurringTransferTable
+              transfers={recurringTransfers}
+              showActions={false}
+            />
+          </section>
+        )}
       </div>
 
       {/* Reimbursement Details Modal */}
@@ -505,6 +523,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     marginBottom: '16px',
     color: '#2d3748',
+  },
+  sectionDescription: {
+    fontSize: '14px',
+    color: '#718096',
+    marginBottom: '16px',
+    fontStyle: 'italic',
   },
   filterTabs: {
     display: 'flex',

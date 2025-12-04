@@ -409,3 +409,26 @@ export interface MonthlyExpense {
   canEdit: boolean;
   canDelete: boolean;
 }
+
+export interface RecurringTransfer {
+  id: number;
+  recipientUserId: number;
+  recipientName?: string;
+  recipientEmail?: string;
+  fundId: number;
+  fundName?: string;
+  budgetId?: number;
+  budgetName?: string;
+  budgetType?: 'circle' | 'group';
+  groupName?: string;
+  amount: number;
+  description: string;
+  startDate: string;
+  endDate?: string;
+  frequency: 'monthly' | 'quarterly' | 'annual';
+  status: 'active' | 'paused' | 'cancelled';
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}

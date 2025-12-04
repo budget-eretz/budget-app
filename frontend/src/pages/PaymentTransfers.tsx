@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats } from '../types';
+import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats, RecurringTransfer } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import PaymentTransferTable from '../components/PaymentTransferTable';
 import PaymentTransferDetailsModal from '../components/PaymentTransferDetailsModal';
+import RecurringTransferFormModal from '../components/RecurringTransferFormModal';
+import RecurringTransferTable from '../components/RecurringTransferTable';
 import Modal from '../components/Modal';
-import api from '../services/api';
+import api, { recurringTransfersAPI } from '../services/api';
 
 export default function PaymentTransfers() {
-  const [activeTab, setActiveTab] = useState<'pending' | 'executed'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'executed' | 'recurring'>('pending');
   const [pendingTransfers, setPendingTransfers] = useState<PaymentTransfer[]>([]);
   const [executedTransfers, setExecutedTransfers] = useState<PaymentTransfer[]>([]);
   const [stats, setStats] = useState<PaymentTransferStats | null>(null);
@@ -19,6 +21,12 @@ export default function PaymentTransfers() {
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
   const [transferToExecute, setTransferToExecute] = useState<number | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Recurring transfers state
+  const [recurringTransfers, setRecurringTransfers] = useState<RecurringTransfer[]>([]);
+  const [showRecurringForm, setShowRecurringForm] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringTransfer | undefined>(undefined);
+  const [savingRecurring, setSavingRecurring] = useState(false);
 
   // Filters
   const [recipientFilter, setRecipientFilter] = useState('');
@@ -34,10 +42,11 @@ export default function PaymentTransfers() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load transfers and stats
-      const [transfersResponse, statsResponse] = await Promise.all([
+      // Load transfers, stats, and recurring transfers
+      const [transfersResponse, statsResponse, recurringResponse] = await Promise.all([
         api.get('/payment-transfers'),
         api.get('/payment-transfers/stats'),
+        recurringTransfersAPI.getAll(),
       ]);
 
       const transfers = transfersResponse.data as PaymentTransfer[];
@@ -46,6 +55,7 @@ export default function PaymentTransfers() {
       setPendingTransfers(transfers.filter(t => t.status === 'pending'));
       setExecutedTransfers(transfers.filter(t => t.status === 'executed'));
       setStats(statsResponse.data);
+      setRecurringTransfers(recurringResponse.data);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני העברות', 'error');
       console.error('Error loading payment transfers:', error);
@@ -155,6 +165,65 @@ export default function PaymentTransfers() {
 
   const hasActiveFilters = recipientFilter || dateFromFilter || dateToFilter;
 
+  // Recurring transfer handlers
+  const handleAddRecurring = () => {
+    setEditingRecurring(undefined);
+    setShowRecurringForm(true);
+  };
+
+  const handleEditRecurring = (transfer: RecurringTransfer) => {
+    setEditingRecurring(transfer);
+    setShowRecurringForm(true);
+  };
+
+  const handleRecurringSubmit = async (data: any) => {
+    setSavingRecurring(true);
+    try {
+      if (editingRecurring) {
+        await recurringTransfersAPI.update(editingRecurring.id, data);
+        showToast('העברה קבועה עודכנה בהצלחה', 'success');
+      } else {
+        await recurringTransfersAPI.create(data);
+        showToast('העברה קבועה נוספה בהצלחה', 'success');
+      }
+      setShowRecurringForm(false);
+      setEditingRecurring(undefined);
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בשמירת העברה קבועה', 'error');
+      console.error('Error saving recurring transfer:', error);
+    } finally {
+      setSavingRecurring(false);
+    }
+  };
+
+  const handleToggleRecurringStatus = async (transfer: RecurringTransfer) => {
+    const newStatus = transfer.status === 'active' ? 'paused' : 'active';
+    try {
+      await recurringTransfersAPI.update(transfer.id, { status: newStatus });
+      showToast(`העברה ${newStatus === 'active' ? 'הופעלה' : 'הושהתה'} בהצלחה`, 'success');
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בעדכון סטטוס', 'error');
+      console.error('Error toggling status:', error);
+    }
+  };
+
+  const handleDeleteRecurring = async (transfer: RecurringTransfer) => {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את ההעברה הקבועה ל-${transfer.recipientName}?`)) {
+      return;
+    }
+
+    try {
+      await recurringTransfersAPI.delete(transfer.id);
+      showToast('העברה קבועה נמחקה בהצלחה', 'success');
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה במחיקת העברה קבועה', 'error');
+      console.error('Error deleting recurring transfer:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.loading}>
@@ -164,8 +233,8 @@ export default function PaymentTransfers() {
     );
   }
 
-  const currentTransfers = activeTab === 'pending' ? pendingTransfers : executedTransfers;
-  const filteredTransfers = filterTransfers(currentTransfers);
+  const currentTransfers = activeTab === 'recurring' ? [] : (activeTab === 'pending' ? pendingTransfers : executedTransfers);
+  const filteredTransfers = activeTab === 'recurring' ? [] : filterTransfers(currentTransfers);
 
   return (
     <div style={styles.container}>
@@ -212,56 +281,84 @@ export default function PaymentTransfers() {
           >
             בוצעו ({executedTransfers.length})
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'recurring' ? styles.activeTab : {}),
+            }}
+            onClick={() => setActiveTab('recurring')}
+          >
+            העברות קבועות ({recurringTransfers.length})
+          </button>
         </div>
 
-        {/* Filters */}
-        <div style={styles.filtersContainer}>
-          <div style={styles.filterRow}>
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>מקבל תשלום</label>
-              <input
-                type="text"
-                style={styles.filterInput}
-                placeholder="חפש לפי שם..."
-                value={recipientFilter}
-                onChange={(e) => setRecipientFilter(e.target.value)}
-              />
-            </div>
+        {/* Filters - only show for pending/executed tabs */}
+        {activeTab !== 'recurring' && (
+          <div style={styles.filtersContainer}>
+            <div style={styles.filterRow}>
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>מקבל תשלום</label>
+                <input
+                  type="text"
+                  style={styles.filterInput}
+                  placeholder="חפש לפי שם..."
+                  value={recipientFilter}
+                  onChange={(e) => setRecipientFilter(e.target.value)}
+                />
+              </div>
 
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>מתאריך</label>
-              <input
-                type="date"
-                style={styles.filterInput}
-                value={dateFromFilter}
-                onChange={(e) => setDateFromFilter(e.target.value)}
-              />
-            </div>
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>מתאריך</label>
+                <input
+                  type="date"
+                  style={styles.filterInput}
+                  value={dateFromFilter}
+                  onChange={(e) => setDateFromFilter(e.target.value)}
+                />
+              </div>
 
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>עד תאריך</label>
-              <input
-                type="date"
-                style={styles.filterInput}
-                value={dateToFilter}
-                onChange={(e) => setDateToFilter(e.target.value)}
-              />
-            </div>
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>עד תאריך</label>
+                <input
+                  type="date"
+                  style={styles.filterInput}
+                  value={dateToFilter}
+                  onChange={(e) => setDateToFilter(e.target.value)}
+                />
+              </div>
 
-            {hasActiveFilters && (
-              <Button
-                onClick={clearFilters}
-                variant="secondary"
-                style={styles.clearFiltersButton}
-              >
-                נקה סינון
-              </Button>
-            )}
+              {hasActiveFilters && (
+                <Button
+                  onClick={clearFilters}
+                  variant="secondary"
+                  style={styles.clearFiltersButton}
+                >
+                  נקה סינון
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Transfer Table */}
-        {filteredTransfers.length === 0 ? (
+        {/* Add Recurring Transfer Button - only show in recurring tab */}
+        {activeTab === 'recurring' && (
+          <div style={{ marginBottom: '20px' }}>
+            <Button onClick={handleAddRecurring} variant="primary">
+              + הוסף העברה קבועה חדשה
+            </Button>
+          </div>
+        )}
+
+        {/* Transfer Table or Recurring Transfers Table */}
+        {activeTab === 'recurring' ? (
+          <RecurringTransferTable
+            transfers={recurringTransfers}
+            onEdit={handleEditRecurring}
+            onDelete={handleDeleteRecurring}
+            onToggleStatus={handleToggleRecurringStatus}
+            showActions={true}
+          />
+        ) : filteredTransfers.length === 0 ? (
           <div style={styles.emptyState}>
             {hasActiveFilters ? (
               <>
@@ -350,6 +447,18 @@ export default function PaymentTransfers() {
             </div>
           </div>
         </Modal>
+
+        {/* Recurring Transfer Form Modal */}
+        <RecurringTransferFormModal
+          isOpen={showRecurringForm}
+          onClose={() => {
+            setShowRecurringForm(false);
+            setEditingRecurring(undefined);
+          }}
+          onSubmit={handleRecurringSubmit}
+          transfer={editingRecurring}
+          isLoading={savingRecurring}
+        />
       </div>
     </div>
   );

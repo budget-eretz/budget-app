@@ -303,4 +303,28 @@ export const directExpensesAPI = {
   delete: (id: number) => api.delete(`/direct-expenses/${id}`),
 };
 
+// Recurring Transfers API
+export const recurringTransfersAPI = {
+  getAll: () => api.get('/recurring-transfers'),
+  getMy: () => api.get('/recurring-transfers/my'),
+  getById: (id: number) => api.get(`/recurring-transfers/${id}`),
+  create: (data: { 
+    recipientUserId: number; 
+    fundId: number; 
+    amount: number; 
+    description: string; 
+    startDate: string; 
+    endDate?: string; 
+    frequency: 'monthly' | 'quarterly' | 'annual' 
+  }) => api.post('/recurring-transfers', data),
+  update: (id: number, data: Partial<{ 
+    amount: number; 
+    description: string; 
+    endDate: string; 
+    frequency: 'monthly' | 'quarterly' | 'annual'; 
+    status: 'active' | 'paused' | 'cancelled' 
+  }>) => api.patch(`/recurring-transfers/${id}`, data),
+  delete: (id: number) => api.delete(`/recurring-transfers/${id}`),
+};
+
 export default api;

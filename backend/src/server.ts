@@ -17,6 +17,7 @@ import groupRoutes from './routes/groupRoutes';
 import paymentTransferRoutes from './routes/paymentTransferRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import directExpenseRoutes from './routes/directExpenseRoutes';
+import recurringTransferRoutes from './routes/recurringTransferRoutes';
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/payment-transfers', paymentTransferRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/direct-expenses', directExpenseRoutes);
+app.use('/api/recurring-transfers', recurringTransferRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

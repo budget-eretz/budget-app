@@ -284,6 +284,82 @@ The system now has two separate treasurer pages:
    - View pending and executed transfers
    - Transfer details with all associated reimbursements
    - Payment execution with audit trail
+   - Manage recurring transfers (העברות קבועות)
+
+### Recurring Transfers (העברות קבועות)
+
+A system for managing regular, recurring payments to members (e.g., health insurance, phone bills, etc.) that are executed automatically by the circle treasurer.
+
+#### Key Features
+
+**Recurring Transfer Management**:
+- Create recurring transfers with recipient, fund, amount, description, frequency, and date range
+- Support for multiple frequencies: monthly (חודשי), quarterly (רבעוני), annual (שנתי)
+- Optional end date for time-limited transfers
+- Status management: active (פעיל), paused (מושהה), cancelled (בוטל)
+
+**Access Control**:
+- Circle treasurers: Can create and manage recurring transfers for all funds
+- Group treasurers: Can create and manage recurring transfers for their group funds only
+- Members: Can view their own recurring transfers (read-only)
+
+**Integration with Payment System**:
+- Recurring transfers are displayed separately from regular reimbursements
+- Members can see their recurring transfers in "ההחזרים שלי" page in a dedicated table
+- Clear distinction from one-time reimbursements and charges
+
+**Treasurer Management** (in Payment Transfers page):
+- New tab "העברות קבועות" in the Payment Transfers page
+- Add, edit, pause/resume, and delete recurring transfers
+- View all recurring transfers with full details (recipient, fund, amount, frequency, dates, status)
+- Toggle status between active and paused
+- Delete recurring transfers with confirmation
+
+**Member View** (in My Reimbursements page):
+- Separate section "העברות חודשיות קבועות" showing all recurring transfers for the member
+- Read-only view with full transfer details
+- Informational note explaining these are automatic transfers by the treasurer
+- No edit or delete actions available to members
+
+#### Database Schema
+
+**recurring_transfers table**:
+- `id`: Primary key
+- `recipient_user_id`: User receiving the transfer
+- `fund_id`: Fund from which transfer is made
+- `amount`: Transfer amount
+- `description`: Transfer description (e.g., "דמי קופת חולים", "תשלום טלפון")
+- `start_date`: When transfers begin
+- `end_date`: Optional end date for time-limited transfers
+- `frequency`: monthly, quarterly, or annual
+- `status`: active, paused, or cancelled
+- `created_by`: Treasurer who created the transfer
+- `created_at`, `updated_at`: Timestamps
+
+#### API Endpoints
+
+- `GET /api/recurring-transfers` - Get all recurring transfers (treasurer only, filtered by access control)
+- `GET /api/recurring-transfers/my` - Get user's recurring transfers
+- `GET /api/recurring-transfers/:id` - Get single recurring transfer by ID
+- `POST /api/recurring-transfers` - Create recurring transfer (treasurer only)
+- `PATCH /api/recurring-transfers/:id` - Update recurring transfer (treasurer only)
+- `DELETE /api/recurring-transfers/:id` - Delete recurring transfer (treasurer only)
+
+#### Components
+
+**RecurringTransferFormModal.tsx**:
+- Modal form for creating/editing recurring transfers
+- Recipient selection from all users
+- Fund selection grouped by budget (circle/group)
+- Amount, description, frequency, start date, and optional end date inputs
+- Validation for required fields and positive amounts
+
+**RecurringTransferTable.tsx**:
+- Table displaying recurring transfers
+- Columns: recipient, fund, amount, description, frequency, start date, end date, status
+- Optional actions column for edit, delete, and pause/resume (treasurer only)
+- Status badges with color coding
+- Frequency labels in Hebrew
 
 ### Monthly Fund Allocation and Tracking
 

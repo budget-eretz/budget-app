@@ -344,3 +344,28 @@ export interface MonthlyExpense {
   canEdit: boolean;
   canDelete: boolean;
 }
+
+export interface RecurringTransfer {
+  id: number;
+  recipient_user_id: number;
+  fund_id: number;
+  amount: number;
+  description: string;
+  start_date: Date;
+  end_date?: Date;
+  frequency: 'monthly' | 'quarterly' | 'annual';
+  status: 'active' | 'paused' | 'cancelled';
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+  
+  // Joined fields
+  recipient_name?: string;
+  recipient_email?: string;
+  fund_name?: string;
+  budget_id?: number;
+  budget_name?: string;
+  budget_type?: 'circle' | 'group';
+  group_name?: string;
+  created_by_name?: string;
+}
