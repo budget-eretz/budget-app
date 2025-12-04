@@ -461,7 +461,7 @@ export async function returnToPending(req: Request, res: Response) {
 
     // Check reimbursement exists and is not paid
     const existing = await pool.query(
-      'SELECT status FROM reimbursements WHERE id = $1',
+      'SELECT status, payment_transfer_id FROM reimbursements WHERE id = $1',
       [id]
     );
 
@@ -477,18 +477,29 @@ export async function returnToPending(req: Request, res: Response) {
       return res.status(400).json({ error: 'ההחזר כבר בסטטוס ממתין' });
     }
 
-    // Update status back to pending and clear under_review fields
+    const oldTransferId = existing.rows[0].payment_transfer_id;
+
+    // Update status back to pending and clear under_review fields and payment_transfer_id
     const result = await pool.query(
       `UPDATE reimbursements
        SET status = 'pending',
            under_review_by = NULL,
            under_review_at = NULL,
            review_notes = NULL,
+           payment_transfer_id = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id]
     );
+
+    // If reimbursement was associated with a transfer, update the transfer totals
+    if (oldTransferId) {
+      const { updateTransferTotals } = await import('../utils/paymentTransferHelpers');
+      await updateTransferTotals(oldTransferId);
+    }
 
     res.json(result.rows[0]);
   } catch (error) {

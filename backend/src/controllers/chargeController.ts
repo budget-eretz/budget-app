@@ -269,7 +269,7 @@ export async function returnToPending(req: Request, res: Response) {
     }
 
     const existing = await pool.query(
-      'SELECT status FROM charges WHERE id = $1',
+      'SELECT status, payment_transfer_id FROM charges WHERE id = $1',
       [id]
     );
 
@@ -285,17 +285,28 @@ export async function returnToPending(req: Request, res: Response) {
       return res.status(400).json({ error: 'החיוב כבר בסטטוס ממתין' });
     }
 
+    const oldTransferId = existing.rows[0].payment_transfer_id;
+
     const result = await pool.query(
       `UPDATE charges
        SET status = 'pending',
            under_review_by = NULL,
            under_review_at = NULL,
            review_notes = NULL,
+           payment_transfer_id = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id]
     );
+
+    // If charge was associated with a transfer, update the transfer totals
+    if (oldTransferId) {
+      const { updateTransferTotals } = await import('../utils/paymentTransferHelpers');
+      await updateTransferTotals(oldTransferId);
+    }
 
     res.json(result.rows[0]);
   } catch (error) {
