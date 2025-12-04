@@ -64,10 +64,12 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
         fundsAPI.getAccessible(),
         usersAPI.getAll(),
       ]);
-      setBudgetsWithFunds(fundsRes.data);
-      setUsers(usersRes.data);
+      setBudgetsWithFunds(Array.isArray(fundsRes.data) ? fundsRes.data : []);
+      setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (error) {
       console.error('Error loading data:', error);
+      setBudgetsWithFunds([]);
+      setUsers([]);
     } finally {
       setLoadingData(false);
     }
