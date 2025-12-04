@@ -461,7 +461,8 @@ export default function BudgetDetail() {
     const totalSpent = funds.reduce((sum, fund) => sum + Number(fund.spent_amount || 0), 0);
     const totalPlanned = funds.reduce((sum, fund) => sum + Number(fund.planned_amount || 0), 0);
     const totalIncome = Number(budget?.total_income || 0);
-    const available = Number(budget?.total_amount || 0) + totalIncome - totalAllocated;
+    // Note: budget.total_amount already includes income for the income budget
+    const available = Number(budget?.total_amount || 0) - totalAllocated;
 
     return {
       totalAllocated,
@@ -549,12 +550,6 @@ export default function BudgetDetail() {
               <span style={styles.summaryLabel}>סה"כ תקציב</span>
               <span style={{ ...styles.summaryValue, color: '#667eea' }}>
                 {formatAmount(budget.total_amount)}
-              </span>
-            </div>
-            <div style={styles.summaryItem}>
-              <span style={styles.summaryLabel}>הכנסות</span>
-              <span style={{ ...styles.summaryValue, color: '#38a169' }}>
-                {formatAmount(summary.totalIncome)}
               </span>
             </div>
             <div style={styles.summaryItem}>
