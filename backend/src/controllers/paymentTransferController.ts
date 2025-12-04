@@ -176,13 +176,56 @@ export async function getPaymentTransferById(req: Request, res: Response) {
       [id]
     );
 
-    // Combine reimbursements and charges
-    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows]
+    // Get active recurring transfers for this recipient and budget type
+    const recurringResult = await pool.query(
+      `SELECT 
+        rt.id,
+        rt.fund_id,
+        rt.recipient_user_id,
+        rt.recipient_user_id as user_id,
+        rt.amount,
+        rt.description,
+        rt.start_date as expense_date,
+        NULL as receipt_url,
+        'active' as status,
+        rt.created_by as reviewed_by,
+        rt.created_at as reviewed_at,
+        NULL as notes,
+        rt.created_at,
+        rt.updated_at,
+        f.name as fund_name,
+        f.budget_id,
+        u.full_name as user_name,
+        u.full_name as recipient_name,
+        creator.full_name as reviewer_name,
+        'recurring_transfer' as item_type,
+        rt.frequency,
+        rt.start_date,
+        rt.end_date
+      FROM recurring_transfers rt
+      JOIN funds f ON rt.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN users creator ON rt.created_by = creator.id
+      WHERE rt.recipient_user_id = $1
+        AND rt.status = 'active'
+        AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
+        AND (
+          ($2 = 'circle' AND b.group_id IS NULL) OR
+          ($2 = 'group' AND b.group_id = $3)
+        )
+      ORDER BY rt.created_at DESC`,
+      [transfer.recipientUserId, transfer.budgetType, transfer.groupId]
+    );
+
+    // Combine reimbursements, charges, and recurring transfers
+    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows, ...recurringResult.rows]
       .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
     const transferDetails: PaymentTransferDetails = {
       ...transfer,
-      reimbursements: allItems
+      reimbursements: allItems,
+      recurringTransfers: recurringResult.rows
     };
 
     res.json(transferDetails);

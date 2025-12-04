@@ -107,6 +107,54 @@ export default function PaymentTransferDetailsModal({
           </div>
         )}
 
+        {/* Recurring Transfers */}
+        {transfer.recurringTransfers && transfer.recurringTransfers.length > 0 && (
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>
+              העברות קבועות ({transfer.recurringTransfers.length})
+            </h3>
+            <div style={styles.infoBox}>
+              <p style={styles.infoText}>
+                ℹ️ העברות קבועות אלו מתווספות אוטומטית לכל העברה למשתמש זה
+              </p>
+            </div>
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.tableHeaderRow}>
+                    <th style={styles.tableHeader}>תיאור</th>
+                    <th style={styles.tableHeader}>סעיף</th>
+                    <th style={styles.tableHeader}>תדירות</th>
+                    <th style={styles.tableHeader}>תאריך התחלה</th>
+                    <th style={styles.tableHeader}>תאריך סיום</th>
+                    <th style={styles.tableHeader}>סכום</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transfer.recurringTransfers.map((recurring) => (
+                    <tr key={`recurring-${recurring.id}`} style={styles.tableRow}>
+                      <td style={styles.tableCell}>{recurring.description}</td>
+                      <td style={styles.tableCell}>{recurring.fundName || '-'}</td>
+                      <td style={styles.tableCell}>
+                        {recurring.frequency === 'monthly' && 'חודשי'}
+                        {recurring.frequency === 'quarterly' && 'רבעוני'}
+                        {recurring.frequency === 'annual' && 'שנתי'}
+                      </td>
+                      <td style={styles.tableCell}>{formatDate(recurring.startDate)}</td>
+                      <td style={styles.tableCell}>
+                        {recurring.endDate ? formatDate(recurring.endDate) : 'ללא הגבלה'}
+                      </td>
+                      <td style={{...styles.tableCell, ...styles.recurringAmountCell}}>
+                        {formatCurrency(recurring.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Associated Reimbursements */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>
@@ -296,6 +344,22 @@ const styles: Record<string, React.CSSProperties> = {
   amountCell: {
     fontWeight: 'bold',
     color: '#10b981',
+  },
+  recurringAmountCell: {
+    fontWeight: 'bold',
+    color: '#8b5cf6',
+  },
+  infoBox: {
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginBottom: '12px',
+  },
+  infoText: {
+    margin: 0,
+    fontSize: '14px',
+    color: '#1e40af',
   },
   receiptLink: {
     fontSize: '18px',

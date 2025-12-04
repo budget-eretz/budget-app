@@ -288,7 +288,7 @@ The system now has two separate treasurer pages:
 
 ### Recurring Transfers (העברות קבועות)
 
-A system for managing regular, recurring payments to members (e.g., health insurance, phone bills, etc.) that are executed automatically by the circle treasurer.
+A system for managing regular, recurring payments to members (e.g., health insurance, phone bills, etc.) that are automatically integrated into the payment transfer workflow.
 
 #### Key Features
 
@@ -303,10 +303,13 @@ A system for managing regular, recurring payments to members (e.g., health insur
 - Group treasurers: Can create and manage recurring transfers for their group funds only
 - Members: Can view their own recurring transfers (read-only)
 
-**Integration with Payment System**:
-- Recurring transfers are displayed separately from regular reimbursements
-- Members can see their recurring transfers in "ההחזרים שלי" page in a dedicated table
-- Clear distinction from one-time reimbursements and charges
+**Automatic Integration with Payment Transfers**:
+- **Automatic Addition**: When reimbursements are approved for a user, active recurring transfers for that user are automatically added to the payment transfer
+- **Budget Type Matching**: Only recurring transfers matching the payment transfer's budget type (circle/group) are included
+- **Total Calculation**: Payment transfer total = sum of reimbursements - sum of charges + sum of recurring transfers
+- **Example**: If a user has 3 reimbursements totaling ₪100 and a recurring transfer of ₪50, the payment transfer total will be ₪150
+- **Visibility**: Recurring transfers are displayed in the payment transfer details modal with a distinct visual indicator
+- **Real-time Updates**: Transfer totals automatically update when recurring transfers are added, edited, or status changes
 
 **Treasurer Management** (in Payment Transfers page):
 - New tab "העברות קבועות" in the Payment Transfers page
@@ -314,6 +317,7 @@ A system for managing regular, recurring payments to members (e.g., health insur
 - View all recurring transfers with full details (recipient, fund, amount, frequency, dates, status)
 - Toggle status between active and paused
 - Delete recurring transfers with confirmation
+- Changes to recurring transfers automatically update pending payment transfer totals
 
 **Member View** (in My Reimbursements page):
 - Separate section "העברות חודשיות קבועות" showing all recurring transfers for the member

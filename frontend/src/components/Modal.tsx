@@ -114,8 +114,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     width: '100%',
     maxHeight: '90vh',
-    overflow: 'auto',
+    overflow: 'visible',
     boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+    display: 'flex',
+    flexDirection: 'column',
   },
   header: {
     display: 'flex',
@@ -146,5 +148,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   content: {
     padding: '24px',
+    overflow: 'auto',
+    flex: 1,
   },
 };

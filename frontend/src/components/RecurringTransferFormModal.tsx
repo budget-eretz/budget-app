@@ -47,7 +47,7 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
     if (transfer) {
       setRecipientUserId(transfer.recipientUserId);
       setFundId(transfer.fundId);
-      setAmount(transfer.amount.toString());
+      setAmount(String(transfer.amount));
       setDescription(transfer.description);
       setStartDate(transfer.startDate.split('T')[0]);
       setEndDate(transfer.endDate ? transfer.endDate.split('T')[0] : '');
@@ -64,7 +64,15 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
         fundsAPI.getAccessible(),
         usersAPI.getAll(),
       ]);
-      setBudgetsWithFunds(Array.isArray(fundsRes.data) ? fundsRes.data : []);
+      
+      console.log('Funds API response:', fundsRes.data);
+      console.log('Users API response:', usersRes.data);
+      
+      // Handle both array and object with budgets property
+      const budgetsData = fundsRes.data?.budgets || fundsRes.data;
+      console.log('Budgets data after processing:', budgetsData);
+      console.log('Is budgets data an array?', Array.isArray(budgetsData));
+      setBudgetsWithFunds(Array.isArray(budgetsData) ? budgetsData : []);
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -123,20 +131,27 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={transfer ? 'עריכת העברה קבועה' : 'הוספת העברה קבועה חדשה'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} style={{ maxHeight: '80vh', overflowY: 'auto', padding: '1rem' }}>
         {loadingData ? (
           <div className="text-center py-4">טוען נתונים...</div>
         ) : (
-          <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Recipient User */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                מקבל התשלום <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                מקבל התשלום <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select
                 value={recipientUserId}
                 onChange={(e) => setRecipientUserId(Number(e.target.value))}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem',
+                  backgroundColor: !!transfer ? '#f3f4f6' : 'white'
+                }}
                 required
                 disabled={!!transfer}
               >
@@ -151,20 +166,30 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* Fund */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                קופה <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                סעיף <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select
                 value={fundId}
-                onChange={(e) => setFundId(Number(e.target.value))}
-                className="w-full p-2 border rounded"
+                onChange={(e) => {
+                  console.log('Fund selected:', e.target.value);
+                  setFundId(Number(e.target.value));
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem',
+                  backgroundColor: !!transfer ? '#f3f4f6' : 'white'
+                }}
                 required
                 disabled={!!transfer}
               >
-                <option value={0}>בחר קופה</option>
-                {budgetsWithFunds.map((budget) => (
+                <option value={0}>בחר סעיף</option>
+                {Array.isArray(budgetsWithFunds) && budgetsWithFunds.map((budget) => (
                   <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
-                    {budget.funds.map((fund) => (
+                    {Array.isArray(budget.funds) && budget.funds.map((fund) => (
                       <option key={fund.id} value={fund.id}>
                         {fund.name}
                       </option>
@@ -176,8 +201,8 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* Amount */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                סכום <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                סכום <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="number"
@@ -185,7 +210,13 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
                 min="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem'
+                }}
                 placeholder="0.00"
                 required
               />
@@ -193,14 +224,20 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                תיאור <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                תיאור <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem'
+                }}
                 placeholder="למשל: דמי קופת חולים, תשלום טלפון"
                 required
               />
@@ -208,13 +245,19 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* Frequency */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                תדירות <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                תדירות <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value as 'monthly' | 'quarterly' | 'annual')}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem'
+                }}
                 required
               >
                 {frequencyOptions.map((option) => (
@@ -227,14 +270,21 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* Start Date */}
             <div>
-              <label className="block text-sm font-medium mb-1">
-                תאריך התחלה <span className="text-red-500">*</span>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                תאריך התחלה <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem',
+                  backgroundColor: !!transfer ? '#f3f4f6' : 'white'
+                }}
                 required
                 disabled={!!transfer}
               />
@@ -242,38 +292,60 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
             {/* End Date */}
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
                 תאריך סיום (אופציונלי)
               </label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full p-2 border rounded"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem'
+                }}
                 min={startDate}
               />
-              <p className="text-xs text-gray-500 mt-1">השאר ריק אם ההעברה ממשיכה ללא הגבלת זמן</p>
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                השאר ריק אם ההעברה ממשיכה ללא הגבלת זמן
+              </p>
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-2 justify-end pt-4">
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  backgroundColor: 'white',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.5 : 1
+                }}
                 disabled={isLoading}
               >
                 ביטול
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: isLoading ? '#9ca3af' : '#2563eb',
+                  color: 'white',
+                  borderRadius: '0.375rem',
+                  border: 'none',
+                  cursor: isLoading ? 'not-allowed' : 'pointer'
+                }}
                 disabled={isLoading}
               >
                 {isLoading ? 'שומר...' : transfer ? 'עדכן' : 'הוסף'}
               </button>
             </div>
-          </>
+          </div>
         )}
       </form>
     </Modal>

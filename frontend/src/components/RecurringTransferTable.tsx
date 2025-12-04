@@ -9,6 +9,12 @@ interface RecurringTransferTableProps {
   showActions?: boolean;
 }
 
+interface Column {
+  key: string;
+  label: string;
+  render: (transfer: RecurringTransfer) => React.ReactNode;
+}
+
 const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
   transfers,
   onEdit,
@@ -34,116 +40,351 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string): React.CSSProperties => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'paused': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active':
+        return { ...styles.statusBadge, ...styles.statusActive };
+      case 'paused':
+        return { ...styles.statusBadge, ...styles.statusPaused };
+      case 'cancelled':
+        return { ...styles.statusBadge, ...styles.statusCancelled };
+      default:
+        return { ...styles.statusBadge, ...styles.statusCancelled };
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('he-IL');
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}/${month}/${year}`;
   };
+
+  const formatCurrency = (amount: number) => {
+    return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const columns: Column[] = [
+    {
+      key: 'recipient',
+      label: 'מקבל',
+      render: (transfer: RecurringTransfer) => (
+        <div>
+          <div style={styles.recipientName}>{transfer.recipientName}</div>
+          {transfer.recipientEmail && (
+            <div style={styles.recipientEmail}>{transfer.recipientEmail}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'fund',
+      label: 'סעיף',
+      render: (transfer: RecurringTransfer) => (
+        <div>
+          <div style={styles.fundName}>{transfer.fundName}</div>
+          {transfer.budgetName && (
+            <div style={styles.budgetInfo}>
+              {transfer.budgetName}
+              {transfer.budgetType === 'group' && transfer.groupName && ` - ${transfer.groupName}`}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      label: 'סכום',
+      render: (transfer: RecurringTransfer) => (
+        <span style={styles.amount}>{formatCurrency(Number(transfer.amount))}</span>
+      ),
+    },
+    {
+      key: 'description',
+      label: 'תיאור',
+      render: (transfer: RecurringTransfer) => (
+        <span style={styles.description}>{transfer.description}</span>
+      ),
+    },
+    {
+      key: 'frequency',
+      label: 'תדירות',
+      render: (transfer: RecurringTransfer) => (
+        <span>{getFrequencyLabel(transfer.frequency)}</span>
+      ),
+    },
+    {
+      key: 'startDate',
+      label: 'תאריך התחלה',
+      render: (transfer: RecurringTransfer) => (
+        <span>{formatDate(transfer.startDate)}</span>
+      ),
+    },
+    {
+      key: 'endDate',
+      label: 'תאריך סיום',
+      render: (transfer: RecurringTransfer) => (
+        <span>{transfer.endDate ? formatDate(transfer.endDate) : '-'}</span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'סטטוס',
+      render: (transfer: RecurringTransfer) => (
+        <span style={getStatusStyle(transfer.status)}>
+          {getStatusLabel(transfer.status)}
+        </span>
+      ),
+    },
+  ];
+
+  if (showActions) {
+    columns.push({
+      key: 'actions',
+      label: 'פעולות',
+      render: (transfer: RecurringTransfer) => (
+        <div style={styles.actionsCell}>
+          {onToggleStatus && transfer.status !== 'cancelled' && (
+            <button
+              onClick={() => onToggleStatus(transfer)}
+              style={styles.toggleBtn}
+              className="action-btn toggle-btn"
+              title={transfer.status === 'active' ? 'השהה' : 'הפעל'}
+              aria-label={transfer.status === 'active' ? 'השהה' : 'הפעל'}
+            >
+              {transfer.status === 'active' ? '⏸️' : '▶️'}
+            </button>
+          )}
+          {onEdit && transfer.status !== 'cancelled' && (
+            <button
+              onClick={() => onEdit(transfer)}
+              style={styles.editBtn}
+              className="action-btn edit-btn"
+              title="ערוך"
+              aria-label="ערוך"
+            >
+              ✏️
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(transfer)}
+              style={styles.deleteBtn}
+              className="action-btn delete-btn"
+              title="מחק"
+              aria-label="מחק"
+            >
+              🗑️
+            </button>
+          )}
+        </div>
+      ),
+    });
+  }
 
   if (transfers.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        אין העברות קבועות
+      <div style={styles.emptyState}>
+        <p>אין העברות קבועות</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white border">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-2 text-right border-b">מקבל</th>
-            <th className="px-4 py-2 text-right border-b">קופה</th>
-            <th className="px-4 py-2 text-right border-b">סכום</th>
-            <th className="px-4 py-2 text-right border-b">תיאור</th>
-            <th className="px-4 py-2 text-right border-b">תדירות</th>
-            <th className="px-4 py-2 text-right border-b">תאריך התחלה</th>
-            <th className="px-4 py-2 text-right border-b">תאריך סיום</th>
-            <th className="px-4 py-2 text-right border-b">סטטוס</th>
-            {showActions && <th className="px-4 py-2 text-right border-b">פעולות</th>}
+    <div style={styles.tableContainer}>
+      <table style={styles.table}>
+        <thead>
+          <tr style={styles.headerRow}>
+            {columns.map((column) => (
+              <th key={column.key} style={styles.headerCell}>
+                {column.label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {transfers.map((transfer) => (
-            <tr key={transfer.id} className="hover:bg-gray-50">
-              <td className="px-4 py-2 border-b">
-                <div>
-                  <div className="font-medium">{transfer.recipientName}</div>
-                  {transfer.recipientEmail && (
-                    <div className="text-xs text-gray-500">{transfer.recipientEmail}</div>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-2 border-b">
-                <div>
-                  <div>{transfer.fundName}</div>
-                  {transfer.budgetName && (
-                    <div className="text-xs text-gray-500">
-                      {transfer.budgetName}
-                      {transfer.budgetType === 'group' && transfer.groupName && ` - ${transfer.groupName}`}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-2 border-b font-medium">
-                ₪{transfer.amount.toFixed(2)}
-              </td>
-              <td className="px-4 py-2 border-b">{transfer.description}</td>
-              <td className="px-4 py-2 border-b">{getFrequencyLabel(transfer.frequency)}</td>
-              <td className="px-4 py-2 border-b">{formatDate(transfer.startDate)}</td>
-              <td className="px-4 py-2 border-b">
-                {transfer.endDate ? formatDate(transfer.endDate) : '-'}
-              </td>
-              <td className="px-4 py-2 border-b">
-                <span className={`px-2 py-1 rounded text-xs ${getStatusColor(transfer.status)}`}>
-                  {getStatusLabel(transfer.status)}
-                </span>
-              </td>
-              {showActions && (
-                <td className="px-4 py-2 border-b">
-                  <div className="flex gap-2">
-                    {onToggleStatus && transfer.status !== 'cancelled' && (
-                      <button
-                        onClick={() => onToggleStatus(transfer)}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                        title={transfer.status === 'active' ? 'השהה' : 'הפעל'}
-                      >
-                        {transfer.status === 'active' ? '⏸️' : '▶️'}
-                      </button>
-                    )}
-                    {onEdit && transfer.status !== 'cancelled' && (
-                      <button
-                        onClick={() => onEdit(transfer)}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        ✏️ ערוך
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={() => onDelete(transfer)}
-                        className="text-sm text-red-600 hover:text-red-800"
-                      >
-                        🗑️ מחק
-                      </button>
-                    )}
-                  </div>
+            <tr key={transfer.id} style={styles.row} className="table-row">
+              {columns.map((column) => (
+                <td key={column.key} style={styles.cell}>
+                  {column.render(transfer)}
                 </td>
-              )}
+              ))}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+};
+
+// Add hover styles
+const tableHoverStyle = document.createElement('style');
+tableHoverStyle.textContent = `
+  .table-row:hover {
+    background: #f7fafc;
+  }
+  .action-btn:hover {
+    transform: scale(1.1);
+  }
+  .toggle-btn:hover {
+    background: #4299e1 !important;
+  }
+  .edit-btn:hover {
+    background: #667eea !important;
+  }
+  .delete-btn:hover {
+    background: #e53e3e !important;
+  }
+`;
+if (!document.head.querySelector('style[data-recurring-transfer-table]')) {
+  tableHoverStyle.setAttribute('data-recurring-transfer-table', 'true');
+  document.head.appendChild(tableHoverStyle);
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  tableContainer: {
+    overflowX: 'auto',
+    background: 'white',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    position: 'relative',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '14px',
+  },
+  headerRow: {
+    background: '#f7fafc',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  headerCell: {
+    padding: '12px 16px',
+    textAlign: 'right',
+    fontWeight: '600',
+    color: '#2d3748',
+    whiteSpace: 'nowrap',
+  },
+  row: {
+    borderBottom: '1px solid #e2e8f0',
+    transition: 'all 0.2s ease',
+  },
+  cell: {
+    padding: '12px 16px',
+    textAlign: 'right',
+    color: '#4a5568',
+  },
+  recipientName: {
+    fontWeight: '600',
+    color: '#2d3748',
+  },
+  recipientEmail: {
+    fontSize: '12px',
+    color: '#718096',
+    marginTop: '2px',
+  },
+  fundName: {
+    color: '#2d3748',
+  },
+  budgetInfo: {
+    fontSize: '12px',
+    color: '#718096',
+    marginTop: '2px',
+  },
+  amount: {
+    fontWeight: '600',
+    color: '#2d3748',
+    fontSize: '15px',
+  },
+  description: {
+    maxWidth: '200px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    display: 'inline-block',
+  },
+  statusBadge: {
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'inline-block',
+  },
+  statusActive: {
+    background: '#e6f7ed',
+    color: '#38a169',
+  },
+  statusPaused: {
+    background: '#fef5e7',
+    color: '#d69e2e',
+  },
+  statusCancelled: {
+    background: '#f7fafc',
+    color: '#718096',
+  },
+  actionsCell: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  toggleBtn: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#63b3ed',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editBtn: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#7c3aed',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtn: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#fc8181',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    padding: '40px',
+    textAlign: 'center',
+    color: '#718096',
+    background: 'white',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+  },
 };
 
 export default RecurringTransferTable;

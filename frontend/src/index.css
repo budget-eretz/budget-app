@@ -790,3 +790,45 @@ html {
 .btn-danger:hover {
   background-color: #dc2626;
 }
+
+/* Select dropdown fixes for modals */
+select {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  cursor: pointer;
+  background-color: white;
+  background-image: none;
+}
+
+select:focus {
+  outline: none;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+select option {
+  padding: 8px;
+  background-color: white;
+  color: #374151;
+}
+
+select optgroup {
+  font-weight: bold;
+  color: #1f2937;
+  background-color: #f3f4f6;
+}
+
+/* Ensure modal content doesn't clip dropdowns */
+.modal-overlay {
+  overflow-y: auto !important;
+}
+
+.modal-content {
+  overflow: visible !important;
+}
+
+.modal-body {
+  overflow-y: auto !important;
+  overflow-x: visible !important;
+}

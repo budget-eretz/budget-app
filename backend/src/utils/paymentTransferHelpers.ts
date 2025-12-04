@@ -114,12 +114,48 @@ export async function getOrCreateOpenTransfer(
 
 /**
  * Helper function to recalculate and update payment transfer totals
- * Includes both reimbursements (positive) and charges (negative)
+ * Includes reimbursements (positive), charges (negative), and recurring transfers (positive)
  * @param transferId - The payment transfer ID to update
  * @param client - Optional database client (for use within transactions)
  */
 export async function updateTransferTotals(transferId: number, client?: PoolClient): Promise<void> {
   const db = client || pool;
+  
+  // Get transfer details to find recipient and budget type
+  const transferResult = await db.query(
+    `SELECT recipient_user_id, budget_type, group_id
+    FROM payment_transfers
+    WHERE id = $1`,
+    [transferId]
+  );
+  
+  if (transferResult.rows.length === 0) {
+    throw new Error('Payment transfer not found');
+  }
+  
+  const { recipient_user_id, budget_type, group_id } = transferResult.rows[0];
+  
+  // Get active recurring transfers for this recipient and budget type
+  const recurringResult = await db.query(
+    `SELECT COALESCE(SUM(rt.amount), 0) as recurring_total
+    FROM recurring_transfers rt
+    JOIN funds f ON rt.fund_id = f.id
+    JOIN budgets b ON f.budget_id = b.id
+    WHERE rt.recipient_user_id = $1
+      AND rt.status = 'active'
+      AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
+      AND (
+        ($2 = 'circle' AND b.group_id IS NULL) OR
+        ($2 = 'group' AND b.group_id = $3)
+      )`,
+    [recipient_user_id, budget_type, group_id]
+  );
+  
+  const recurringTotal = parseFloat(recurringResult.rows[0].recurring_total) || 0;
+  
+  console.log(`[updateTransferTotals] Transfer #${transferId}: recipient=${recipient_user_id}, budget_type=${budget_type}, group_id=${group_id}, recurring_total=${recurringTotal}`);
+  
+  // Update transfer totals including recurring transfers
   await db.query(
     `UPDATE payment_transfers
     SET 
@@ -131,7 +167,7 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
         SELECT COALESCE(SUM(amount), 0)
         FROM charges
         WHERE payment_transfer_id = $1 AND status = 'approved'
-      ),
+      ) + $2,
       reimbursement_count = (
         SELECT COUNT(*)
         FROM reimbursements
@@ -142,7 +178,7 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
         WHERE payment_transfer_id = $1 AND status = 'approved'
       )
     WHERE id = $1`,
-    [transferId]
+    [transferId, recurringTotal]
   );
 }
 

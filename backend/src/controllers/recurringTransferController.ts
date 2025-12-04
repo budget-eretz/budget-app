@@ -2,6 +2,30 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RecurringTransfer } from '../types';
 
+// Helper function to convert snake_case to camelCase
+const toCamelCase = (row: any) => ({
+  id: row.id,
+  recipientUserId: row.recipient_user_id,
+  recipientName: row.recipient_name,
+  recipientEmail: row.recipient_email,
+  fundId: row.fund_id,
+  fundName: row.fund_name,
+  budgetId: row.budget_id,
+  budgetName: row.budget_name,
+  budgetType: row.budget_type,
+  groupName: row.group_name,
+  amount: row.amount,
+  description: row.description,
+  startDate: row.start_date,
+  endDate: row.end_date,
+  frequency: row.frequency,
+  status: row.status,
+  createdBy: row.created_by,
+  createdByName: row.created_by_name,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
 // Get all recurring transfers (treasurer only, filtered by access control)
 export const getRecurringTransfers = async (req: Request, res: Response) => {
   try {
@@ -42,7 +66,7 @@ export const getRecurringTransfers = async (req: Request, res: Response) => {
     query += ` ORDER BY rt.created_at DESC`;
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json(result.rows.map(toCamelCase));
   } catch (error) {
     console.error('Error fetching recurring transfers:', error);
     res.status(500).json({ error: 'שגיאה בטעינת העברות קבועות' });
@@ -76,7 +100,7 @@ export const getMyRecurringTransfers = async (req: Request, res: Response) => {
     `;
 
     const result = await pool.query(query, [userId]);
-    res.json(result.rows);
+    res.json(result.rows.map(toCamelCase));
   } catch (error) {
     console.error('Error fetching my recurring transfers:', error);
     res.status(500).json({ error: 'שגיאה בטעינת ההעברות הקבועות שלך' });
@@ -126,7 +150,7 @@ export const getRecurringTransferById = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'אין הרשאה לצפות בהעברה זו' });
     }
 
-    res.json(transfer);
+    res.json(toCamelCase(transfer));
   } catch (error) {
     console.error('Error fetching recurring transfer:', error);
     res.status(500).json({ error: 'שגיאה בטעינת העברה קבועה' });
@@ -238,7 +262,7 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [result.rows[0].id]);
 
-    res.status(201).json(detailsResult.rows[0]);
+    res.status(201).json(toCamelCase(detailsResult.rows[0]));
   } catch (error) {
     console.error('Error creating recurring transfer:', error);
     res.status(500).json({ error: 'שגיאה ביצירת העברה קבועה' });
@@ -359,7 +383,7 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [id]);
 
-    res.json(detailsResult.rows[0]);
+    res.json(toCamelCase(detailsResult.rows[0]));
   } catch (error) {
     console.error('Error updating recurring transfer:', error);
     res.status(500).json({ error: 'שגיאה בעדכון העברה קבועה' });

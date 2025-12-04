@@ -290,6 +290,7 @@ export interface PaymentTransfer {
 
 export interface PaymentTransferDetails extends PaymentTransfer {
   reimbursements: Reimbursement[];
+  recurringTransfers?: RecurringTransfer[];
 }
 
 export interface PaymentTransferStats {
