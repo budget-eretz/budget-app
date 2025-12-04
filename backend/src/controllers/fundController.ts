@@ -13,7 +13,9 @@ export async function getFunds(req: Request, res: Response) {
     let query = `
       SELECT f.*,
              (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
-              WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) as spent_amount,
+              WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
+             (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+              WHERE fund_id = f.id) as spent_amount,
              (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
               WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f
@@ -82,7 +84,9 @@ export async function getFundById(req: Request, res: Response) {
     const result = await pool.query(
       `SELECT f.*,
               (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
-               WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) as spent_amount,
+               WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
+              (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+               WHERE fund_id = f.id) as spent_amount,
               (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
                WHERE fund_id = f.id AND status = 'planned') as planned_amount
        FROM funds f
@@ -231,7 +235,9 @@ export async function getAccessibleFunds(req: Request, res: Response) {
         b.group_id,
         g.name as group_name,
         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
-         WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) as spent_amount,
+         WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
+        (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+         WHERE fund_id = f.id) as spent_amount,
         (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
          WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f

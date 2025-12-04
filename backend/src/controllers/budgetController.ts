@@ -317,14 +317,24 @@ export async function getBudgetMonthlyStatus(req: Request, res: Response) {
           ? allocationResult.rows[0].allocation_type 
           : undefined;
 
-        // Calculate spent amount (pending, under_review, approved and paid reimbursements)
+        // Calculate spent amount (reimbursements + direct expenses)
         const spentResult = await pool.query(
-          `SELECT COALESCE(SUM(amount), 0) as spent_amount
-           FROM reimbursements
-           WHERE fund_id = $1
-             AND EXTRACT(YEAR FROM expense_date) = $2
-             AND EXTRACT(MONTH FROM expense_date) = $3
-             AND status IN ('pending', 'under_review', 'approved', 'paid')`,
+          `SELECT 
+             COALESCE(
+               (SELECT SUM(amount) FROM reimbursements 
+                WHERE fund_id = $1 
+                  AND EXTRACT(YEAR FROM expense_date) = $2
+                  AND EXTRACT(MONTH FROM expense_date) = $3
+                  AND status IN ('pending', 'under_review', 'approved', 'paid')),
+               0
+             ) +
+             COALESCE(
+               (SELECT SUM(amount) FROM direct_expenses 
+                WHERE fund_id = $1 
+                  AND EXTRACT(YEAR FROM expense_date) = $2
+                  AND EXTRACT(MONTH FROM expense_date) = $3),
+               0
+             ) as spent_amount`,
           [fund.id, year, month]
         );
 

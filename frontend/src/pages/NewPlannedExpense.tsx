@@ -96,6 +96,7 @@ export default function NewPlannedExpense() {
           plannedDate: formData.plannedDate || undefined,
         });
         showToast('התכנון עודכן בהצלחה', 'success');
+        navigate('/dashboard');
       } else {
         // Create new planned expense
         await plannedExpensesAPI.create({
@@ -105,9 +106,15 @@ export default function NewPlannedExpense() {
           plannedDate: formData.plannedDate || undefined,
         });
         showToast('התכנון נוצר בהצלחה', 'success');
+        
+        // Reset form for next entry instead of navigating away
+        setFormData({
+          fundId: '',
+          amount: '',
+          description: '',
+          plannedDate: '',
+        });
       }
-
-      navigate('/dashboard');
     } catch (error: any) {
       showToast(error.response?.data?.error || `שגיאה ב${isEditMode ? 'עדכון' : 'יצירת'} התכנון`, 'error');
     } finally {

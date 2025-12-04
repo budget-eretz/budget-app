@@ -448,6 +448,14 @@ export default function BudgetDetail() {
     }).format(amount);
   };
 
+  const getHebrewMonthName = (month: number): string => {
+    const hebrewMonths = [
+      'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+    ];
+    return hebrewMonths[month - 1] || '';
+  };
+
   const calculateBudgetSummary = () => {
     const totalAllocated = funds.reduce((sum, fund) => sum + Number(fund.allocated_amount || 0), 0);
     const totalSpent = funds.reduce((sum, fund) => sum + Number(fund.spent_amount || 0), 0);
@@ -601,17 +609,25 @@ export default function BudgetDetail() {
               <p style={styles.emptyText}>אין נתונים חודשיים לחודש זה</p>
             </div>
           ) : (
-
+            <>
             <div style={styles.tableContainer}>
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>שם הסעיף</th>
-                    <th style={styles.th}>מוקצה</th>
-                    <th style={styles.th}>הוצא</th>
-                    <th style={styles.th}>מתוכנן</th>
-                    <th style={styles.th}>נותר</th>
-                    <th style={styles.th}>% שימוש</th>
+                    <th style={styles.th} rowSpan={2}>שם הסעיף</th>
+                    <th style={styles.th} rowSpan={2}>מוקצה</th>
+                    <th style={{ ...styles.th, ...styles.thGroupHeader, ...styles.thSectionBorder }} colSpan={3}>ביצוע בפועל</th>
+                    <th style={{ ...styles.th, ...styles.thGroupHeader, ...styles.thSectionBorder }} colSpan={2}>תכנון</th>
+                    <th style={{ ...styles.th, ...styles.thGroupHeader, ...styles.thSectionBorder }} colSpan={2}>סטייה</th>
+                  </tr>
+                  <tr>
+                    <th style={{ ...styles.th, ...styles.thSubHeader, ...styles.thSectionBorder }}>הוצא</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader }}>נותר</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader }}>% שימוש</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader, ...styles.thSectionBorder }}>מתוכנן</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader }}>לא מתוכנן</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader, ...styles.thSectionBorder }}>הפרש</th>
+                    <th style={{ ...styles.th, ...styles.thSubHeader }}>%</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -620,6 +636,11 @@ export default function BudgetDetail() {
                       ? (status.actual.spent / status.allocated) * 100
                       : 0;
                     const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
+                    
+                    // Variance calculations
+                    const varianceDiff = status.variance.difference;
+                    const variancePercent = status.variance.percentage;
+                    const varianceColor = varianceDiff > 0 ? '#e53e3e' : varianceDiff < 0 ? '#38a169' : '#718096';
 
                     return (
                       <tr
@@ -631,8 +652,9 @@ export default function BudgetDetail() {
                           <strong>{status.fundName}</strong>
                         </td>
                         <td style={styles.td}>{formatAmount(status.allocated)}</td>
-                        <td style={{ ...styles.td, color: '#e53e3e' }}>{formatAmount(status.actual.spent)}</td>
-                        <td style={{ ...styles.td, color: '#dd6b20' }}>{formatAmount(status.planning.planned)}</td>
+                        
+                        {/* Actual Execution */}
+                        <td style={{ ...styles.td, ...styles.tdSectionBorder, color: '#e53e3e' }}>{formatAmount(status.actual.spent)}</td>
                         <td style={{ ...styles.td, color: progressColor, fontWeight: 600 }}>
                           {formatAmount(status.actual.remaining)}
                         </td>
@@ -642,12 +664,76 @@ export default function BudgetDetail() {
                             <span style={styles.progressText}>{usagePercent.toFixed(0)}%</span>
                           </div>
                         </td>
+                        
+                        {/* Planning */}
+                        <td style={{ ...styles.td, ...styles.tdSectionBorder, color: '#dd6b20' }}>{formatAmount(status.planning.planned)}</td>
+                        <td style={{ ...styles.td, color: '#718096' }}>{formatAmount(status.planning.unplanned)}</td>
+                        
+                        {/* Variance */}
+                        <td style={{ ...styles.td, ...styles.tdSectionBorder, color: varianceColor, fontWeight: 600 }}>
+                          {varianceDiff > 0 ? '+' : ''}{formatAmount(varianceDiff)}
+                        </td>
+                        <td style={{ ...styles.td, color: varianceColor, fontWeight: 600 }}>
+                          {status.planning.planned > 0 ? `${variancePercent.toFixed(0)}%` : '-'}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {/* Monthly Summary Totals */}
+            {monthlyStatuses.length > 0 && (
+              <div style={styles.monthlySummaryCard}>
+                <h3 style={styles.monthlySummaryTitle}>סיכום חודשי - {getHebrewMonthName(selectedMonth)} {selectedYear}</h3>
+                <div style={styles.monthlySummaryGrid}>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ מוקצה</span>
+                    <span style={{ ...styles.monthlySummaryValue, color: '#667eea' }}>
+                      {formatAmount(monthlyStatuses.reduce((sum, s) => sum + s.allocated, 0))}
+                    </span>
+                  </div>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ הוצא</span>
+                    <span style={{ ...styles.monthlySummaryValue, color: '#e53e3e' }}>
+                      {formatAmount(monthlyStatuses.reduce((sum, s) => sum + s.actual.spent, 0))}
+                    </span>
+                  </div>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ נותר</span>
+                    <span style={{ ...styles.monthlySummaryValue, color: '#38a169' }}>
+                      {formatAmount(monthlyStatuses.reduce((sum, s) => sum + s.actual.remaining, 0))}
+                    </span>
+                  </div>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ מתוכנן</span>
+                    <span style={{ ...styles.monthlySummaryValue, color: '#dd6b20' }}>
+                      {formatAmount(monthlyStatuses.reduce((sum, s) => sum + s.planning.planned, 0))}
+                    </span>
+                  </div>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ לא מתוכנן</span>
+                    <span style={{ ...styles.monthlySummaryValue, color: '#718096' }}>
+                      {formatAmount(monthlyStatuses.reduce((sum, s) => sum + s.planning.unplanned, 0))}
+                    </span>
+                  </div>
+                  <div style={styles.monthlySummaryItem}>
+                    <span style={styles.monthlySummaryLabel}>סה"כ סטייה</span>
+                    <span style={{ 
+                      ...styles.monthlySummaryValue, 
+                      color: monthlyStatuses.reduce((sum, s) => sum + s.variance.difference, 0) > 0 ? '#e53e3e' : '#38a169' 
+                    }}>
+                      {(() => {
+                        const totalVariance = monthlyStatuses.reduce((sum, s) => sum + s.variance.difference, 0);
+                        return (totalVariance > 0 ? '+' : '') + formatAmount(totalVariance);
+                      })()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
 
@@ -1165,6 +1251,22 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#4a5568',
     background: '#f7fafc',
   },
+  thGroupHeader: {
+    textAlign: 'center',
+    borderBottom: '1px solid #cbd5e0',
+    background: '#edf2f7',
+    fontWeight: 700,
+  },
+  thSubHeader: {
+    fontSize: '12px',
+    background: '#f7fafc',
+  },
+  thSectionBorder: {
+    borderRight: '3px solid #cbd5e0',
+  },
+  tdSectionBorder: {
+    borderRight: '3px solid #e2e8f0',
+  },
   td: {
     textAlign: 'right',
     padding: '12px',
@@ -1250,5 +1352,37 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '12px',
     justifyContent: 'flex-end',
+  },
+  monthlySummaryCard: {
+    background: '#f7fafc',
+    borderRadius: '8px',
+    padding: '20px',
+    marginTop: '20px',
+    border: '1px solid #e2e8f0',
+  },
+  monthlySummaryTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#2d3748',
+    marginBottom: '16px',
+    marginTop: 0,
+  },
+  monthlySummaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '16px',
+  },
+  monthlySummaryItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  monthlySummaryLabel: {
+    fontSize: '13px',
+    color: '#718096',
+  },
+  monthlySummaryValue: {
+    fontSize: '18px',
+    fontWeight: 700,
   },
 };
