@@ -58,24 +58,21 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
   }, [transfer]);
 
   const loadData = async () => {
+    setLoadingData(true);
     try {
-      setLoadingData(true);
       const [fundsRes, usersRes] = await Promise.all([
         fundsAPI.getAccessible(),
-        usersAPI.getAll(),
+        usersAPI.getBasic().catch((error) => {
+          console.error('Error loading users list:', error);
+          return { data: [] as BasicUser[] };
+        }),
       ]);
-      
-      console.log('Funds API response:', fundsRes.data);
-      console.log('Users API response:', usersRes.data);
-      
-      // Handle both array and object with budgets property
+
       const budgetsData = fundsRes.data?.budgets || fundsRes.data;
-      console.log('Budgets data after processing:', budgetsData);
-      console.log('Is budgets data an array?', Array.isArray(budgetsData));
       setBudgetsWithFunds(Array.isArray(budgetsData) ? budgetsData : []);
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('Error loading funds data:', error);
       setBudgetsWithFunds([]);
       setUsers([]);
     } finally {
