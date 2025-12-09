@@ -56,17 +56,6 @@ export default function ReimbursementTable({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
-  const handleSelectAll = () => {
-    if (disabled) return;
-    if (selectedIds.length === reimbursements.length) {
-      // Deselect all
-      onSelect([]);
-    } else {
-      // Select all
-      onSelect(reimbursements.map(r => r.id));
-    }
-  };
-
   const handleSelectOne = (id: number) => {
     if (disabled) return;
     if (selectedIds.includes(id)) {
@@ -77,9 +66,6 @@ export default function ReimbursementTable({
       onSelect([...selectedIds, id]);
     }
   };
-
-  const isAllSelected = reimbursements.length > 0 && selectedIds.length === reimbursements.length;
-  const isSomeSelected = selectedIds.length > 0 && selectedIds.length < reimbursements.length;
 
   const handleSort = (columnKey: string, sortable: boolean) => {
     if (!sortable) return;
@@ -537,6 +523,23 @@ export default function ReimbursementTable({
   }
 
   const sortedReimbursements = getSortedReimbursements();
+  const visibleIds = sortedReimbursements.map((reimbursement) => reimbursement.id);
+  const visibleIdSet = new Set(visibleIds);
+  const selectedVisibleIds = selectedIds.filter((id) => visibleIdSet.has(id));
+  const isAllSelected = sortedReimbursements.length > 0 && selectedVisibleIds.length === sortedReimbursements.length;
+  const isSomeSelected = selectedVisibleIds.length > 0 && selectedVisibleIds.length < sortedReimbursements.length;
+
+  const handleSelectAll = () => {
+    if (disabled) return;
+    if (visibleIds.length === 0) return;
+
+    if (selectedVisibleIds.length === visibleIds.length) {
+      onSelect(selectedIds.filter((id) => !visibleIdSet.has(id)));
+    } else {
+      const mergedSelection = Array.from(new Set([...selectedIds, ...visibleIds]));
+      onSelect(mergedSelection);
+    }
+  };
 
   return (
     <div style={styles.tableContainer} ref={tableRef}>
