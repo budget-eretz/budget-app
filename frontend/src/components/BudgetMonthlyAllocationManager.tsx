@@ -18,6 +18,7 @@ interface FundAllocationData {
   allocationType: 'fixed' | 'variable';
   fixedAmount: string;
   variableAllocations: MonthlyAllocation[];
+  initialVariableAllocations: MonthlyAllocation[];
 }
 
 interface MonthlyAllocation {
@@ -31,6 +32,99 @@ const HEBREW_MONTHS = [
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
 ];
 
+const createEmptyAllocationsForYear = (year: number): MonthlyAllocation[] => {
+  return Array.from({ length: 12 }, (_, index) => ({
+    year,
+    month: index + 1,
+    amount: 0,
+  }));
+};
+
+const resolveAllocationYear = (
+  allocations: FundMonthlyAllocation[],
+  fallbackYear: number
+): number => {
+  if (allocations.some(allocation => allocation.year === fallbackYear)) {
+    return fallbackYear;
+  }
+
+  if (allocations.length > 0) {
+    return allocations[allocations.length - 1].year;
+  }
+
+  return fallbackYear;
+};
+
+const buildAllocationsForYear = (
+  year: number,
+  allocations: FundMonthlyAllocation[],
+  filterFn?: (allocation: FundMonthlyAllocation) => boolean
+): MonthlyAllocation[] => {
+  const template = createEmptyAllocationsForYear(year);
+  if (allocations.length === 0) {
+    return template;
+  }
+
+  const filtered = filterFn ? allocations.filter(filterFn) : allocations;
+
+  const allocationsByMonth = new Map<number, number>();
+  filtered
+    .filter(allocation => allocation.year === year)
+    .forEach(allocation => {
+      allocationsByMonth.set(allocation.month, allocation.allocatedAmount);
+    });
+
+  return template.map(slot => {
+    const amount = allocationsByMonth.get(slot.month);
+    return amount !== undefined ? { ...slot, amount } : slot;
+  });
+};
+
+const determineAllocationMode = (
+  allocations: FundMonthlyAllocation[]
+): 'fixed' | 'variable' => {
+  if (allocations.some(allocation => allocation.allocationType === 'variable')) {
+    return 'variable';
+  }
+
+  if (allocations.some(allocation => allocation.allocationType === 'fixed')) {
+    return 'fixed';
+  }
+
+  return 'fixed';
+};
+
+const buildAllocationKey = (year: number, month: number) => `${year}-${month}`;
+
+const getMonthsToDelete = (fund: FundAllocationData) => {
+  const initialMap = new Map(
+    fund.initialVariableAllocations.map(allocation => [
+      buildAllocationKey(allocation.year, allocation.month),
+      allocation.amount,
+    ])
+  );
+
+  const currentMap = new Map(
+    fund.variableAllocations.map(allocation => [
+      buildAllocationKey(allocation.year, allocation.month),
+      allocation.amount,
+    ])
+  );
+
+  const monthsToDelete: { year: number; month: number }[] = [];
+
+  initialMap.forEach((initialAmount, key) => {
+    if (initialAmount > 0) {
+      const currentAmount = currentMap.get(key) || 0;
+      if (currentAmount <= 0) {
+        const [year, month] = key.split('-').map(Number);
+        monthsToDelete.push({ year, month });
+      }
+    }
+  });
+
+  return monthsToDelete;
+};
 const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerProps> = ({
   budgetId,
   budgetName,
@@ -84,60 +178,73 @@ const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerPro
             }))
           };
 
-          const emptyAllocations: MonthlyAllocation[] = [];
-          for (let month = 1; month <= 12; month++) {
-            emptyAllocations.push({ year: currentYear, month, amount: 0 });
-          }
-
           if (allocationData.monthlyAllocations.length > 0) {
-            const firstAllocation = allocationData.monthlyAllocations[0];
-            if (firstAllocation.allocationType === 'fixed') {
+            const allocationYear = resolveAllocationYear(
+              allocationData.monthlyAllocations,
+              currentYear
+            );
+            const allocationMode = determineAllocationMode(allocationData.monthlyAllocations);
+
+            if (allocationMode === 'fixed') {
+              const firstFixed = allocationData.monthlyAllocations.find(
+                allocation => allocation.allocationType === 'fixed'
+              );
+
+              const filledAllocations = buildAllocationsForYear(
+                allocationYear,
+                allocationData.monthlyAllocations
+              );
+
               return {
                 fundId: fund.id,
                 fundName: fund.name,
                 totalFundAllocation: fund.allocated_amount,
                 allocationType: 'fixed' as const,
-                fixedAmount: firstAllocation.allocatedAmount.toString(),
-                variableAllocations: emptyAllocations,
-              };
-            } else {
-              const allocations = allocationData.monthlyAllocations.map((a: FundMonthlyAllocation) => ({
-                year: a.year,
-                month: a.month,
-                amount: a.allocatedAmount,
-              }));
-              return {
-                fundId: fund.id,
-                fundName: fund.name,
-                totalFundAllocation: fund.allocated_amount,
-                allocationType: 'variable' as const,
-                fixedAmount: '',
-                variableAllocations: allocations,
+                fixedAmount: firstFixed?.allocatedAmount
+                  ? firstFixed.allocatedAmount.toString()
+                  : '',
+                variableAllocations: filledAllocations,
+                initialVariableAllocations: filledAllocations.map(allocation => ({ ...allocation })),
               };
             }
-          } else {
+
+            const variableAllocations = buildAllocationsForYear(
+              allocationYear,
+              allocationData.monthlyAllocations.filter(
+                allocation => allocation.allocationType === 'variable'
+              )
+            );
+
             return {
               fundId: fund.id,
               fundName: fund.name,
               totalFundAllocation: fund.allocated_amount,
-              allocationType: 'fixed' as const,
+              allocationType: 'variable' as const,
               fixedAmount: '',
-              variableAllocations: emptyAllocations,
+              variableAllocations,
+              initialVariableAllocations: variableAllocations.map(allocation => ({ ...allocation })),
             };
           }
-        } catch (err) {
-          console.error(`Failed to load allocations for fund ${fund.id}:`, err);
-          const emptyAllocations: MonthlyAllocation[] = [];
-          for (let month = 1; month <= 12; month++) {
-            emptyAllocations.push({ year: currentYear, month, amount: 0 });
-          }
+
           return {
             fundId: fund.id,
             fundName: fund.name,
             totalFundAllocation: fund.allocated_amount,
             allocationType: 'fixed' as const,
             fixedAmount: '',
-            variableAllocations: emptyAllocations,
+            variableAllocations: createEmptyAllocationsForYear(currentYear),
+            initialVariableAllocations: createEmptyAllocationsForYear(currentYear),
+          };
+        } catch (err) {
+          console.error(`Failed to load allocations for fund ${fund.id}:`, err);
+          return {
+            fundId: fund.id,
+            fundName: fund.name,
+            totalFundAllocation: fund.allocated_amount,
+            allocationType: 'fixed' as const,
+            fixedAmount: '',
+            variableAllocations: createEmptyAllocationsForYear(currentYear),
+            initialVariableAllocations: createEmptyAllocationsForYear(currentYear),
           };
         }
       });
@@ -175,10 +282,21 @@ const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerPro
 
   const handleFixedAmountChange = (fundId: number, value: string) => {
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      const normalizedAmount = value === '' ? 0 : parseFloat(value) || 0;
       setFundsData(prev =>
         prev.map(fund =>
           fund.fundId === fundId
-            ? { ...fund, fixedAmount: value }
+            ? {
+                ...fund,
+                fixedAmount: value,
+                variableAllocations:
+                  fund.allocationType === 'fixed'
+                    ? fund.variableAllocations.map(alloc => ({
+                        ...alloc,
+                        amount: normalizedAmount,
+                      }))
+                    : fund.variableAllocations,
+              }
             : fund
         )
       );
@@ -270,10 +388,20 @@ const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerPro
               amount: alloc.amount,
             }));
 
+          const monthsToDelete = getMonthsToDelete(fund);
+
           if (nonZeroAllocations.length > 0) {
             await monthlyAllocationsAPI.setVariableAllocations(fund.fundId, {
               allocations: nonZeroAllocations,
             });
+          }
+
+          if (monthsToDelete.length > 0) {
+            await Promise.all(
+              monthsToDelete.map(({ year, month }) =>
+                monthlyAllocationsAPI.deleteMonthAllocation(fund.fundId, year, month)
+              )
+            );
           }
         }
       });
