@@ -82,10 +82,18 @@ export async function getDashboard(req: Request, res: Response) {
       const pendingParams: any[] = [];
 
       // Filter by access control
-      if (!user.isCircleTreasurer && user.groupIds && user.groupIds.length > 0) {
-        // Group treasurer: only see reimbursements from their groups
-        pendingQuery += ` AND (b.group_id = ANY($1) OR b.group_id IS NULL)`;
-        pendingParams.push(user.groupIds);
+      if (user.isCircleTreasurer && !user.isGroupTreasurer) {
+        // Circle treasurer: only see circle-level budgets
+        pendingQuery += ' AND b.group_id IS NULL';
+      } else if (!user.isCircleTreasurer && user.isGroupTreasurer) {
+        if (user.groupIds && user.groupIds.length > 0) {
+          // Group treasurer: only see reimbursements from their assigned groups
+          pendingQuery += ' AND b.group_id = ANY($1)';
+          pendingParams.push(user.groupIds);
+        } else {
+          // Group treasurer without assigned groups shouldn't see any pending items
+          pendingQuery += ' AND 1=0';
+        }
       }
 
       pendingQuery += ` ORDER BY r.created_at ASC`;
