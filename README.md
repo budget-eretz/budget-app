@@ -217,7 +217,7 @@ PGPASSWORD=your_password
 
 # JWT
 JWT_SECRET=your-very-secret-key-change-this
-JWT_EXPIRES_IN=7d
+JWT_EXPIRES_IN=30d
 \`\`\`
 
 5. **הרצת migrations ו-seed:**
