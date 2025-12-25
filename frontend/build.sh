@@ -22,4 +22,9 @@ fi
 echo "Building project..."
 npm run build
 
+# Copy files to the correct location for Render
+echo "Copying files to correct location..."
+mkdir -p ../dist
+cp -r dist/* ../dist/
+
 echo "Build completed successfully!"

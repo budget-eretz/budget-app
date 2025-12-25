@@ -27,7 +27,7 @@ services:
   - type: static
     name: budget-app-frontend
     buildCommand: cd frontend && chmod +x build.sh && ./build.sh
-    publishPath: ./frontend/dist
+    publishPath: dist
     routes:
       - type: rewrite
         source: /api/*
