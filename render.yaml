@@ -27,7 +27,7 @@ services:
   - type: web
     name: budget-app-frontend
     runtime: static
-    buildCommand: cd frontend && npm install && npm install @rollup/rollup-linux-x64-gnu --optional && npm run build
+    buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite
