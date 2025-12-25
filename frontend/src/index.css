@@ -289,7 +289,7 @@ input:focus {
 /* Sticky table headers */
 .sticky-table thead th {
   position: sticky;
-  top: var(--app-sticky-offset);
+  top: 0;
   z-index: 20;
   background: #f7fafc;
 }

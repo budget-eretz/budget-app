@@ -106,7 +106,7 @@ export default function ReimbursementTable({
   const [descriptionPreview, setDescriptionPreview] = useState<{ title: string; description: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const disabledClickCountRef = useRef<number>(0);
-  const { tableClassName, headerCellRef } = useStickyTableHeader();
+  const [isHeaderStuck, setIsHeaderStuck] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -612,13 +612,15 @@ export default function ReimbursementTable({
     }
   };
 
-  const tableContainerStyle: React.CSSProperties = {
-    ...styles.tableContainer,
-    ...( { '--app-sticky-offset': '0px' } as React.CSSProperties ),
-  };
-
   return (
-    <div style={tableContainerStyle} ref={tableRef}>
+    <div
+      style={styles.tableContainer}
+      ref={tableRef}
+      onScroll={() => {
+        const scrollTop = tableRef.current?.scrollTop || 0;
+        setIsHeaderStuck(scrollTop > 0);
+      }}
+    >
       {hasActiveFilters && (
         <div style={styles.filterBar}>
           <span style={styles.filterBarText}>
@@ -629,14 +631,13 @@ export default function ReimbursementTable({
           </button>
         </div>
       )}
-      <table style={styles.table} className={tableClassName}>
+      <table style={styles.table}>
         <thead>
-          <tr style={styles.headerRow}>
-            {columns.map((column, columnIndex) => (
+          <tr style={{ ...styles.headerRow, ...(isHeaderStuck ? styles.headerRowStuck : {}) }}>
+            {columns.map((column) => (
               <th 
                 key={column.key} 
                 style={styles.headerCell}
-                ref={columnIndex === 0 ? headerCellRef : undefined}
               >
                 {column.key === 'checkbox' ? (
                   <input
@@ -809,12 +810,19 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#f7fafc',
     borderBottom: '2px solid #e2e8f0',
   },
+  headerRowStuck: {
+    boxShadow: '0 6px 12px rgba(0, 0, 0, 0.08)',
+  },
   headerCell: {
     padding: '12px 16px',
     textAlign: 'right',
     fontWeight: '600',
     color: '#2d3748',
     whiteSpace: 'nowrap',
+    position: 'sticky',
+    top: 0,
+    zIndex: 5,
+    background: '#f7fafc',
   },
   sortableHeader: {
     cursor: 'pointer',

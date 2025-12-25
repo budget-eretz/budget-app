@@ -11,9 +11,14 @@
     "dev": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "build": "npm run build --workspaces",
-    "start": "npm run start --workspace=backend"
+    "start": "npm run start --workspace=backend",
+    "install:clean": "rm -rf node_modules package-lock.json && npm install"
   },
   "keywords": ["budget", "cooperative", "management"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
 }
