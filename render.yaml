@@ -27,7 +27,7 @@ services:
   - type: web
     name: budget-app-frontend
     runtime: static
-    buildCommand: cd frontend && rm -rf node_modules package-lock.json && npm install && npm run build
+    buildCommand: cd frontend && chmod +x build.sh && ./build.sh
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite
