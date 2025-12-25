@@ -26,8 +26,11 @@ services:
   # Frontend (Static Site)
   - type: static
     name: budget-app-frontend
-    buildCommand: cd frontend && npm install && npm run build
+    buildCommand: cd frontend && chmod +x build.sh && ./build.sh
     publishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://budget-app-backend-r7x1.onrender.com/api
     routes:
       - type: rewrite
         source: /api/*

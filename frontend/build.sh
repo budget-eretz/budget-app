@@ -5,6 +5,11 @@
 
 echo "Starting frontend build process..."
 
+# Print environment variables for debugging
+echo "Environment variables:"
+echo "VITE_API_URL: $VITE_API_URL"
+echo "NODE_ENV: $NODE_ENV"
+
 # Clean previous builds
 rm -rf node_modules package-lock.json dist
 
