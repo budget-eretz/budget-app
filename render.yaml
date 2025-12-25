@@ -27,7 +27,7 @@ services:
   - type: web
     name: budget-app-frontend
     runtime: static
-    buildCommand: rm -rf node_modules frontend/node_modules package-lock.json frontend/package-lock.json && npm install && npm run build --workspace=frontend
+    buildCommand: cd frontend && npm install && npm install @rollup/rollup-linux-x64-gnu --optional && npm run build
     staticPublishPath: ./frontend/dist
     routes:
       - type: rewrite
