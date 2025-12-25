@@ -26,7 +26,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
     reject: 'דחה נבחרים',
     'mark-review': 'סמן לבדיקה',
     'mark-paid': 'סמן כשולם',
-    'return-pending': 'החזר לממתין',
+    'return-pending': 'החזרה למצב ממתין',
   };
 
   const actionStyles: Record<string, string> = {

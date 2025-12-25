@@ -1014,8 +1014,8 @@ function ChargesTable({
                         onClick={() => onAction('return-pending', [charge.id])}
                         style={{...tableStyles.actionButton, ...tableStyles.returnButton}}
                         className="action-btn return-btn"
-                        title="החזר לממתין"
-                        aria-label="החזר לממתין"
+                        title="החזרה למצב ממתין"
+                        aria-label="החזרה למצב ממתין"
                       >
                         ↩️
                       </button>

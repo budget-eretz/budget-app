@@ -404,8 +404,8 @@ export default function ReimbursementTable({
                       ...(hasMultipleSelected ? styles.disabledBtn : {}),
                     }}
                     className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
-                    title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
-                    aria-label="החזר לממתין"
+                    title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזרה למצב ממתין'}
+                    aria-label="החזרה למצב ממתין"
                   >
                     ↩️
                   </button>
@@ -450,8 +450,8 @@ export default function ReimbursementTable({
                           ...(hasMultipleSelected ? styles.disabledBtn : {}),
                         }}
                         className={`action-btn return-btn ${hasMultipleSelected ? 'disabled' : ''}`}
-                        title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזר לממתין'}
-                        aria-label="החזר לממתין"
+                        title={hasMultipleSelected ? 'לא זמין בבחירה מרובה' : 'החזרה למצב ממתין'}
+                        aria-label="החזרה למצב ממתין"
                       >
                         ↩️
                       </button>
