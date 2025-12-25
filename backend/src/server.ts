@@ -26,7 +26,9 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3456', 'http://localhost:3000'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://budget-app-frontend-mcfs.onrender.com']
+    : ['http://localhost:3456', 'http://localhost:3000'],
   credentials: true,
   exposedHeaders: ['Content-Disposition', 'Content-Type']
 }));
