@@ -24,10 +24,11 @@ services:
         value: 30d
 
   # Frontend (Static Site)
-  - type: static
+  - type: web
     name: budget-app-frontend
+    runtime: static
     buildCommand: cd frontend && chmod +x build.sh && ./build.sh
-    publishPath: ./frontend/dist
+    staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_URL
         value: https://budget-app-backend-r7x1.onrender.com/api
