@@ -11,7 +11,8 @@
     "seed": "tsx src/db/seed-initial.ts",
     "seed:init": "npm run seed",
     "db:setup": "npm run migrate && npm run seed",
-    "check:income-budget": "tsx src/db/check-income-budget.ts"
+    "check:income-budget": "tsx src/db/check-income-budget.ts",
+    "verify:reporting-views": "tsx src/db/verify-reporting-views.ts"
   },
   "dependencies": {
     "express": "^4.18.2",

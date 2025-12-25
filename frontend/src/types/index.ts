@@ -433,3 +433,118 @@ export interface RecurringTransfer {
   createdAt: string;
   updatedAt: string;
 }
+
+// Report data interfaces
+export interface MonthlyClosingData {
+  year: number;
+  month: number;
+  income: {
+    byCategory: CategorySummary[];
+    total: number;
+  };
+  expenses: {
+    byBudget: BudgetSummary[];
+    total: number;
+  };
+  balance: number;
+}
+
+export interface AnnualBudgetExecutionData {
+  year: number;
+  monthlyIncome: MonthlyIncomeSummary[];
+  monthlyExpenses: MonthlyExpenseSummary[];
+  monthlyBalance: MonthlyBalanceSummary[];
+  yearlyTotals: {
+    income: number;
+    expenses: number;
+    balance: number;
+  };
+}
+
+export interface ExpenseExecutionData {
+  year: number;
+  month?: number;
+  monthlyExecution: {
+    [month: number]: BudgetExecutionSummary[];
+  };
+  monthlyTotals: {
+    [month: number]: number;
+  };
+  annualTotals: {
+    byBudget: BudgetExecutionSummary[];
+    total: number;
+  };
+}
+
+export interface IncomeExecutionData {
+  year: number;
+  month?: number;
+  monthlyExecution: {
+    [month: number]: CategoryExecutionSummary[];
+  };
+  monthlyTotals: {
+    [month: number]: number;
+  };
+  annualTotals: {
+    byCategory: CategoryExecutionSummary[];
+    total: number;
+  };
+}
+
+// Supporting report data models
+export interface CategorySummary {
+  categoryId: number;
+  categoryName: string;
+  categoryColor?: string;
+  amount: number;
+  count: number;
+}
+
+export interface BudgetSummary {
+  budgetId: number;
+  budgetName: string;
+  budgetType: 'circle' | 'group';
+  groupName?: string;
+  amount: number;
+  count: number;
+}
+
+export interface BudgetExecutionSummary {
+  budgetId: number;
+  budgetName: string;
+  budgetType: 'circle' | 'group';
+  groupName?: string;
+  allocatedAmount: number;
+  spentAmount: number;
+  remainingAmount: number;
+  utilizationPercentage: number;
+}
+
+export interface CategoryExecutionSummary {
+  categoryId: number;
+  categoryName: string;
+  categoryColor?: string;
+  expectedAmount: number;
+  actualAmount: number;
+  difference: number;
+  fulfillmentPercentage: number;
+}
+
+export interface MonthlyIncomeSummary {
+  month: number;
+  amount: number;
+  count: number;
+}
+
+export interface MonthlyExpenseSummary {
+  month: number;
+  amount: number;
+  count: number;
+}
+
+export interface MonthlyBalanceSummary {
+  month: number;
+  income: number;
+  expenses: number;
+  balance: number;
+}

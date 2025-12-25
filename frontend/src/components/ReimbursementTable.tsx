@@ -612,8 +612,13 @@ export default function ReimbursementTable({
     }
   };
 
+  const tableContainerStyle: React.CSSProperties = {
+    ...styles.tableContainer,
+    ...( { '--app-sticky-offset': '0px' } as React.CSSProperties ),
+  };
+
   return (
-    <div style={styles.tableContainer} ref={tableRef}>
+    <div style={tableContainerStyle} ref={tableRef}>
       {hasActiveFilters && (
         <div style={styles.filterBar}>
           <span style={styles.filterBarText}>
@@ -787,7 +792,8 @@ if (!document.head.querySelector('style[data-reimbursement-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
-    overflowY: 'visible',
+    overflowY: 'auto',
+    maxHeight: '70vh',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
@@ -795,7 +801,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   table: {
     width: '100%',
-    borderCollapse: 'collapse',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
     fontSize: '14px',
   },
   headerRow: {

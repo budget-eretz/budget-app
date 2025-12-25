@@ -89,6 +89,17 @@ export default function Navigation() {
               הכנסות
             </button>
             {isTreasurer && (
+              <button
+                onClick={() => handleNavigation('/reports')}
+                style={{
+                  ...styles.navLink,
+                  ...(isActive('/reports') ? styles.navLinkActive : {}),
+                }}
+              >
+                דוחות
+              </button>
+            )}
+            {isTreasurer && (
               <>
                 <button
                   onClick={() => handleNavigation('/payments')}
@@ -207,6 +218,17 @@ export default function Navigation() {
           >
             הכנסות
           </button>
+          {isTreasurer && (
+            <button
+              onClick={() => handleNavigation('/reports')}
+              style={{
+                ...styles.mobileNavLink,
+                ...(isActive('/reports') ? styles.mobileNavLinkActive : {}),
+              }}
+            >
+              דוחות
+            </button>
+          )}
           {isTreasurer && (
             <>
               <button

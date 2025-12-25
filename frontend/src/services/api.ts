@@ -212,6 +212,28 @@ export const reportsAPI = {
   getDashboard: () => api.get('/reports/dashboard'),
   getPaymentsList: () => api.get('/reports/payments'),
   getBudgetReport: (id: number) => api.get(`/reports/budget/${id}`),
+  
+  // Financial Reports
+  getMonthlyClosingReport: (year: number, month: number) => 
+    api.get(`/reports/monthly-closing/${year}/${month}`),
+  getAnnualBudgetExecutionReport: (year: number) => 
+    api.get(`/reports/annual-budget-execution/${year}`),
+  getExpenseExecutionReport: (year: number, month?: number) => 
+    month ? api.get(`/reports/expense-execution/${year}/${month}`) : api.get(`/reports/expense-execution/${year}`),
+  getIncomeExecutionReport: (year: number, month?: number) => 
+    month ? api.get(`/reports/income-execution/${year}/${month}`) : api.get(`/reports/income-execution/${year}`),
+    
+  // Export endpoints
+  exportMonthlyClosingReport: (year: number, month: number) => 
+    api.get(`/reports/export/monthly-closing/${year}/${month}`, { responseType: 'blob' }),
+  exportAnnualBudgetExecutionReport: (year: number) => 
+    api.get(`/reports/export/annual-budget-execution/${year}`, { responseType: 'blob' }),
+  exportExpenseExecutionReport: (year: number, month?: number) => 
+    month ? api.get(`/reports/export/expense-execution/${year}/${month}`, { responseType: 'blob' }) 
+          : api.get(`/reports/export/expense-execution/${year}`, { responseType: 'blob' }),
+  exportIncomeExecutionReport: (year: number, month?: number) => 
+    month ? api.get(`/reports/export/income-execution/${year}/${month}`, { responseType: 'blob' }) 
+          : api.get(`/reports/export/income-execution/${year}`, { responseType: 'blob' }),
 };
 
 // Users API

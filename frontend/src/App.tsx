@@ -16,6 +16,7 @@ import PaymentTransfers from './pages/PaymentTransfers';
 import FundMonthlyDetail from './pages/FundMonthlyDetail';
 import Profile from './pages/Profile';
 import Incomes from './pages/Incomes';
+import Reports from './pages/Reports';
 import NewDirectExpense from './pages/NewDirectExpense';
 import EditDirectExpense from './pages/EditDirectExpense';
 import BugReportFooter from './components/BugReportFooter';
@@ -70,13 +71,14 @@ function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <BrowserRouter>
+      <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/budgets" element={<PrivateRoute><Budgets /></PrivateRoute>} />
             <Route path="/budgets/:id" element={<PrivateRoute><BudgetDetail /></PrivateRoute>} />
             <Route path="/incomes" element={<PrivateRoute><Incomes /></PrivateRoute>} />
+            <Route path="/reports" element={<TreasurerRoute><Reports /></TreasurerRoute>} />
             <Route path="/payments" element={<TreasurerRoute><Payments /></TreasurerRoute>} />
             <Route path="/payment-transfers" element={<TreasurerRoute><PaymentTransfers /></TreasurerRoute>} />
             <Route path="/reimbursements/new" element={<PrivateRoute><NewReimbursement /></PrivateRoute>} />
