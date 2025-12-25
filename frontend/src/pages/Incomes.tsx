@@ -85,120 +85,6 @@ export default function Incomes() {
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [editingExpectedIncome, setEditingExpectedIncome] = useState<ExpectedIncome | null>(null);
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const response = await incomeCategoriesAPI.getAll();
-      setCategories(response.data);
-    } catch (error: any) {
-      console.error('Error loading categories:', error);
-    }
-  }, []);
-
-  const loadUsers = useCallback(async () => {
-    try {
-      const response = await usersAPI.getBasic();
-      setUsers(response.data);
-    } catch (error: any) {
-      console.error('Error loading users:', error);
-    }
-  }, []);
-
-  const loadCircleBudget = useCallback(async () => {
-    try {
-      const response = await budgetsAPI.getAll();
-      const budgets = response.data || [];
-
-      // Prefer explicit type if provided, then fall back to missing group (snake_case or camelCase)
-      const circleBudget =
-        budgets.find((b: any) => b.type === 'circle') ||
-        budgets.find((b: any) => b.group_id === null || b.group_id === undefined) ||
-        budgets.find((b: any) => b.groupId === null || b.groupId === undefined);
-
-      if (circleBudget?.id) {
-        setCircleBudgetId(circleBudget.id);
-      } else {
-        console.error('Circle budget not found in budgets list', budgets);
-        showToast('לא נמצא תקציב מעגל ראשי - לא ניתן להוסיף הכנסות', 'error');
-      }
-    } catch (error: any) {
-      console.error('Error loading circle budget:', error);
-    }
-  }, [showToast]);
-
-  const loadActualIncomes = useCallback(async () => {
-    try {
-      const params: any = {};
-      if (debouncedActualFilters.startDate) params.startDate = debouncedActualFilters.startDate;
-      if (debouncedActualFilters.endDate) params.endDate = debouncedActualFilters.endDate;
-      if (debouncedActualFilters.source) params.source = debouncedActualFilters.source;
-      if (debouncedActualFilters.categoryId) params.categoryId = debouncedActualFilters.categoryId;
-
-      const response = await incomesAPI.getAll(params);
-      setIncomes(response.data);
-    } catch (error: any) {
-      console.error('Error loading actual incomes:', error);
-    }
-  }, [debouncedActualFilters]);
-
-  const loadExpectedIncomes = useCallback(async () => {
-    try {
-      const params: any = {
-        year: selectedYear,
-      };
-      const response = await expectedIncomesAPI.getAll(params);
-      setExpectedIncomes(response.data);
-    } catch (error: any) {
-      console.error('Error loading expected incomes:', error);
-    }
-  }, [selectedYear]);
-
-  const loadMonthlyExpectedIncomes = useCallback(async () => {
-    try {
-      const params: any = {
-        year: planningMonth.year,
-        month: planningMonth.month,
-      };
-      const response = await expectedIncomesAPI.getAll(params);
-      setExpectedIncomes(response.data);
-    } catch (error: any) {
-      console.error('Error loading monthly expected incomes:', error);
-    }
-  }, [planningMonth.year, planningMonth.month]);
-
-  const loadComparison = useCallback(async () => {
-    try {
-      const response = await incomeComparisonAPI.getMonthlyComparison(
-        comparisonMonth.year,
-        comparisonMonth.month
-      );
-      setComparison(response.data);
-    } catch (error: any) {
-      console.error('Error loading comparison:', error);
-    }
-  }, [comparisonMonth.year, comparisonMonth.month]);
-
-  const loadInitialData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await Promise.all([
-        loadCategories(),
-        loadUsers(),
-        loadCircleBudget(),
-        loadActualIncomes(),
-        loadExpectedIncomes(),
-        loadComparison(),
-      ]);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'שגיאה בטעינת נתונים';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
-      console.error('Error loading initial data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loadCategories, loadUsers, loadCircleBudget, loadActualIncomes, loadExpectedIncomes, loadComparison, showToast]);
-
   // Helper functions
   const isCircleTreasurer = user?.isCircleTreasurer || false;
 
@@ -238,36 +124,156 @@ export default function Incomes() {
 
   // Load initial data - Task 8.1
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
+    const loadInitialData = async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Load basic data first
+        const [categoriesRes, usersRes, budgetsRes] = await Promise.all([
+          incomeCategoriesAPI.getAll(),
+          usersAPI.getBasic(),
+          budgetsAPI.getAll(),
+        ]);
+        
+        if (!isMounted) return;
+        
+        setCategories(categoriesRes.data);
+        setUsers(usersRes.data);
+        
+        // Find circle budget
+        const budgets = budgetsRes.data || [];
+        const circleBudget =
+          budgets.find((b: any) => b.type === 'circle') ||
+          budgets.find((b: any) => b.group_id === null || b.group_id === undefined) ||
+          budgets.find((b: any) => b.groupId === null || b.groupId === undefined);
+        
+        if (circleBudget?.id) {
+          setCircleBudgetId(circleBudget.id);
+        } else {
+          console.error('Circle budget not found in budgets list', budgets);
+          showToast('לא נמצא תקציב מעגל ראשי - לא ניתן להוסיף הכנסות', 'error');
+        }
+        
+        // Load data that depends on current state
+        const [incomesRes, expectedRes, comparisonRes] = await Promise.all([
+          incomesAPI.getAll({}),
+          expectedIncomesAPI.getAll({ year: new Date().getFullYear() }),
+          incomeComparisonAPI.getMonthlyComparison(
+            new Date().getFullYear(),
+            new Date().getMonth() + 1
+          ),
+        ]);
+        
+        if (!isMounted) return;
+        
+        setIncomes(incomesRes.data);
+        setExpectedIncomes(expectedRes.data);
+        setComparison(comparisonRes.data);
+        
+      } catch (error: any) {
+        if (!isMounted) return;
+        const errorMessage = error.response?.data?.error || 'שגיאה בטעינת נתונים';
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
+        console.error('Error loading initial data:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     loadInitialData();
-  }, [loadInitialData]);
+    
+    return () => {
+      isMounted = false; // Cleanup function
+    };
+  }, []); // Empty dependency array - only run once on mount
 
-  // Reload expected incomes when year changes
+  // Separate effect for reloading data when filters change (with debouncing)
   useEffect(() => {
-    if (!loading) {
-      loadExpectedIncomes();
-    }
-  }, [loading, loadExpectedIncomes]);
+    if (loading) return; // Don't reload while initial loading
+    
+    const loadFilteredData = async () => {
+      try {
+        const params: any = {};
+        if (debouncedActualFilters.startDate) params.startDate = debouncedActualFilters.startDate;
+        if (debouncedActualFilters.endDate) params.endDate = debouncedActualFilters.endDate;
+        if (debouncedActualFilters.source) params.source = debouncedActualFilters.source;
+        if (debouncedActualFilters.categoryId) params.categoryId = debouncedActualFilters.categoryId;
 
-  // Reload monthly expected incomes when planning month changes
-  useEffect(() => {
-    if (!loading) {
-      loadMonthlyExpectedIncomes();
-    }
-  }, [loading, loadMonthlyExpectedIncomes]);
+        const response = await incomesAPI.getAll(params);
+        setIncomes(response.data);
+      } catch (error: any) {
+        console.error('Error loading filtered incomes:', error);
+      }
+    };
 
-  // Reload comparison when comparison month changes
-  useEffect(() => {
-    if (!loading) {
-      loadComparison();
-    }
-  }, [loading, loadComparison]);
+    loadFilteredData();
+  }, [
+    debouncedActualFilters.startDate,
+    debouncedActualFilters.endDate,
+    debouncedActualFilters.source,
+    debouncedActualFilters.categoryId,
+  ]); // Only depend on individual filter properties
 
-  // Reload actual incomes when debounced filters change
+  // Separate effect for year changes
   useEffect(() => {
-    if (!loading) {
-      loadActualIncomes();
-    }
-  }, [loading, loadActualIncomes]);
+    if (loading) return; // Don't reload while initial loading
+    
+    const loadYearData = async () => {
+      try {
+        const response = await expectedIncomesAPI.getAll({ year: selectedYear });
+        setExpectedIncomes(response.data);
+      } catch (error: any) {
+        console.error('Error loading year data:', error);
+      }
+    };
+
+    loadYearData();
+  }, [selectedYear]); // Only depend on selectedYear
+
+  // Separate effect for planning month changes
+  useEffect(() => {
+    if (loading) return; // Don't reload while initial loading
+    
+    const loadPlanningMonthData = async () => {
+      try {
+        const response = await expectedIncomesAPI.getAll({
+          year: planningMonth.year,
+          month: planningMonth.month,
+        });
+        setExpectedIncomes(response.data);
+      } catch (error: any) {
+        console.error('Error loading planning month data:', error);
+      }
+    };
+
+    loadPlanningMonthData();
+  }, [planningMonth.year, planningMonth.month]); // Only depend on planning month
+
+  // Separate effect for comparison month changes
+  useEffect(() => {
+    if (loading) return; // Don't reload while initial loading
+    
+    const loadComparisonData = async () => {
+      try {
+        const response = await incomeComparisonAPI.getMonthlyComparison(
+          comparisonMonth.year,
+          comparisonMonth.month
+        );
+        setComparison(response.data);
+      } catch (error: any) {
+        console.error('Error loading comparison data:', error);
+      }
+    };
+
+    loadComparisonData();
+  }, [comparisonMonth.year, comparisonMonth.month]); // Only depend on comparison month
 
   if (loading) {
     return (
@@ -290,7 +296,7 @@ export default function Incomes() {
             <Button
               onClick={() => {
                 setError(null);
-                loadInitialData();
+                window.location.reload(); // Simple page reload instead of calling undefined function
               }}
               style={styles.retryButton}
             >
@@ -391,7 +397,10 @@ export default function Incomes() {
               </div>
 
               <Button
-                onClick={loadActualIncomes}
+                onClick={() => {
+                  // Trigger filter reload by updating the filters (which will trigger useEffect)
+                  setActualFilters({ ...actualFilters });
+                }}
                 style={styles.filterButton}
               >
                 סנן
@@ -405,7 +414,6 @@ export default function Incomes() {
                     source: '',
                     categoryId: null,
                   });
-                  setTimeout(loadActualIncomes, 0);
                 }}
                 style={styles.clearButton}
               >
@@ -446,7 +454,8 @@ export default function Incomes() {
                   try {
                     await incomesAPI.delete(id);
                     showToast('הכנסה נמחקה בהצלחה', 'success');
-                    loadActualIncomes();
+                    // Reload incomes by updating filters to trigger useEffect
+                    setActualFilters({ ...actualFilters });
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה', 'error');
                   }
@@ -510,7 +519,8 @@ export default function Incomes() {
                   try {
                     await expectedIncomesAPI.delete(id);
                     showToast('הכנסה צפויה נמחקה בהצלחה', 'success');
-                    loadExpectedIncomes();
+                    // Reload expected incomes by updating year to trigger useEffect
+                    setSelectedYear(selectedYear);
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה צפויה', 'error');
                   }
@@ -586,7 +596,8 @@ export default function Incomes() {
                   try {
                     await expectedIncomesAPI.delete(id);
                     showToast('הכנסה צפויה נמחקה בהצלחה', 'success');
-                    loadMonthlyExpectedIncomes();
+                    // Reload monthly expected incomes by updating planning month to trigger useEffect
+                    setPlanningMonth({ ...planningMonth });
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה צפויה', 'error');
                   }
@@ -714,7 +725,9 @@ export default function Incomes() {
                   try {
                     await incomeCategoriesAPI.create(data);
                     showToast('קטגוריה נוצרה בהצלחה', 'success');
-                    loadCategories();
+                    // Reload categories
+                    const response = await incomeCategoriesAPI.getAll();
+                    setCategories(response.data);
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה ביצירת קטגוריה', 'error');
                     throw error;
@@ -724,7 +737,9 @@ export default function Incomes() {
                   try {
                     await incomeCategoriesAPI.update(id, data);
                     showToast('קטגוריה עודכנה בהצלחה', 'success');
-                    loadCategories();
+                    // Reload categories
+                    const response = await incomeCategoriesAPI.getAll();
+                    setCategories(response.data);
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה בעדכון קטגוריה', 'error');
                     throw error;
@@ -734,7 +749,9 @@ export default function Incomes() {
                   try {
                     await incomeCategoriesAPI.delete(id);
                     showToast('קטגוריה נמחקה בהצלחה', 'success');
-                    loadCategories();
+                    // Reload categories
+                    const response = await incomeCategoriesAPI.getAll();
+                    setCategories(response.data);
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת קטגוריה', 'error');
                     throw error;
@@ -780,7 +797,8 @@ export default function Incomes() {
               }
               setShowIncomeModal(false);
               setEditingIncome(null);
-              loadActualIncomes();
+              // Reload incomes by updating filters to trigger useEffect
+              setActualFilters({ ...actualFilters });
             } catch (error: any) {
               showToast(error.response?.data?.error || 'שגיאה בשמירת הכנסה', 'error');
               throw error;
@@ -835,8 +853,12 @@ export default function Incomes() {
               }
               setShowExpectedIncomeModal(false);
               setEditingExpectedIncome(null);
-              loadExpectedIncomes();
-              loadMonthlyExpectedIncomes();
+              // Reload expected incomes by updating year/month to trigger useEffect
+              if (expectedIncomeMode === 'annual') {
+                setSelectedYear(selectedYear);
+              } else {
+                setPlanningMonth({ ...planningMonth });
+              }
             } catch (error: any) {
               showToast(error.response?.data?.error || 'שגיאה בשמירת הכנסה צפויה', 'error');
               throw error;
