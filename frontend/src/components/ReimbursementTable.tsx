@@ -1,5 +1,66 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import Modal from './Modal';
 import { Reimbursement, ReimbursementStatus } from '../types';
+import { useStickyTableHeader } from '../hooks/useStickyTableHeader';
+
+function DescriptionCell({
+  reimbursement,
+  onOpen,
+}: {
+  reimbursement: Reimbursement;
+  onOpen: (reimbursement: Reimbursement) => void;
+}) {
+  const textRef = useRef<HTMLSpanElement | null>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  const updateIsTruncated = () => {
+    const el = textRef.current;
+    if (!el) return;
+    setIsTruncated(el.scrollWidth > el.clientWidth + 1);
+  };
+
+  useLayoutEffect(() => {
+    updateIsTruncated();
+  }, [reimbursement.description]);
+
+  useEffect(() => {
+    updateIsTruncated();
+
+    const el = textRef.current;
+    if (!el) return;
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => updateIsTruncated());
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    const handleResize = () => updateIsTruncated();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [reimbursement.description]);
+
+  const descriptionSpan = (
+    <span ref={textRef} style={styles.description}>
+      {reimbursement.description}
+    </span>
+  );
+
+  if (!isTruncated) return descriptionSpan;
+
+  return (
+    <button
+      type="button"
+      style={styles.descriptionButton}
+      className="description-preview-btn"
+      title={reimbursement.description || ''}
+      aria-label={`צפייה בתיאור ההחזר #${reimbursement.id}`}
+      onClick={() => onOpen(reimbursement)}
+    >
+      {descriptionSpan}
+    </button>
+  );
+}
 
 interface ReimbursementTableProps {
   reimbursements: Reimbursement[];
@@ -42,8 +103,10 @@ export default function ReimbursementTable({
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [descriptionPreview, setDescriptionPreview] = useState<{ title: string; description: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const disabledClickCountRef = useRef<number>(0);
+  const { tableClassName, headerCellRef } = useStickyTableHeader();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -301,7 +364,15 @@ export default function ReimbursementTable({
       sortable: false,
       filterable: true,
       render: (reimbursement: Reimbursement) => (
-        <span style={styles.description}>{reimbursement.description}</span>
+        <DescriptionCell
+          reimbursement={reimbursement}
+          onOpen={(r) =>
+            setDescriptionPreview({
+              title: `תיאור ההחזר #${r.id}`,
+              description: r.description,
+            })
+          }
+        />
       ),
     },
     {
@@ -553,16 +624,14 @@ export default function ReimbursementTable({
           </button>
         </div>
       )}
-      <table style={styles.table}>
+      <table style={styles.table} className={tableClassName}>
         <thead>
           <tr style={styles.headerRow}>
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <th 
                 key={column.key} 
-                style={{
-                  ...styles.headerCell,
-                  position: 'relative',
-                }}
+                style={styles.headerCell}
+                ref={columnIndex === 0 ? headerCellRef : undefined}
               >
                 {column.key === 'checkbox' ? (
                   <input
@@ -650,6 +719,15 @@ export default function ReimbursementTable({
           ))}
         </tbody>
       </table>
+
+      <Modal
+        isOpen={!!descriptionPreview}
+        onClose={() => setDescriptionPreview(null)}
+        title={descriptionPreview?.title || 'תיאור'}
+        size="md"
+      >
+        <div style={styles.descriptionModalText}>{descriptionPreview?.description}</div>
+      </Modal>
     </div>
   );
 }
@@ -668,6 +746,9 @@ tableHoverStyle.textContent = `
   }
   .table-row:hover {
     background: #f7fafc;
+  }
+  .description-preview-btn:hover span {
+    text-decoration: underline;
   }
   .action-btn:not(.disabled):hover {
     transform: scale(1.1);
@@ -706,6 +787,7 @@ if (!document.head.querySelector('style[data-reimbursement-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
+    overflowY: 'visible',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
@@ -835,6 +917,21 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     display: 'inline-block',
+  },
+  descriptionButton: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    color: 'inherit',
+    cursor: 'pointer',
+    textAlign: 'right',
+    maxWidth: '200px',
+  },
+  descriptionModalText: {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    color: '#2d3748',
+    lineHeight: '1.6',
   },
   amount: {
     fontWeight: '600',

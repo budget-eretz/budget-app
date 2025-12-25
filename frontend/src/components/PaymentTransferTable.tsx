@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PaymentTransfer } from '../types';
+import { useStickyTableHeader } from '../hooks/useStickyTableHeader';
 
 interface PaymentTransferTableProps {
   transfers: PaymentTransfer[];
@@ -29,6 +30,7 @@ export default function PaymentTransferTable({
   showExecuteAction,
 }: PaymentTransferTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
+  const { tableClassName, headerCellRef } = useStickyTableHeader();
 
   const handleSort = (columnKey: string, sortable: boolean) => {
     if (!sortable) return;
@@ -232,16 +234,17 @@ export default function PaymentTransferTable({
 
   return (
     <div style={styles.tableContainer}>
-      <table style={styles.table}>
+      <table style={styles.table} className={tableClassName}>
         <thead>
           <tr style={styles.headerRow}>
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <th 
                 key={column.key} 
                 style={{
                   ...styles.headerCell,
                   ...(column.sortable ? styles.sortableHeader : {}),
                 }}
+                ref={columnIndex === 0 ? headerCellRef : undefined}
                 onClick={() => handleSort(column.key, column.sortable)}
               >
                 <div style={styles.headerContent}>
@@ -308,6 +311,7 @@ if (!document.head.querySelector('style[data-payment-transfer-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
+    overflowY: 'visible',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',

@@ -1,5 +1,6 @@
 import React from 'react';
 import { RecurringTransfer } from '../types';
+import { useStickyTableHeader } from '../hooks/useStickyTableHeader';
 
 interface RecurringTransferTableProps {
   transfers: RecurringTransfer[];
@@ -22,6 +23,7 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
   onToggleStatus,
   showActions = false,
 }) => {
+  const { tableClassName, headerCellRef } = useStickyTableHeader();
   const getFrequencyLabel = (frequency: string) => {
     switch (frequency) {
       case 'monthly': return 'חודשי';
@@ -195,11 +197,15 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
 
   return (
     <div style={styles.tableContainer}>
-      <table style={styles.table}>
+      <table style={styles.table} className={tableClassName}>
         <thead>
           <tr style={styles.headerRow}>
-            {columns.map((column) => (
-              <th key={column.key} style={styles.headerCell}>
+            {columns.map((column, columnIndex) => (
+              <th
+                key={column.key}
+                style={styles.headerCell}
+                ref={columnIndex === 0 ? headerCellRef : undefined}
+              >
                 {column.label}
               </th>
             ))}
@@ -248,6 +254,7 @@ if (!document.head.querySelector('style[data-recurring-transfer-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
+    overflowY: 'visible',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',

@@ -26,6 +26,7 @@ backend/
 │   │   ├── authController.ts
 │   │   ├── budgetController.ts
 │   │   ├── chargeController.ts
+│   │   ├── directExpenseController.ts
 │   │   ├── expectedIncomeController.ts
 │   │   ├── fundController.ts
 │   │   ├── fundMonthlyAllocationController.ts
@@ -41,6 +42,7 @@ backend/
 │   ├── db/          # Database utilities, migrations, seeds
 │   │   ├── migrate.ts
 │   │   ├── seed.ts
+│   │   ├── seed-initial.ts  # Initial seed data
 │   │   └── check-income-budget.ts  # Verification script for income budget
 │   ├── middleware/   # Express middleware (auth, validation)
 │   │   ├── accessControl.ts
@@ -52,6 +54,7 @@ backend/
 │   │   ├── budgetRoutes.ts
 │   │   ├── chargeRoutes.ts
 │   │   ├── dashboardRoutes.ts
+│   │   ├── directExpenseRoutes.ts
 │   │   ├── expectedIncomeRoutes.ts
 │   │   ├── fundRoutes.ts
 │   │   ├── groupRoutes.ts
@@ -82,6 +85,8 @@ frontend/
 │   │   ├── AllocationHistoryModal.tsx
 │   │   ├── BudgetCard.tsx
 │   │   ├── BudgetForm.tsx
+│   │   ├── BudgetMonthlyAllocationManager.tsx
+│   │   ├── BugReportFooter.tsx
 │   │   ├── Button.tsx
 │   │   ├── CategoryManager.tsx
 │   │   ├── ComparisonTable.tsx
@@ -112,23 +117,30 @@ frontend/
 │   │   └── UserEditModal.tsx
 │   ├── context/     # React context providers (auth, state)
 │   │   └── AuthContext.tsx
+│   ├── hooks/       # Custom React hooks
+│   │   └── useStickyTableHeader.ts
 │   ├── pages/       # Route-level page components
 │   │   ├── BudgetDetail.tsx
 │   │   ├── Budgets.tsx
 │   │   ├── Dashboard.tsx
+│   │   ├── EditDirectExpense.tsx     # Edit direct expense page for treasurers
 │   │   ├── FundMonthlyDetail.tsx # Monthly fund detail page with allocation management
 │   │   ├── GroupManagement.tsx
 │   │   ├── Incomes.tsx           # Comprehensive income tracking page with actual, expected, and comparison sections
 │   │   ├── Login.tsx
 │   │   ├── MyReimbursements.tsx
 │   │   ├── NewCharge.tsx
+│   │   ├── NewDirectExpense.tsx
 │   │   ├── NewPlannedExpense.tsx
 │   │   ├── NewReimbursement.tsx
 │   │   ├── Payments.tsx          # Treasurer reimbursement approval with multi-status workflow (renamed from "ניהול העברות" to "אישור החזרים")
 │   │   ├── PaymentTransfers.tsx  # Payment transfer execution page (העברות)
+│   │   ├── Profile.tsx
 │   │   └── UserManagement.tsx
 │   ├── services/    # API client and external services
 │   │   └── api.ts
+│   ├── styles/      # Component-specific styles
+│   │   └── NewReimbursement.css
 │   ├── types/       # TypeScript interfaces
 │   │   └── index.ts
 │   ├── App.tsx      # Main application component

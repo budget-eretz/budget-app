@@ -14,6 +14,12 @@ body {
   direction: rtl;
 }
 
+:root {
+  /* Used for sticky elements that should sit under the Navigation bar */
+  --nav-height: 0px;
+  --app-sticky-offset: calc(var(--nav-height) + env(safe-area-inset-top));
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
@@ -278,6 +284,19 @@ input:focus {
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.3s ease;
+}
+
+/* Sticky table headers */
+.sticky-table thead th {
+  position: sticky;
+  top: var(--app-sticky-offset);
+  z-index: 20;
+  background: #f7fafc;
+}
+
+/* Visual cue that the user scrolled past the table top */
+.sticky-table.scrolled thead th {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
 }
 
 .table-container:hover {

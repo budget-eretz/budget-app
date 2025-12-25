@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { IncomeComparison } from '../types';
+import { useStickyTableHeader } from '../hooks/useStickyTableHeader';
 
 interface ComparisonTableProps {
   comparisons: IncomeComparison[];
@@ -43,6 +44,7 @@ export default function ComparisonTable({ comparisons }: ComparisonTableProps) {
   const [filterState, setFilterState] = useState<FilterState>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const { tableClassName, headerCellRef } = useStickyTableHeader();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -300,16 +302,14 @@ export default function ComparisonTable({ comparisons }: ComparisonTableProps) {
           </button>
         </div>
       )}
-      <table style={styles.table}>
+      <table style={styles.table} className={tableClassName}>
         <thead>
           <tr style={styles.headerRow}>
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <th 
                 key={column.key} 
-                style={{
-                  ...styles.headerCell,
-                  position: 'relative',
-                }}
+                style={styles.headerCell}
+                ref={columnIndex === 0 ? headerCellRef : undefined}
               >
                 <div style={styles.headerContent}>
                   <div 
@@ -431,6 +431,7 @@ if (!document.head.querySelector('style[data-comparison-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
+    overflowY: 'visible',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',

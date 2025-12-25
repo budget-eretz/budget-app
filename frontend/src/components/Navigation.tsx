@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,6 +7,7 @@ export default function Navigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
 
   const isTreasurer = user?.isCircleTreasurer || user?.isGroupTreasurer;
 
@@ -21,8 +22,32 @@ export default function Navigation() {
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
+  useLayoutEffect(() => {
+    const updateNavHeight = () => {
+      const height = navRef.current?.getBoundingClientRect().height ?? 0;
+      document.documentElement.style.setProperty('--nav-height', `${Math.ceil(height)}px`);
+    };
+
+    updateNavHeight();
+    window.addEventListener('resize', updateNavHeight);
+
+    const ro =
+      typeof ResizeObserver !== 'undefined' && navRef.current
+        ? new ResizeObserver(() => updateNavHeight())
+        : null;
+
+    if (ro && navRef.current) {
+      ro.observe(navRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateNavHeight);
+      ro?.disconnect();
+    };
+  }, []);
+
   return (
-    <nav style={styles.nav}>
+    <nav style={styles.nav} ref={navRef}>
       <div style={styles.container} className="nav-container">
         <div style={styles.leftSection}>
           <h1 style={styles.logo}>מערכת ניהול תקציב</h1>
