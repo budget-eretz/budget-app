@@ -22,6 +22,7 @@ export interface BudgetFormData {
   totalAmount: number;
   fiscalYear?: number;
   groupId?: number;
+  isActive?: boolean;
 }
 
 interface Group {
@@ -40,6 +41,7 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
     totalAmount: budget?.total_amount || 0,
     fiscalYear: budget?.fiscal_year || new Date().getFullYear(),
     groupId: budget?.group_id || undefined,
+    isActive: budget ? (budget as any).is_active !== false : true, // Default to true for new budgets
   });
 
   useEffect(() => {
@@ -199,6 +201,29 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
               </small>
             </div>
           )}
+
+          {/* Active Status field */}
+          <div style={styles.field}>
+            <label style={styles.label}>סטטוס תקציב</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => handleChange('isActive', e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                disabled={isLoading}
+              />
+              <label htmlFor="isActive" style={{ fontSize: '14px', color: '#2d3748', cursor: 'pointer' }}>
+                תקציב פעיל
+              </label>
+            </div>
+            <small style={{ color: '#718096', fontSize: '13px', marginTop: '4px' }}>
+              {formData.isActive 
+                ? 'ניתן להגיש החזרים לתקציב זה'
+                : 'לא ניתן להגיש החזרים חדשים לתקציב זה'}
+            </small>
+          </div>
         </div>
 
         {/* Action buttons */}
@@ -216,7 +241,7 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
             variant="primary"
             isLoading={isLoading}
           >
-            {budget ? 'עדכן תקציב' : 'צור תקציב'}
+            {budget ? 'עדכן תקציב' : formData.isActive ? 'שמור והפעל' : 'שמור כלא פעיל'}
           </Button>
         </div>
       </form>

@@ -29,9 +29,9 @@ export const authAPI = {
 export const budgetsAPI = {
   getAll: () => api.get('/budgets'),
   getById: (id: number) => api.get(`/budgets/${id}`),
-  create: (data: { name: string; totalAmount: number; groupId?: number; fiscalYear?: number }) =>
+  create: (data: { name: string; totalAmount: number; groupId?: number; fiscalYear?: number; isActive?: boolean }) =>
     api.post('/budgets', data),
-  update: (id: number, data: Partial<{ name: string; totalAmount: number; fiscalYear: number }>) =>
+  update: (id: number, data: Partial<{ name: string; totalAmount: number; fiscalYear: number; isActive: boolean }>) =>
     api.patch(`/budgets/${id}`, data),
   delete: (id: number) => api.delete(`/budgets/${id}`),
   transfer: (data: { fromBudgetId: number; toBudgetId: number; amount: number; description?: string }) =>

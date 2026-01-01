@@ -147,12 +147,17 @@ export function useToast() {
     setMessages([]);
   };
 
+  // Simple wrapper for backward compatibility with (message, type) signature
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    addToast({ type, title: message, message: '' });
+  };
+
   return {
     messages,
     addToast,
     removeToast,
     clearAll,
-    showToast: addToast, // Alias for backward compatibility
+    showToast, // Simple (message, type) signature
     success: (title: string, message: string, action?: ToastMessage['action']) =>
       addToast({ type: 'success', title, message, action }),
     error: (title: string, message: string, action?: ToastMessage['action']) =>
@@ -169,6 +174,7 @@ interface ToastContextType {
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
   clearAll: () => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
   success: (title: string, message: string, action?: ToastMessage['action']) => void;
   error: (title: string, message: string, action?: ToastMessage['action']) => void;
   warning: (title: string, message: string, action?: ToastMessage['action']) => void;

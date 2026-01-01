@@ -129,6 +129,23 @@ export async function createReimbursement(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה לגשת לסעיף זה' });
     }
 
+    // Check if budget is active
+    const budgetCheck = await pool.query(
+      `SELECT b.is_active 
+       FROM budgets b
+       JOIN funds f ON f.budget_id = b.id
+       WHERE f.id = $1`,
+      [fundId]
+    );
+
+    if (budgetCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'סעיף לא נמצא' });
+    }
+
+    if (!budgetCheck.rows[0].is_active) {
+      return res.status(400).json({ error: 'לא ניתן להגיש החזר לתקציב לא פעיל' });
+    }
+
     // Default recipient to submitter if not provided
     const finalRecipientId = recipientUserId || user.userId;
 

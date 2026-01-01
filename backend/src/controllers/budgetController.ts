@@ -106,7 +106,7 @@ export async function getBudgetById(req: Request, res: Response) {
 
 export async function createBudget(req: Request, res: Response) {
   try {
-    const { name, totalAmount, groupId, fiscalYear } = req.body;
+    const { name, totalAmount, groupId, fiscalYear, isActive } = req.body;
     const user = req.user!;
 
     // Validate permissions
@@ -119,10 +119,10 @@ export async function createBudget(req: Request, res: Response) {
     }
 
     const result = await pool.query(
-      `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, totalAmount, groupId || null, fiscalYear || null, user.userId]
+      [name, totalAmount, groupId || null, fiscalYear || null, user.userId, isActive !== undefined ? isActive : true]
     );
 
     res.status(201).json(result.rows[0]);
@@ -135,7 +135,7 @@ export async function createBudget(req: Request, res: Response) {
 export async function updateBudget(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { name, totalAmount, fiscalYear } = req.body;
+    const { name, totalAmount, fiscalYear, isActive } = req.body;
     const user = req.user!;
 
     // Check if user has access to this budget
@@ -150,10 +150,11 @@ export async function updateBudget(req: Request, res: Response) {
        SET name = COALESCE($1, name),
            total_amount = COALESCE($2, total_amount),
            fiscal_year = COALESCE($3, fiscal_year),
+           is_active = COALESCE($4, is_active),
            updated_at = NOW()
-       WHERE id = $4
+       WHERE id = $5
        RETURNING *`,
-      [name, totalAmount, fiscalYear, id]
+      [name, totalAmount, fiscalYear, isActive, id]
     );
 
     if (result.rows.length === 0) {

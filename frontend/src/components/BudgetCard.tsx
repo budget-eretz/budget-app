@@ -54,12 +54,17 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onClick }) => {
     <div className="budget-card" style={styles.card} onClick={onClick}>
       <div style={styles.header}>
         <h3 style={styles.title}>{budget.name}</h3>
-        <div 
-          style={{
-            ...styles.healthIndicator,
-            backgroundColor: getHealthColor(),
-          }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!budget.is_active && (
+            <span style={styles.inactiveBadge}>לא פעיל</span>
+          )}
+          <div 
+            style={{
+              ...styles.healthIndicator,
+              backgroundColor: getHealthColor(),
+            }}
+          />
+        </div>
       </div>
       
       <p style={styles.subtitle}>
@@ -129,6 +134,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '13px',
     color: '#a0aec0',
     margin: 0,
+  },
+  inactiveBadge: {
+    fontSize: '11px',
+    fontWeight: 600,
+    color: '#e53e3e',
+    backgroundColor: '#fed7d7',
+    padding: '2px 8px',
+    borderRadius: '12px',
+    whiteSpace: 'nowrap',
   },
 };
 

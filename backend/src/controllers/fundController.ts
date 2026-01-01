@@ -221,7 +221,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
   try {
     const user = req.user!;
 
-    // Query all funds with their budget information
+    // Query all funds with their budget information (only active budgets)
     const fundsResult = await pool.query(`
       SELECT 
         f.id,
@@ -233,6 +233,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
         b.id as budget_id,
         b.name as budget_name,
         b.group_id,
+        b.is_active,
         g.name as group_name,
         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
          WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
@@ -243,6 +244,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
       FROM funds f
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
+      WHERE b.is_active = true
       ORDER BY b.group_id NULLS FIRST, b.name, f.name
     `);
 

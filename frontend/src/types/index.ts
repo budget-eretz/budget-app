@@ -37,6 +37,7 @@ export interface Budget {
   created_by: number;
   created_at: string;
   total_income?: number;
+  is_active: boolean;
 }
 
 export interface Fund {
