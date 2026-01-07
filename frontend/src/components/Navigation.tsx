@@ -251,26 +251,26 @@ export default function Navigation() {
               </button>
             </>
           )}
-          {user?.isCircleTreasurer && (
-            <>
-              <button
-                onClick={() => handleNavigation('/users')}
-                style={{
-                  ...styles.mobileNavLink,
-                  ...(isActive('/users') ? styles.mobileNavLinkActive : {}),
-                }}
-              >
-                ניהול משתמשים
-              </button>
-              <button
-                onClick={() => handleNavigation('/groups')}
-                style={{
-                  ...styles.mobileNavLink,
-                  ...(isActive('/groups') ? styles.mobileNavLinkActive : {}),
-                }}
-              >
-                ניהול קבוצות
-              </button>
+            {user?.isCircleTreasurer && (
+              <>
+                <button
+                  onClick={() => handleNavigation('/users')}
+                  style={{
+                    ...styles.mobileNavLink,
+                    ...(isActive('/users') ? styles.mobileNavLinkActive : {}),
+                  }}
+                >
+                  ניהול משתמשים
+                </button>
+                <button
+                  onClick={() => handleNavigation('/groups')}
+                  style={{
+                    ...styles.mobileNavLink,
+                    ...(isActive('/groups') ? styles.mobileNavLinkActive : {}),
+                  }}
+                >
+                  ניהול קבוצות
+                </button>
             </>
           )}
           <button

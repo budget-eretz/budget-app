@@ -169,9 +169,14 @@ export default function Budgets() {
         <div className="budgets-header" style={styles.header}>
           <h1 className="budgets-title" style={styles.title}>תקציבים</h1>
           {user?.isCircleTreasurer && (
-            <Button variant="primary" onClick={openCreateModal}>
-              + צור תקציב
-            </Button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <Button variant="secondary" onClick={() => navigate('/movements/transfer')}>
+                העברת תנועות
+              </Button>
+              <Button variant="primary" onClick={openCreateModal}>
+                + צור תקציב
+              </Button>
+            </div>
           )}
         </div>
 

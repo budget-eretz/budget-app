@@ -20,6 +20,7 @@ import Reports from './pages/Reports';
 import NewDirectExpense from './pages/NewDirectExpense';
 import EditDirectExpense from './pages/EditDirectExpense';
 import BugReportFooter from './components/BugReportFooter';
+import TransferMovements from './pages/TransferMovements';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -92,6 +93,7 @@ function App() {
             <Route path="/funds/:fundId/monthly" element={<PrivateRoute><FundMonthlyDetail /></PrivateRoute>} />
             <Route path="/direct-expenses/new" element={<TreasurerRoute><NewDirectExpense /></TreasurerRoute>} />
             <Route path="/direct-expenses/:id/edit" element={<TreasurerRoute><EditDirectExpense /></TreasurerRoute>} />
+            <Route path="/movements/transfer" element={<CircleTreasurerRoute><TransferMovements /></CircleTreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
           <BugReportFooter />

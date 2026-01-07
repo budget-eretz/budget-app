@@ -48,6 +48,17 @@ export const fundsAPI = {
   update: (id: number, data: Partial<{ name: string; allocatedAmount: number; description: string }>) =>
     api.patch(`/funds/${id}`, data),
   delete: (id: number) => api.delete(`/funds/${id}`),
+  moveItems: (data: {
+    sourceFundId: number;
+    targetFundId: number;
+    moveReimbursements?: boolean;
+    movePlannedExpenses?: boolean;
+    moveDirectExpenses?: boolean;
+    fromDate?: string;
+    reimbursementStatuses?: string[];
+    plannedStatuses?: string[];
+    dryRun?: boolean;
+  }) => api.post('/funds/move-items', data),
 };
 
 // Planned Expenses API

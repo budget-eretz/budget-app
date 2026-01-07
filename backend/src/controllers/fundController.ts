@@ -748,3 +748,208 @@ export async function getAllocationHistory(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to get allocation history' });
   }
 }
+
+export async function moveFundItems(req: Request, res: Response) {
+  const user = req.user!;
+
+  if (!user.isCircleTreasurer) {
+    return res.status(403).json({ error: 'Only circle treasurer can move fund items' });
+  }
+
+  const {
+    sourceFundId,
+    targetFundId,
+    moveReimbursements = true,
+    movePlannedExpenses = true,
+    moveDirectExpenses = false,
+    dryRun = false,
+    fromDate,
+    reimbursementStatuses,
+    plannedStatuses,
+  } = req.body;
+
+  if (!sourceFundId || !targetFundId) {
+    return res.status(400).json({ error: 'sourceFundId and targetFundId are required' });
+  }
+
+  if (sourceFundId === targetFundId) {
+    return res.status(400).json({ error: 'Source and target funds must be different' });
+  }
+
+  // Validate date filter
+  let parsedFromDate: Date | null = null;
+  if (fromDate) {
+    const d = new Date(fromDate);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ error: 'Invalid fromDate' });
+    }
+    parsedFromDate = d;
+  }
+
+  const sanitizeStatuses = (value: any): string[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+    return value
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean);
+  };
+
+  const reimbursementStatusFilter = sanitizeStatuses(reimbursementStatuses);
+  const plannedStatusFilter = sanitizeStatuses(plannedStatuses);
+
+  try {
+    // Load fund + budget context for validation and response
+    const fundsResult = await pool.query(
+      `SELECT f.id, f.name, f.budget_id, b.name AS budget_name, b.group_id
+       FROM funds f
+       JOIN budgets b ON f.budget_id = b.id
+       WHERE f.id = ANY($1::int[])`,
+      [[sourceFundId, targetFundId]]
+    );
+
+    if (fundsResult.rows.length !== 2) {
+      return res.status(404).json({ error: 'Source or target fund not found' });
+    }
+
+    const sourceFund = fundsResult.rows.find((f) => f.id === Number(sourceFundId));
+    const targetFund = fundsResult.rows.find((f) => f.id === Number(targetFundId));
+
+    if (!sourceFund || !targetFund) {
+      return res.status(404).json({ error: 'Source or target fund not found' });
+    }
+
+    const moveResult = {
+      reimbursements: 0,
+      plannedExpenses: 0,
+      directExpenses: 0,
+    };
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      if (moveReimbursements) {
+        const conditions: string[] = ['fund_id = $1'];
+        const params: any[] = [sourceFundId];
+
+        if (parsedFromDate) {
+          params.push(parsedFromDate);
+          conditions.push(`expense_date >= $${params.length}`);
+        }
+
+        if (reimbursementStatusFilter && reimbursementStatusFilter.length > 0) {
+          params.push(reimbursementStatusFilter);
+          conditions.push(`status = ANY($${params.length})`);
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        if (dryRun) {
+          const { rows } = await client.query(
+            `SELECT COUNT(*) AS count FROM reimbursements WHERE ${whereClause}`,
+            params
+          );
+          moveResult.reimbursements = parseInt(rows[0].count, 10) || 0;
+        } else {
+          params.push(targetFundId);
+          const targetIndex = params.length;
+          const result = await client.query(
+            `UPDATE reimbursements SET fund_id = $${targetIndex} WHERE ${whereClause}`,
+            params
+          );
+          moveResult.reimbursements = result.rowCount;
+        }
+      }
+
+      if (movePlannedExpenses) {
+        const conditions: string[] = ['fund_id = $1'];
+        const params: any[] = [sourceFundId];
+
+        if (parsedFromDate) {
+          params.push(parsedFromDate);
+          conditions.push(`planned_date >= $${params.length}`);
+        }
+
+        if (plannedStatusFilter && plannedStatusFilter.length > 0) {
+          params.push(plannedStatusFilter);
+          conditions.push(`status = ANY($${params.length})`);
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        if (dryRun) {
+          const { rows } = await client.query(
+            `SELECT COUNT(*) AS count FROM planned_expenses WHERE ${whereClause}`,
+            params
+          );
+          moveResult.plannedExpenses = parseInt(rows[0].count, 10) || 0;
+        } else {
+          params.push(targetFundId);
+          const targetIndex = params.length;
+          const result = await client.query(
+            `UPDATE planned_expenses SET fund_id = $${targetIndex} WHERE ${whereClause}`,
+            params
+          );
+          moveResult.plannedExpenses = result.rowCount;
+        }
+      }
+
+      if (moveDirectExpenses) {
+        const conditions: string[] = ['fund_id = $1'];
+        const params: any[] = [sourceFundId];
+
+        if (parsedFromDate) {
+          params.push(parsedFromDate);
+          conditions.push(`expense_date >= $${params.length}`);
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        if (dryRun) {
+          const { rows } = await client.query(
+            `SELECT COUNT(*) AS count FROM direct_expenses WHERE ${whereClause}`,
+            params
+          );
+          moveResult.directExpenses = parseInt(rows[0].count, 10) || 0;
+        } else {
+          params.push(targetFundId);
+          const targetIndex = params.length;
+          const result = await client.query(
+            `UPDATE direct_expenses SET fund_id = $${targetIndex} WHERE ${whereClause}`,
+            params
+          );
+          moveResult.directExpenses = result.rowCount;
+        }
+      }
+
+      await client.query('COMMIT');
+
+      return res.json({
+        dryRun,
+        sourceFund: {
+          id: sourceFund.id,
+          name: sourceFund.name,
+          budgetId: sourceFund.budget_id,
+          budgetName: sourceFund.budget_name,
+          groupId: sourceFund.group_id,
+        },
+        targetFund: {
+          id: targetFund.id,
+          name: targetFund.name,
+          budgetId: targetFund.budget_id,
+          budgetName: targetFund.budget_name,
+          groupId: targetFund.group_id,
+        },
+        moved: moveResult,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Move fund items error:', error);
+    return res.status(500).json({ error: 'Failed to move fund items' });
+  }
+}
