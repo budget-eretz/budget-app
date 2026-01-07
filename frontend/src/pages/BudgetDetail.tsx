@@ -499,6 +499,39 @@ export default function BudgetDetail() {
 
   const summary = calculateBudgetSummary();
   const hasPermission = canManageBudget();
+  const fundsTotals = {
+    allocated: summary.totalAllocated,
+    spent: summary.totalSpent,
+    planned: summary.totalPlanned,
+    remaining: summary.totalAllocated - summary.totalSpent,
+  };
+  const fundsUsagePercent = fundsTotals.allocated > 0 ? (fundsTotals.spent / fundsTotals.allocated) * 100 : 0;
+  const fundsProgressColor = fundsUsagePercent > 90 ? '#e53e3e' : fundsUsagePercent > 75 ? '#dd6b20' : '#38a169';
+  const monthlyTotals = monthlyStatuses.reduce(
+    (acc, status) => ({
+      allocated: acc.allocated + status.allocated,
+      spent: acc.spent + status.actual.spent,
+      remaining: acc.remaining + status.actual.remaining,
+      planned: acc.planned + status.planning.planned,
+      unplanned: acc.unplanned + status.planning.unplanned,
+      varianceDiff: acc.varianceDiff + status.variance.difference,
+    }),
+    {
+      allocated: 0,
+      spent: 0,
+      remaining: 0,
+      planned: 0,
+      unplanned: 0,
+      varianceDiff: 0,
+    }
+  );
+  const monthlyUsagePercent = monthlyTotals.allocated > 0 ? (monthlyTotals.spent / monthlyTotals.allocated) * 100 : 0;
+  const monthlyProgressColor = monthlyUsagePercent > 90 ? '#e53e3e' : monthlyUsagePercent > 75 ? '#dd6b20' : '#38a169';
+  const monthlyVariancePercent = monthlyTotals.planned > 0 ? (monthlyTotals.spent / monthlyTotals.planned) * 100 : 0;
+  const monthlyVarianceColor =
+    monthlyTotals.varianceDiff > 0 ? '#e53e3e' : monthlyTotals.varianceDiff < 0 ? '#38a169' : '#718096';
+  const displayedIncomes = incomes.slice(0, 5);
+  const displayedIncomeTotal = displayedIncomes.reduce((sum, income) => sum + Number(income.amount || 0), 0);
 
   return (
     <div style={styles.container}>
@@ -675,6 +708,45 @@ export default function BudgetDetail() {
                       </tr>
                     );
                   })}
+                  <tr style={{ ...styles.tableRow, ...styles.totalRow }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>סה"כ</td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>{formatAmount(monthlyTotals.allocated)}</td>
+                    
+                    {/* Actual Execution Totals */}
+                    <td style={{ ...styles.td, ...styles.tdSectionBorder, color: '#e53e3e', fontWeight: 700 }}>
+                      {formatAmount(monthlyTotals.spent)}
+                    </td>
+                    <td style={{ ...styles.td, color: monthlyProgressColor, fontWeight: 700 }}>
+                      {formatAmount(monthlyTotals.remaining)}
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>
+                      <div style={styles.progressContainer}>
+                        <div
+                          style={{
+                            ...styles.progressBar,
+                            width: `${Math.min(monthlyUsagePercent, 100)}%`,
+                            backgroundColor: monthlyProgressColor,
+                          }}
+                        />
+                        <span style={styles.progressText}>{monthlyUsagePercent.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    
+                    {/* Planning Totals */}
+                    <td style={{ ...styles.td, ...styles.tdSectionBorder, color: '#dd6b20', fontWeight: 700 }}>
+                      {formatAmount(monthlyTotals.planned)}
+                    </td>
+                    <td style={{ ...styles.td, color: '#718096', fontWeight: 700 }}>
+                      {formatAmount(monthlyTotals.unplanned)}
+                    </td>
+                    
+                    {/* Variance Totals */}
+                    <td style={{ ...styles.td, ...styles.tdSectionBorder, color: monthlyVarianceColor, fontWeight: 700 }}>
+                      {monthlyTotals.varianceDiff > 0 ? '+' : ''}
+                      {formatAmount(monthlyTotals.varianceDiff)}
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>{monthlyVariancePercent.toFixed(0)}%</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -825,6 +897,28 @@ export default function BudgetDetail() {
                       </tr>
                     );
                   })}
+                  <tr style={{ ...styles.tableRow, ...styles.totalRow }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>סה"כ</td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>{formatAmount(fundsTotals.allocated)}</td>
+                    <td style={{ ...styles.td, color: '#e53e3e', fontWeight: 700 }}>{formatAmount(fundsTotals.spent)}</td>
+                    <td style={{ ...styles.td, color: '#dd6b20', fontWeight: 700 }}>{formatAmount(fundsTotals.planned)}</td>
+                    <td style={{ ...styles.td, color: fundsProgressColor, fontWeight: 700 }}>
+                      {formatAmount(fundsTotals.remaining)}
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>
+                      <div style={styles.progressContainer}>
+                        <div
+                          style={{
+                            ...styles.progressBar,
+                            width: `${Math.min(fundsUsagePercent, 100)}%`,
+                            backgroundColor: fundsProgressColor,
+                          }}
+                        />
+                        <span style={styles.progressText}>{fundsUsagePercent.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    {hasPermission && <td style={styles.td} />}
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -846,7 +940,7 @@ export default function BudgetDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {incomes.slice(0, 5).map(income => (
+                  {displayedIncomes.map(income => (
                     <tr key={income.id}>
                       <td style={styles.td}>
                         {new Date(income.income_date).toLocaleDateString('he-IL')}
@@ -858,6 +952,14 @@ export default function BudgetDetail() {
                       </td>
                     </tr>
                   ))}
+                  <tr style={{ ...styles.tableRow, ...styles.totalRow }}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>סה"כ</td>
+                    <td style={styles.td} />
+                    <td style={styles.td} />
+                    <td style={{ ...styles.td, fontWeight: 700, color: '#38a169' }}>
+                      {formatAmount(displayedIncomeTotal)}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -1273,6 +1375,9 @@ const styles: Record<string, React.CSSProperties> = {
   tableRow: {
     transition: 'background-color 0.2s',
     cursor: 'default',
+  },
+  totalRow: {
+    background: '#f7fafc',
   },
   fundNameCell: {
     display: 'flex',
