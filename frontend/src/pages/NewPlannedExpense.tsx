@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { fundsAPI, plannedExpensesAPI } from '../services/api';
+import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -30,12 +30,14 @@ export default function NewPlannedExpense() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const defaultPlannedDate = isEditMode ? '' : new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     fundId: '',
     amount: '',
     description: '',
-    plannedDate: '',
+    plannedDate: defaultPlannedDate,
   });
+  const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { planned: number; remaining: number }>>({});
 
   useEffect(() => {
     loadData();
@@ -48,6 +50,62 @@ export default function NewPlannedExpense() {
       setFormData(prev => ({ ...prev, fundId: state.fundId!.toString() }));
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (!formData.plannedDate || budgets.length === 0) return;
+
+    const date = new Date(formData.plannedDate);
+    if (isNaN(date.getTime())) return;
+
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const fundIds = budgets.flatMap((budget) => budget.funds.map((fund) => fund.id));
+    let cancelled = false;
+
+    const fetchMonthlyStatuses = async () => {
+      try {
+        const responses = await Promise.all(
+          fundIds.map(async (fundId) => {
+            try {
+              const res = await monthlyAllocationsAPI.getMonthlyStatus(fundId, year, month);
+              return { fundId, data: res.data };
+            } catch (error) {
+              console.error(`Failed to load monthly status for fund ${fundId}`, error);
+              return null;
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        const statusMap: Record<number, { planned: number; remaining: number }> = {};
+
+        responses.forEach((resp) => {
+          if (!resp) return;
+          const data = resp.data;
+          const planning = data.planning || {};
+          const actual = data.actual || {};
+          const planned = typeof planning.planned === 'number' ? planning.planned : 0;
+          const remaining =
+            typeof actual.remaining === 'number'
+              ? actual.remaining
+              : (data.allocated || 0) - (actual.spent || 0);
+          const key = data.fund_id || data.fundId || resp.fundId;
+          statusMap[key] = { planned, remaining };
+        });
+
+        setMonthlyFundStatus(statusMap);
+      } catch (error) {
+        console.error('Failed to load monthly fund statuses', error);
+      }
+    };
+
+    fetchMonthlyStatuses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.plannedDate, budgets]);
 
   const loadData = async () => {
     try {
@@ -70,6 +128,10 @@ export default function NewPlannedExpense() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPlannedForFund = (fundId: number) => {
+    return monthlyFundStatus[fundId]?.planned ?? 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +229,7 @@ export default function NewPlannedExpense() {
                   <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
                     {budget.funds.map((fund) => (
                       <option key={fund.id} value={fund.id}>
-                        {fund.name} - זמין: {formatCurrency(fund.available_amount || 0)}
+                        {fund.name} - מתוכנן החודש: {formatCurrency(getPlannedForFund(fund.id))}
                       </option>
                     ))}
                   </optgroup>
@@ -254,14 +316,14 @@ export default function NewPlannedExpense() {
                           <span>מקורי:</span>
                           <span>{formatCurrency(fund.allocated_amount)}</span>
                         </div>
-                        <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
-                          <span>
-                            <strong>זמין:</strong>
-                          </span>
-                          <span style={{ color: '#38a169' }}>
-                            <strong>{formatCurrency(fund.available_amount || 0)}</strong>
-                          </span>
-                        </div>
+                      <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
+                        <span>
+                          <strong>מתוכנן החודש:</strong>
+                        </span>
+                        <span style={{ color: '#38a169' }}>
+                          <strong>{formatCurrency(getPlannedForFund(fund.id))}</strong>
+                        </span>
+                      </div>
                       </div>
                     </div>
                   ))}

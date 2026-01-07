@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fundsAPI, reimbursementsAPI, usersAPI } from '../services/api';
+import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI } from '../services/api';
 import { BudgetWithFunds, BasicUser } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
@@ -21,12 +21,13 @@ export default function NewReimbursement() {
   const isEditMode = !!editingReimbursement;
 
   const [formData, setFormData] = useState({
-    fundId: '',
-    amount: '',
-    description: '',
-    expenseDate: new Date().toISOString().split('T')[0],
-    recipientUserId: '',
+    fundId: editingReimbursement?.fund_id?.toString() || '',
+    amount: editingReimbursement?.amount?.toString() || '',
+    description: editingReimbursement?.description || '',
+    expenseDate: editingReimbursement?.expense_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+    recipientUserId: editingReimbursement?.recipient_user_id?.toString() || '',
   });
+  const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { remaining: number; planned: number }>>({});
 
   useEffect(() => {
     loadData();
@@ -55,6 +56,62 @@ export default function NewReimbursement() {
       setFormData(prev => ({ ...prev, fundId: preSelectedFundId }));
     }
   }, [location, budgets, editingReimbursement]);
+
+  useEffect(() => {
+    if (!formData.expenseDate || budgets.length === 0) return;
+
+    const date = new Date(formData.expenseDate);
+    if (isNaN(date.getTime())) return;
+
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const fundIds = budgets.flatMap((budget) => budget.funds.map((fund) => fund.id));
+    let cancelled = false;
+
+    const fetchMonthlyStatuses = async () => {
+      try {
+        const responses = await Promise.all(
+          fundIds.map(async (fundId) => {
+            try {
+              const res = await monthlyAllocationsAPI.getMonthlyStatus(fundId, year, month);
+              return { fundId, data: res.data };
+            } catch (error) {
+              console.error(`Failed to load monthly status for fund ${fundId}`, error);
+              return null;
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        const statusMap: Record<number, { remaining: number; planned: number }> = {};
+
+        responses.forEach((resp) => {
+          if (!resp) return;
+          const data = resp.data;
+          const actual = data.actual || {};
+          const planning = data.planning || {};
+          const remaining =
+            typeof actual.remaining === 'number'
+              ? actual.remaining
+              : (data.allocated || 0) - (actual.spent || 0);
+          const planned = typeof planning.planned === 'number' ? planning.planned : 0;
+          const key = data.fund_id || data.fundId || resp.fundId;
+          statusMap[key] = { remaining, planned };
+        });
+
+        setMonthlyFundStatus(statusMap);
+      } catch (error) {
+        console.error('Failed to load monthly fund statuses', error);
+      }
+    };
+
+    fetchMonthlyStatuses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.expenseDate, budgets]);
 
   const loadData = async () => {
     try {
@@ -127,9 +184,13 @@ export default function NewReimbursement() {
       }
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בהגשת הבקשה', 'error');
-    } finally {
-      setSubmitting(false);
-    }
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+  const getRemainingForFund = (fundId: number) => {
+    return monthlyFundStatus[fundId]?.remaining ?? 0;
   };
 
   const formatCurrency = (amount: number) => {
@@ -171,7 +232,7 @@ export default function NewReimbursement() {
                     >
                       {budget.funds.map((fund) => (
                         <option key={fund.id} value={fund.id}>
-                          {fund.name} - זמין: {formatCurrency(fund.available_amount || 0)}
+                          {fund.name} - זמין החודש: {formatCurrency(getRemainingForFund(fund.id))}
                         </option>
                       ))}
                     </optgroup>
@@ -281,10 +342,10 @@ export default function NewReimbursement() {
                         </div>
                         <div style={{ ...styles.fundRow, ...styles.fundRowTotal }}>
                           <span>
-                            <strong>זמין:</strong>
+                            <strong>זמין החודש:</strong>
                           </span>
                           <span style={{ color: '#38a169' }}>
-                            <strong>{formatCurrency(fund.available_amount || 0)}</strong>
+                            <strong>{formatCurrency(getRemainingForFund(fund.id))}</strong>
                           </span>
                         </div>
                       </div>
