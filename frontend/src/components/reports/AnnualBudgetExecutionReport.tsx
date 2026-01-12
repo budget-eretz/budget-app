@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../../services/api';
 import { AnnualBudgetExecutionData } from '../../types';
-import { LineChart, BarChart, SummaryTable } from '../charts';
-import type { LineChartData, BarChartData, TableColumn } from '../charts';
+import { LineChart, BarChart, SummaryTable, CollapsibleSummaryTable } from '../charts';
+import type { LineChartData, BarChartData, TableColumn, CollapsibleTableColumn } from '../charts';
 import { generateColorPalette, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
@@ -158,7 +158,7 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
   };
 
   // Prepare table data
-  const monthlyTrendsColumns: TableColumn[] = [
+  const monthlyTrendsColumns: CollapsibleTableColumn[] = [
     { key: 'monthName', title: 'חודש', width: '25%', sortable: true },
     { key: 'income', title: 'הכנסות', width: '25%', sortable: true, align: 'right' },
     { key: 'expenses', title: 'הוצאות', width: '25%', sortable: true, align: 'right' },
@@ -180,6 +180,13 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
       )
     },
   ];
+
+  // Custom detail loading function for monthly trends
+  const loadMonthDetails = async (month: number, year: number, monthParam: number) => {
+    // For monthly trends, we could show budget breakdown for the selected month
+    // For now, return empty array as this would require a new API endpoint
+    return [];
+  };
 
   // Prepare table data with month names
   const monthlyTrendsData = reportData?.monthlyBalance.map(data => ({
@@ -242,7 +249,7 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
           <div style={styles.chartsAndTableContainer}>
             {/* Table */}
             <div style={styles.tableContainer}>
-              <SummaryTable
+              <CollapsibleSummaryTable
                 data={monthlyTrendsData}
                 columns={monthlyTrendsColumns}
                 showFooter={true}
@@ -254,6 +261,10 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
                 }}
                 striped={true}
                 bordered={true}
+                expandableRowKey="month"
+                year={year}
+                month={1}
+                onLoadDetails={loadMonthDetails}
               />
             </div>
             

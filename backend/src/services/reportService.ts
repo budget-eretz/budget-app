@@ -86,6 +86,10 @@ export interface FundSummary {
   fundName: string;
   amount: number;
   count: number;
+  allocatedAmount?: number;
+  spentAmount?: number;
+  remainingAmount?: number;
+  utilizationPercentage?: number;
 }
 
 export interface BudgetExecutionSummary {
@@ -479,8 +483,15 @@ export class ReportService {
       SELECT 
         f.id as fund_id,
         f.name as fund_name,
-        SUM(expenses.amount) as total_amount,
-        COUNT(expenses.amount) as expense_count
+        f.allocated_amount,
+        COALESCE(SUM(expenses.amount), 0) as spent_amount,
+        COUNT(CASE WHEN expenses.amount IS NOT NULL THEN 1 END) as expense_count,
+        f.allocated_amount - COALESCE(SUM(expenses.amount), 0) as remaining_amount,
+        CASE 
+          WHEN f.allocated_amount > 0 THEN 
+            ROUND((COALESCE(SUM(expenses.amount), 0) / f.allocated_amount * 100), 2)
+          ELSE 0 
+        END as utilization_percentage
       FROM funds f
       LEFT JOIN (
         -- Approved and paid reimbursements
@@ -511,8 +522,15 @@ export class ReportService {
         SELECT 
           f.id as fund_id,
           f.name as fund_name,
-          SUM(expenses.amount) as total_amount,
-          COUNT(expenses.amount) as expense_count
+          f.allocated_amount,
+          COALESCE(SUM(expenses.amount), 0) as spent_amount,
+          COUNT(CASE WHEN expenses.amount IS NOT NULL THEN 1 END) as expense_count,
+          f.allocated_amount - COALESCE(SUM(expenses.amount), 0) as remaining_amount,
+          CASE 
+            WHEN f.allocated_amount > 0 THEN 
+              ROUND((COALESCE(SUM(expenses.amount), 0) / f.allocated_amount * 100), 2)
+            ELSE 0 
+          END as utilization_percentage
         FROM funds f
         JOIN budgets b ON f.budget_id = b.id
         LEFT JOIN (
@@ -541,8 +559,7 @@ export class ReportService {
     }
 
     fundQuery += `
-      GROUP BY f.id, f.name
-      HAVING SUM(expenses.amount) > 0 OR COUNT(expenses.amount) > 0
+      GROUP BY f.id, f.name, f.allocated_amount
       ORDER BY f.name
     `;
 
@@ -551,8 +568,12 @@ export class ReportService {
     return fundResult.rows.map(row => ({
       fundId: row.fund_id,
       fundName: row.fund_name,
-      amount: parseFloat(row.total_amount) || 0,
-      count: parseInt(row.expense_count) || 0
+      amount: parseFloat(row.spent_amount) || 0,
+      count: parseInt(row.expense_count) || 0,
+      allocatedAmount: parseFloat(row.allocated_amount) || 0,
+      spentAmount: parseFloat(row.spent_amount) || 0,
+      remainingAmount: parseFloat(row.remaining_amount) || 0,
+      utilizationPercentage: parseFloat(row.utilization_percentage) || 0
     }));
   }
 
@@ -681,7 +702,7 @@ export class ReportService {
           fes.budget_name,
           fes.budget_type,
           fes.group_name,
-          fes.allocated_amount,
+          COALESCE(SUM(fes.allocated_amount), 0) as allocated_amount,
           COALESCE(SUM(fes.spent_amount), 0) as spent_amount,
           COUNT(CASE WHEN fes.spent_amount > 0 THEN 1 END) as expense_count
         FROM fund_expense_summary fes
@@ -696,7 +717,7 @@ export class ReportService {
         executionParams = executionParams.concat(budgetFilter.params);
       }
 
-      executionQuery += ` GROUP BY fes.budget_id, fes.budget_name, fes.budget_type, fes.group_name, fes.allocated_amount
+      executionQuery += ` GROUP BY fes.budget_id, fes.budget_name, fes.budget_type, fes.group_name
                          ORDER BY fes.budget_name`;
 
       const executionResult = await pool.query(executionQuery, executionParams);

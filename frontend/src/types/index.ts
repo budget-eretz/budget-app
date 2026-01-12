@@ -515,6 +515,10 @@ export interface FundSummary {
   fundName: string;
   amount: number;
   count: number;
+  allocatedAmount?: number;
+  spentAmount?: number;
+  remainingAmount?: number;
+  utilizationPercentage?: number;
 }
 
 export interface BudgetExecutionSummary {

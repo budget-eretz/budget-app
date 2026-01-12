@@ -27,7 +27,9 @@ export interface CollapsibleSummaryTableProps {
   expandableRowKey: string; // The key that identifies which rows can be expanded (e.g., 'budgetId')
   year: number;
   month: number;
-  onLoadFundDetails?: (budgetId: number, year: number, month: number) => Promise<FundSummary[]>;
+  onLoadDetails?: (rowId: number, year: number, month: number) => Promise<any[]>;
+  detailColumns?: CollapsibleTableColumn[]; // Columns for the detail rows
+  getDetailValue?: (column: CollapsibleTableColumn, detail: any) => any; // Function to map detail data to column values
 }
 
 export default function CollapsibleSummaryTable({
@@ -49,10 +51,12 @@ export default function CollapsibleSummaryTable({
   expandableRowKey,
   year,
   month,
-  onLoadFundDetails,
+  onLoadDetails,
+  detailColumns,
+  getDetailValue,
 }: CollapsibleSummaryTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [fundDetails, setFundDetails] = useState<Record<number, FundSummary[]>>({});
+  const [rowDetails, setRowDetails] = useState<Record<number, any[]>>({});
   const [loadingRows, setLoadingRows] = useState<Set<number>>(new Set());
 
   const handleSort = (column: CollapsibleTableColumn) => {
@@ -72,26 +76,26 @@ export default function CollapsibleSummaryTable({
       // Expand row - load fund details if not already loaded
       newExpandedRows.add(rowId);
       
-      if (!fundDetails[rowId]) {
+      if (!rowDetails[rowId]) {
         setLoadingRows(prev => new Set(prev).add(rowId));
         
         try {
-          let funds: FundSummary[] = [];
+          let details: any[] = [];
           
-          if (onLoadFundDetails) {
-            funds = await onLoadFundDetails(rowId, year, month);
+          if (onLoadDetails) {
+            details = await onLoadDetails(rowId, year, month);
           } else {
-            // Default implementation using reportsAPI
+            // Default implementation using reportsAPI for fund details
             const response = await reportsAPI.getBudgetFundDetails(rowId, year, month);
-            funds = response.data.funds;
+            details = response.data.funds;
           }
           
-          setFundDetails(prev => ({
+          setRowDetails(prev => ({
             ...prev,
-            [rowId]: funds
+            [rowId]: details
           }));
         } catch (error) {
-          console.error('Failed to load fund details:', error);
+          console.error('Failed to load row details:', error);
           // Remove from expanded rows if loading failed
           newExpandedRows.delete(rowId);
         } finally {
@@ -107,21 +111,26 @@ export default function CollapsibleSummaryTable({
     setExpandedRows(newExpandedRows);
   };
 
-  const getFundDetailValue = (column: CollapsibleTableColumn, fund: FundSummary) => {
-    // Map fund data to the appropriate column
+  const getRowDetailValue = (column: CollapsibleTableColumn, detail: any) => {
+    // Use custom detail value function if provided
+    if (getDetailValue) {
+      return getDetailValue(column, detail);
+    }
+    
+    // Default implementation for fund details (backward compatibility)
     switch (column.key) {
       case 'budgetName':
-        return fund.fundName;
+        return detail.fundName || detail.name || '—';
       case 'budgetType':
       case 'groupName':
         return '—';
       case 'amount':
-        return formatCurrency(fund.amount);
+        return formatCurrency(detail.amount || 0);
       case 'count':
-        return fund.count;
+        return detail.count || 0;
       default:
-        // For other columns, return empty or dash
-        return '—';
+        // For other columns, try to get the value directly or return dash
+        return detail[column.key] || '—';
     }
   };
 
@@ -245,7 +254,8 @@ export default function CollapsibleSummaryTable({
             {data.map((row, rowIndex) => {
               const rowId = row[expandableRowKey];
               const isExpanded = expandedRows.has(rowId);
-              const funds = fundDetails[rowId] || [];
+              const details = rowDetails[rowId] || [];
+              const columnsToUse = detailColumns || columns;
               
               return (
                 <React.Fragment key={rowIndex}>
@@ -280,48 +290,48 @@ export default function CollapsibleSummaryTable({
                     ))}
                   </tr>
                   
-                  {/* Expanded fund details - inline under each column */}
-                  {isExpanded && funds.map((fund, fundIndex) => (
-                    <tr key={`${rowId}-fund-${fund.fundId}`} style={styles.fundDetailRow}>
-                      <td style={{...styles.fundDetailCell, textAlign: 'center'}}>
-                        <span style={styles.fundDetailIndicator}>
+                  {/* Expanded detail rows - inline under each column */}
+                  {isExpanded && details.map((detail, detailIndex) => (
+                    <tr key={`${rowId}-detail-${detailIndex}`} style={styles.detailRow}>
+                      <td style={{...styles.detailCell, textAlign: 'center'}}>
+                        <span style={styles.detailIndicator}>
                           ←
                         </span>
                       </td>
-                      {columns.map((column, colIndex) => (
+                      {columnsToUse.map((column, colIndex) => (
                         <td
                           key={column.key}
                           style={{
-                            ...styles.fundDetailCell,
+                            ...styles.detailCell,
                             textAlign: column.align || 'right',
                             ...(bordered && {
                               borderLeft: '1px solid #e2e8f0',
-                              borderBottom: fundIndex === funds.length - 1 ? '1px solid #cbd5e0' : '1px solid #f1f5f9',
+                              borderBottom: detailIndex === details.length - 1 ? '1px solid #cbd5e0' : '1px solid #f1f5f9',
                             }),
                           }}
                         >
-                          {getFundDetailValue(column, fund)}
+                          {getRowDetailValue(column, detail)}
                         </td>
                       ))}
                     </tr>
                   ))}
                   
-                  {/* Empty state for expanded row with no funds */}
-                  {isExpanded && funds.length === 0 && (
-                    <tr style={styles.fundDetailRow}>
-                      <td style={{...styles.fundDetailCell, textAlign: 'center'}}>
-                        <span style={styles.fundDetailIndicator}>←</span>
+                  {/* Empty state for expanded row with no details */}
+                  {isExpanded && details.length === 0 && (
+                    <tr style={styles.detailRow}>
+                      <td style={{...styles.detailCell, textAlign: 'center'}}>
+                        <span style={styles.detailIndicator}>←</span>
                       </td>
                       <td 
-                        colSpan={columns.length} 
+                        colSpan={columnsToUse.length} 
                         style={{
-                          ...styles.fundDetailCell,
+                          ...styles.detailCell,
                           textAlign: 'center',
                           fontStyle: 'italic',
                           color: '#718096',
                         }}
                       >
-                        אין סעיפים עם הוצאות בחודש זה
+                        אין פריטים להצגה
                       </td>
                     </tr>
                   )}
@@ -427,6 +437,24 @@ const styles: Record<string, React.CSSProperties> = {
     paddingRight: '24px', // Extra padding for the visual indicator
   },
   fundDetailIndicator: {
+    fontSize: '16px',
+    color: '#4299e1',
+    fontWeight: 'bold',
+    marginLeft: '4px',
+  },
+  detailRow: {
+    backgroundColor: '#f8fafc',
+    borderLeft: '3px solid #4299e1',
+    position: 'relative',
+  },
+  detailCell: {
+    padding: '8px 16px',
+    color: '#4a5568',
+    fontSize: '13px',
+    fontStyle: 'italic',
+    paddingRight: '24px', // Extra padding for the visual indicator
+  },
+  detailIndicator: {
     fontSize: '16px',
     color: '#4299e1',
     fontWeight: 'bold',

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../../services/api';
 import { ExpenseExecutionData } from '../../types';
-import { BarChart, PieChart, SummaryTable } from '../charts';
-import type { BarChartData, PieChartData, TableColumn } from '../charts';
+import { BarChart, PieChart, SummaryTable, CollapsibleSummaryTable } from '../charts';
+import type { BarChartData, PieChartData, TableColumn, CollapsibleTableColumn } from '../charts';
 import { generateColorPalette, getExpenseColors, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
@@ -162,7 +162,7 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
   };
 
   // Prepare table columns
-  const budgetExecutionColumns: TableColumn[] = [
+  const budgetExecutionColumns: CollapsibleTableColumn[] = [
     { key: 'budgetName', title: 'תקציב', width: '20%', sortable: true },
     { 
       key: 'budgetType', 
@@ -198,6 +198,31 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
       )
     },
   ];
+
+  // For expense execution, we can use the existing fund details API
+  // No custom loading function needed - will use default getBudgetFundDetails
+
+  // Custom detail value mapping for fund details
+  const getFundDetailValue = (column: CollapsibleTableColumn, fund: any) => {
+    switch (column.key) {
+      case 'budgetName':
+        return fund.fundName || fund.name;
+      case 'budgetType':
+        return '—';
+      case 'groupName':
+        return '—';
+      case 'allocatedAmount':
+        return formatCurrency(fund.allocatedAmount || 0);
+      case 'spentAmount':
+        return formatCurrency(fund.spentAmount || fund.amount || 0);
+      case 'remainingAmount':
+        return formatCurrency(fund.remainingAmount || 0);
+      case 'utilizationPercentage':
+        return fund.utilizationPercentage ? formatPercentage(fund.utilizationPercentage) : '0.0%';
+      default:
+        return fund[column.key] || '—';
+    }
+  };
 
   if (error) {
     return (
@@ -276,11 +301,15 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
               <div style={styles.chartsAndTableContainer}>
                 {/* Table */}
                 <div style={styles.tableContainer}>
-                  <SummaryTable
+                  <CollapsibleSummaryTable
                     data={currentMonthData}
                     columns={budgetExecutionColumns}
                     striped={true}
                     bordered={true}
+                    expandableRowKey="budgetId"
+                    year={year}
+                    month={month}
+                    getDetailValue={getFundDetailValue}
                   />
                 </div>
                 
@@ -352,7 +381,7 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
               <div style={styles.chartsAndTableContainer}>
                 {/* Table */}
                 <div style={styles.tableContainer}>
-                  <SummaryTable
+                  <CollapsibleSummaryTable
                     data={reportData.annualTotals.byBudget}
                     columns={budgetExecutionColumns}
                     showFooter={true}
@@ -367,6 +396,10 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
                     }}
                     striped={true}
                     bordered={true}
+                    expandableRowKey="budgetId"
+                    year={year}
+                    month={1}
+                    getDetailValue={getFundDetailValue}
                   />
                 </div>
                 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../../services/api';
 import { IncomeExecutionData } from '../../types';
-import { BarChart, PieChart, SummaryTable } from '../charts';
-import type { BarChartData, PieChartData, TableColumn } from '../charts';
+import { BarChart, PieChart, SummaryTable, CollapsibleSummaryTable } from '../charts';
+import type { BarChartData, PieChartData, TableColumn, CollapsibleTableColumn } from '../charts';
 import { generateColorPalette, getIncomeColors, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
@@ -168,7 +168,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
   };
 
   // Prepare table columns
-  const incomeAnalysisColumns: TableColumn[] = [
+  const incomeAnalysisColumns: CollapsibleTableColumn[] = [
     { 
       key: 'categoryName', 
       title: 'קטגוריה', 
@@ -226,6 +226,13 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
       )
     },
   ];
+
+  // Custom detail loading function for income categories
+  const loadCategoryDetails = async (categoryId: number, year: number, month: number) => {
+    // For income categories, we could show individual income entries
+    // For now, return empty array as this would require a new API endpoint
+    return [];
+  };
 
   if (error) {
     return (
@@ -304,11 +311,15 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
               <div style={styles.chartsAndTableContainer}>
                 {/* Table */}
                 <div style={styles.tableContainer}>
-                  <SummaryTable
+                  <CollapsibleSummaryTable
                     data={currentMonthData}
                     columns={incomeAnalysisColumns}
                     striped={true}
                     bordered={true}
+                    expandableRowKey="categoryId"
+                    year={year}
+                    month={month}
+                    onLoadDetails={loadCategoryDetails}
                   />
                 </div>
                 
@@ -396,7 +407,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
               <div style={styles.chartsAndTableContainer}>
                 {/* Table */}
                 <div style={styles.tableContainer}>
-                  <SummaryTable
+                  <CollapsibleSummaryTable
                     data={reportData.annualTotals.byCategory}
                     columns={incomeAnalysisColumns}
                     showFooter={true}
@@ -409,6 +420,10 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
                     }}
                     striped={true}
                     bordered={true}
+                    expandableRowKey="categoryId"
+                    year={year}
+                    month={1}
+                    onLoadDetails={loadCategoryDetails}
                   />
                 </div>
                 
