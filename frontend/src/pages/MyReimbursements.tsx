@@ -10,6 +10,8 @@ import ReimbursementDetailsModal from '../components/ReimbursementDetailsModal';
 import RecurringTransferTable from '../components/RecurringTransferTable';
 
 type StatusFilter = 'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
+type SortField = 'expense_date' | 'created_at' | 'amount' | 'fund_name' | 'description';
+type SortDirection = 'asc' | 'desc';
 
 export default function MyReimbursements() {
   const navigate = useNavigate();
@@ -19,7 +21,10 @@ export default function MyReimbursements() {
   const [charges, setCharges] = useState<Charge[]>([]);
   const [recurringTransfers, setRecurringTransfers] = useState<RecurringTransfer[]>([]);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [sortField, setSortField] = useState<SortField>('expense_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
   const [deleteModal, setDeleteModal] = useState<{ 
     isOpen: boolean; 
     type: 'reimbursement' | 'charge';
@@ -107,6 +112,30 @@ export default function MyReimbursements() {
     return new Date(dateString).toLocaleDateString('he-IL');
   };
 
+  const formatMonthYear = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('he-IL', { year: 'numeric', month: 'long' });
+  };
+
+  const getMonthYearKey = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return '↕️';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
       pending: 'ממתין לאישור',
@@ -137,9 +166,58 @@ export default function MyReimbursements() {
     return colorMap[status] || baseStyle;
   };
 
-  const filteredReimbursements = reimbursements.filter((reimb) => {
-    if (statusFilter === 'all') return true;
-    return reimb.status === statusFilter;
+  const filteredReimbursements = reimbursements
+    .filter((reimb) => {
+      // Status filter
+      if (statusFilter !== 'all' && reimb.status !== statusFilter) return false;
+      
+      // Month filter
+      if (monthFilter !== 'all') {
+        const reimbMonthKey = getMonthYearKey(reimb.expense_date);
+        if (reimbMonthKey !== monthFilter) return false;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortField) {
+        case 'expense_date':
+        case 'created_at':
+          aValue = new Date(a[sortField]).getTime();
+          bValue = new Date(b[sortField]).getTime();
+          break;
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        case 'fund_name':
+        case 'description':
+          aValue = (a[sortField] || '').toLowerCase();
+          bValue = (b[sortField] || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+      
+      if (sortDirection === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+  // Get unique months for filter dropdown
+  const availableMonths = Array.from(
+    new Set(reimbursements.map(reimb => getMonthYearKey(reimb.expense_date)))
+  ).sort().reverse().map(monthKey => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return {
+      key: monthKey,
+      label: formatMonthYear(date.toISOString())
+    };
   });
 
   if (loading) {
@@ -254,6 +332,25 @@ export default function MyReimbursements() {
             </button>
           </div>
 
+          {/* Month Filter */}
+          <div style={styles.filterControls}>
+            <div style={styles.monthFilter}>
+              <label style={styles.filterLabel}>סינון לפי חודש:</label>
+              <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="all">כל החודשים</option>
+                {availableMonths.map(month => (
+                  <option key={month.key} value={month.key}>
+                    {month.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Reimbursements Table */}
           {filteredReimbursements.length === 0 ? (
             <div style={styles.emptyState}>
@@ -264,11 +361,36 @@ export default function MyReimbursements() {
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>
-                    <th style={styles.tableHeader}>סעיף</th>
-                    <th style={styles.tableHeader}>תיאור</th>
-                    <th style={styles.tableHeader}>סכום</th>
-                    <th style={styles.tableHeader}>תאריך הוצאה</th>
-                    <th style={styles.tableHeader}>תאריך הגשה</th>
+                    <th 
+                      style={{...styles.tableHeader, ...styles.sortableHeader}}
+                      onClick={() => handleSort('fund_name')}
+                    >
+                      סעיף {getSortIcon('fund_name')}
+                    </th>
+                    <th 
+                      style={{...styles.tableHeader, ...styles.sortableHeader}}
+                      onClick={() => handleSort('description')}
+                    >
+                      תיאור {getSortIcon('description')}
+                    </th>
+                    <th 
+                      style={{...styles.tableHeader, ...styles.sortableHeader}}
+                      onClick={() => handleSort('amount')}
+                    >
+                      סכום {getSortIcon('amount')}
+                    </th>
+                    <th 
+                      style={{...styles.tableHeader, ...styles.sortableHeader}}
+                      onClick={() => handleSort('expense_date')}
+                    >
+                      תאריך הוצאה {getSortIcon('expense_date')}
+                    </th>
+                    <th 
+                      style={{...styles.tableHeader, ...styles.sortableHeader}}
+                      onClick={() => handleSort('created_at')}
+                    >
+                      תאריך הגשה {getSortIcon('created_at')}
+                    </th>
                     <th style={styles.tableHeader}>מקבל תשלום</th>
                     <th style={styles.tableHeader}>סטטוס</th>
                     <th style={styles.tableHeader}>פעולות</th>
@@ -552,6 +674,36 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'white',
     borderColor: '#667eea',
   },
+  filterControls: {
+    display: 'flex',
+    gap: '24px',
+    alignItems: 'center',
+    marginBottom: '20px',
+    padding: '16px',
+    background: 'white',
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  },
+  monthFilter: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  filterLabel: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#4a5568',
+    whiteSpace: 'nowrap',
+  },
+  filterSelect: {
+    padding: '8px 12px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    fontSize: '14px',
+    background: 'white',
+    color: '#2d3748',
+    minWidth: '150px',
+  },
   emptyState: {
     background: 'white',
     padding: '40px 20px',
@@ -580,6 +732,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     color: '#4a5568',
     whiteSpace: 'nowrap',
+  },
+  sortableHeader: {
+    cursor: 'pointer',
+    userSelect: 'none',
+    transition: 'background 0.2s',
   },
   tableRow: {
     borderBottom: '1px solid #e2e8f0',
