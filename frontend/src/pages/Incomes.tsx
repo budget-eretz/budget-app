@@ -85,6 +85,55 @@ export default function Incomes() {
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [editingExpectedIncome, setEditingExpectedIncome] = useState<ExpectedIncome | null>(null);
 
+  // Data refresh functions
+  const refreshIncomes = useCallback(async () => {
+    try {
+      const params: any = {};
+      if (debouncedActualFilters.startDate) params.startDate = debouncedActualFilters.startDate;
+      if (debouncedActualFilters.endDate) params.endDate = debouncedActualFilters.endDate;
+      if (debouncedActualFilters.source) params.source = debouncedActualFilters.source;
+      if (debouncedActualFilters.categoryId) params.categoryId = debouncedActualFilters.categoryId;
+
+      const response = await incomesAPI.getAll(params);
+      setIncomes(response.data);
+    } catch (error: any) {
+      console.error('Error refreshing incomes:', error);
+    }
+  }, [debouncedActualFilters]);
+
+  const refreshExpectedIncomes = useCallback(async () => {
+    try {
+      const response = await expectedIncomesAPI.getAll({ year: selectedYear });
+      setExpectedIncomes(response.data);
+    } catch (error: any) {
+      console.error('Error refreshing expected incomes:', error);
+    }
+  }, [selectedYear]);
+
+  const refreshMonthlyExpectedIncomes = useCallback(async () => {
+    try {
+      const response = await expectedIncomesAPI.getAll({
+        year: planningMonth.year,
+        month: planningMonth.month,
+      });
+      setExpectedIncomes(response.data);
+    } catch (error: any) {
+      console.error('Error refreshing monthly expected incomes:', error);
+    }
+  }, [planningMonth.year, planningMonth.month]);
+
+  const refreshComparison = useCallback(async () => {
+    try {
+      const response = await incomeComparisonAPI.getMonthlyComparison(
+        comparisonMonth.year,
+        comparisonMonth.month
+      );
+      setComparison(response.data);
+    } catch (error: any) {
+      console.error('Error refreshing comparison:', error);
+    }
+  }, [comparisonMonth.year, comparisonMonth.month]);
+
   // Helper functions
   const isCircleTreasurer = user?.isCircleTreasurer || false;
 
@@ -197,83 +246,26 @@ export default function Incomes() {
   // Separate effect for reloading data when filters change (with debouncing)
   useEffect(() => {
     if (loading) return; // Don't reload while initial loading
-    
-    const loadFilteredData = async () => {
-      try {
-        const params: any = {};
-        if (debouncedActualFilters.startDate) params.startDate = debouncedActualFilters.startDate;
-        if (debouncedActualFilters.endDate) params.endDate = debouncedActualFilters.endDate;
-        if (debouncedActualFilters.source) params.source = debouncedActualFilters.source;
-        if (debouncedActualFilters.categoryId) params.categoryId = debouncedActualFilters.categoryId;
-
-        const response = await incomesAPI.getAll(params);
-        setIncomes(response.data);
-      } catch (error: any) {
-        console.error('Error loading filtered incomes:', error);
-      }
-    };
-
-    loadFilteredData();
-  }, [
-    debouncedActualFilters.startDate,
-    debouncedActualFilters.endDate,
-    debouncedActualFilters.source,
-    debouncedActualFilters.categoryId,
-  ]); // Only depend on individual filter properties
+    refreshIncomes();
+  }, [refreshIncomes, loading]);
 
   // Separate effect for year changes
   useEffect(() => {
     if (loading) return; // Don't reload while initial loading
-    
-    const loadYearData = async () => {
-      try {
-        const response = await expectedIncomesAPI.getAll({ year: selectedYear });
-        setExpectedIncomes(response.data);
-      } catch (error: any) {
-        console.error('Error loading year data:', error);
-      }
-    };
-
-    loadYearData();
-  }, [selectedYear]); // Only depend on selectedYear
+    refreshExpectedIncomes();
+  }, [refreshExpectedIncomes, loading]);
 
   // Separate effect for planning month changes
   useEffect(() => {
     if (loading) return; // Don't reload while initial loading
-    
-    const loadPlanningMonthData = async () => {
-      try {
-        const response = await expectedIncomesAPI.getAll({
-          year: planningMonth.year,
-          month: planningMonth.month,
-        });
-        setExpectedIncomes(response.data);
-      } catch (error: any) {
-        console.error('Error loading planning month data:', error);
-      }
-    };
-
-    loadPlanningMonthData();
-  }, [planningMonth.year, planningMonth.month]); // Only depend on planning month
+    refreshMonthlyExpectedIncomes();
+  }, [refreshMonthlyExpectedIncomes, loading]);
 
   // Separate effect for comparison month changes
   useEffect(() => {
     if (loading) return; // Don't reload while initial loading
-    
-    const loadComparisonData = async () => {
-      try {
-        const response = await incomeComparisonAPI.getMonthlyComparison(
-          comparisonMonth.year,
-          comparisonMonth.month
-        );
-        setComparison(response.data);
-      } catch (error: any) {
-        console.error('Error loading comparison data:', error);
-      }
-    };
-
-    loadComparisonData();
-  }, [comparisonMonth.year, comparisonMonth.month]); // Only depend on comparison month
+    refreshComparison();
+  }, [refreshComparison, loading]);
 
   if (loading) {
     return (
@@ -398,8 +390,8 @@ export default function Incomes() {
 
               <Button
                 onClick={() => {
-                  // Trigger filter reload by updating the filters (which will trigger useEffect)
-                  setActualFilters({ ...actualFilters });
+                  // Trigger filter reload by calling refresh function
+                  refreshIncomes();
                 }}
                 style={styles.filterButton}
               >
@@ -454,8 +446,8 @@ export default function Incomes() {
                   try {
                     await incomesAPI.delete(id);
                     showToast('הכנסה נמחקה בהצלחה', 'success');
-                    // Reload incomes by updating filters to trigger useEffect
-                    setActualFilters({ ...actualFilters });
+                    // Refresh incomes data
+                    await refreshIncomes();
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה', 'error');
                   }
@@ -519,8 +511,8 @@ export default function Incomes() {
                   try {
                     await expectedIncomesAPI.delete(id);
                     showToast('הכנסה צפויה נמחקה בהצלחה', 'success');
-                    // Reload expected incomes by updating year to trigger useEffect
-                    setSelectedYear(selectedYear);
+                    // Refresh expected incomes data
+                    await refreshExpectedIncomes();
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה צפויה', 'error');
                   }
@@ -596,8 +588,8 @@ export default function Incomes() {
                   try {
                     await expectedIncomesAPI.delete(id);
                     showToast('הכנסה צפויה נמחקה בהצלחה', 'success');
-                    // Reload monthly expected incomes by updating planning month to trigger useEffect
-                    setPlanningMonth({ ...planningMonth });
+                    // Refresh monthly expected incomes data
+                    await refreshMonthlyExpectedIncomes();
                   } catch (error: any) {
                     showToast(error.response?.data?.error || 'שגיאה במחיקת הכנסה צפויה', 'error');
                   }
@@ -795,10 +787,13 @@ export default function Incomes() {
                 await incomesAPI.create(apiData);
                 showToast('הכנסה נוצרה בהצלחה', 'success');
               }
+              
+              // Refresh incomes data
+              await refreshIncomes();
+              
+              // Close modal and reset state
               setShowIncomeModal(false);
               setEditingIncome(null);
-              // Reload incomes by updating filters to trigger useEffect
-              setActualFilters({ ...actualFilters });
             } catch (error: any) {
               showToast(error.response?.data?.error || 'שגיאה בשמירת הכנסה', 'error');
               throw error;
@@ -851,14 +846,17 @@ export default function Incomes() {
                 }
                 showToast('הכנסה צפויה נוצרה בהצלחה', 'success');
               }
+              
+              // Refresh expected incomes data
+              if (expectedIncomeMode === 'annual') {
+                await refreshExpectedIncomes();
+              } else {
+                await refreshMonthlyExpectedIncomes();
+              }
+              
+              // Close modal and reset state
               setShowExpectedIncomeModal(false);
               setEditingExpectedIncome(null);
-              // Reload expected incomes by updating year/month to trigger useEffect
-              if (expectedIncomeMode === 'annual') {
-                setSelectedYear(selectedYear);
-              } else {
-                setPlanningMonth({ ...planningMonth });
-              }
             } catch (error: any) {
               showToast(error.response?.data?.error || 'שגיאה בשמירת הכנסה צפויה', 'error');
               throw error;

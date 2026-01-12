@@ -163,12 +163,17 @@ export default function ExpectedIncomeFormModal({
     }
   };
 
-  const handleCategoryToggle = (categoryId: number) => {
+  const handleCategorySelect = (categoryId: number) => {
     setFormData(prev => ({
       ...prev,
-      categoryIds: prev.categoryIds.includes(categoryId)
-        ? prev.categoryIds.filter(id => id !== categoryId)
-        : [...prev.categoryIds, categoryId],
+      categoryIds: [categoryId], // Only allow one category
+    }));
+  };
+
+  const handleCategoryClear = () => {
+    setFormData(prev => ({
+      ...prev,
+      categoryIds: [],
     }));
   };
 
@@ -374,8 +379,25 @@ export default function ExpectedIncomeFormModal({
         {/* Categories */}
         {categories.length > 0 && (
           <div style={styles.formGroup}>
-            <label style={styles.label}>קטגוריות</label>
+            <label style={styles.label}>קטגוריה</label>
             <div style={styles.categoriesGrid}>
+              <label
+                style={{
+                  ...styles.categoryOption,
+                  ...(formData.categoryIds.length === 0 ? styles.categoryOptionSelected : {}),
+                }}
+              >
+                <input
+                  type="radio"
+                  name="category"
+                  checked={formData.categoryIds.length === 0}
+                  onChange={handleCategoryClear}
+                  style={styles.categoryRadio}
+                />
+                <span style={styles.noCategoryBadge}>
+                  ללא קטגוריה
+                </span>
+              </label>
               {categories.map((category) => (
                 <label
                   key={category.id}
@@ -385,10 +407,11 @@ export default function ExpectedIncomeFormModal({
                   }}
                 >
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name="category"
                     checked={formData.categoryIds.includes(category.id)}
-                    onChange={() => handleCategoryToggle(category.id)}
-                    style={styles.categoryCheckbox}
+                    onChange={() => handleCategorySelect(category.id)}
+                    style={styles.categoryRadio}
                   />
                   <span
                     style={{
@@ -431,9 +454,9 @@ export default function ExpectedIncomeFormModal({
 // Helper function to determine text color based on background
 function getContrastColor(hexColor: string): string {
   const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.5 ? '#000000' : '#ffffff';
 }
@@ -521,10 +544,22 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: '#667eea',
     background: '#f7fafc',
   },
-  categoryCheckbox: {
+  categoryRadio: {
     width: '18px',
     height: '18px',
     cursor: 'pointer',
+  },
+  noCategoryBadge: {
+    padding: '4px 10px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
+    flex: 1,
+    textAlign: 'center',
+    backgroundColor: '#f7fafc',
+    color: '#4a5568',
+    border: '1px solid #e2e8f0',
   },
   categoryBadge: {
     padding: '4px 10px',
