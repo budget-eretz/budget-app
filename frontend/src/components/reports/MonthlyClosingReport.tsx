@@ -86,6 +86,31 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
     }).format(amount);
   };
 
+  // Custom detail loading function for income categories
+  const loadIncomeDetails = async (categoryId: number, year: number, month: number) => {
+    try {
+      const response = await reportsAPI.getCategoryIncomeDetails(categoryId, year, month);
+      return response.data.incomes;
+    } catch (error) {
+      console.error('Failed to load category income details:', error);
+      return [];
+    }
+  };
+
+  // Custom detail value mapping for income details
+  const getIncomeDetailValue = (column: CollapsibleTableColumn, income: any) => {
+    switch (column.key) {
+      case 'categoryName':
+        return income.description || income.source || '—';
+      case 'amount':
+        return formatCurrency(income.amount || 0);
+      case 'count':
+        return '1'; // Each income entry is one item
+      default:
+        return income[column.key] || '—';
+    }
+  };
+
   // Prepare chart data
   const prepareIncomeChartData = (): { barData: BarChartData; pieData: PieChartData } => {
     if (!reportData || reportData.income.byCategory.length === 0) {
@@ -166,7 +191,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
   };
 
   // Prepare table data
-  const incomeTableColumns: TableColumn[] = [
+  const incomeTableColumns: CollapsibleTableColumn[] = [
     { key: 'categoryName', title: 'קטגוריה', width: '40%', sortable: true },
     { key: 'amount', title: 'סכום', width: '30%', sortable: true, align: 'right' },
     { key: 'count', title: 'מספר פריטים', width: '30%', sortable: true, align: 'center' },
@@ -248,7 +273,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
           <h3 style={styles.sectionTitle}>הכנסות לפי קטגוריות</h3>
           {reportData.income.byCategory.length > 0 ? (
             <div style={styles.tableContainer}>
-              <SummaryTable
+              <CollapsibleSummaryTable
                 data={reportData.income.byCategory}
                 columns={incomeTableColumns}
                 showFooter={true}
@@ -259,6 +284,11 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
                 }}
                 striped={true}
                 bordered={true}
+                expandableRowKey="categoryId"
+                year={year}
+                month={month}
+                onLoadDetails={loadIncomeDetails}
+                getDetailValue={getIncomeDetailValue}
               />
             </div>
           ) : (

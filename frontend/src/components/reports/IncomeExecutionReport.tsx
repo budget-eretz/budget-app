@@ -229,9 +229,31 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
 
   // Custom detail loading function for income categories
   const loadCategoryDetails = async (categoryId: number, year: number, month: number) => {
-    // For income categories, we could show individual income entries
-    // For now, return empty array as this would require a new API endpoint
-    return [];
+    try {
+      const response = await reportsAPI.getCategoryIncomeDetails(categoryId, year, month);
+      return response.data.incomes;
+    } catch (error) {
+      console.error('Failed to load category income details:', error);
+      return [];
+    }
+  };
+
+  // Custom detail value mapping for income details
+  const getIncomeDetailValue = (column: CollapsibleTableColumn, income: any) => {
+    switch (column.key) {
+      case 'categoryName':
+        return income.description || income.source || '—';
+      case 'expectedAmount':
+        return formatCurrency(income.amount || 0);
+      case 'actualAmount':
+        return formatCurrency(income.amount || 0);
+      case 'difference':
+        return '—';
+      case 'fulfillmentPercentage':
+        return '—';
+      default:
+        return income[column.key] || '—';
+    }
   };
 
   if (error) {
@@ -320,6 +342,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
                     year={year}
                     month={month}
                     onLoadDetails={loadCategoryDetails}
+                    getDetailValue={getIncomeDetailValue}
                   />
                 </div>
                 
@@ -424,6 +447,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
                     year={year}
                     month={1}
                     onLoadDetails={loadCategoryDetails}
+                    getDetailValue={getIncomeDetailValue}
                   />
                 </div>
                 

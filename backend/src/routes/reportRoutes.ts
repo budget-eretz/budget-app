@@ -35,4 +35,7 @@ router.get('/validate/data-sources/:year/:month', requireTreasurer, reportContro
 // Budget fund details endpoint for collapsible rows
 router.get('/budget-fund-details/:budgetId/:year/:month', requireTreasurer, reportController.getBudgetFundDetails);
 
+// Category income details endpoint for collapsible rows
+router.get('/category-income-details/:categoryId/:year/:month', requireTreasurer, reportController.getCategoryIncomeDetails);
+
 export default router;

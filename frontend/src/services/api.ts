@@ -249,6 +249,10 @@ export const reportsAPI = {
   // Budget fund details for collapsible rows
   getBudgetFundDetails: (budgetId: number, year: number, month: number) =>
     api.get(`/reports/budget-fund-details/${budgetId}/${year}/${month}`),
+    
+  // Category income details for collapsible rows
+  getCategoryIncomeDetails: (categoryId: number, year: number, month: number) =>
+    api.get(`/reports/category-income-details/${categoryId}/${year}/${month}`),
 };
 
 // Users API

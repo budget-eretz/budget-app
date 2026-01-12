@@ -910,3 +910,43 @@ export async function getBudgetFundDetails(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to get budget fund details' });
   }
 }
+
+// Get income details for a category in reports
+// Used for collapsible category rows
+export async function getCategoryIncomeDetails(req: Request, res: Response) {
+  try {
+    const { categoryId, year, month } = req.params;
+    const user = req.user!;
+
+    // Validate parameters
+    const categoryIdNum = parseInt(categoryId);
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+    
+    if (isNaN(categoryIdNum) || isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({ error: 'Invalid category ID, year, or month parameter' });
+    }
+
+    const reportService = new ReportService();
+    
+    // Create access control from user
+    const accessControl = await reportService.createAccessControl({
+      id: user.userId,
+      is_circle_treasurer: user.isCircleTreasurer,
+      is_group_treasurer: user.isGroupTreasurer
+    });
+
+    // Get income details for the category
+    const incomeDetails = await reportService.getCategoryIncomeDetails(categoryIdNum, yearNum, monthNum, accessControl);
+
+    res.json({ incomes: incomeDetails });
+  } catch (error) {
+    console.error('Get category income details error:', error);
+    
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return res.status(403).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Failed to get category income details' });
+  }
+}

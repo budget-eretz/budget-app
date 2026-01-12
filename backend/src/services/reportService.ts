@@ -578,9 +578,53 @@ export class ReportService {
   }
 
   /**
-   * Calculate annual budget execution report data
-   * Requirements: 2.1, 2.2, 2.3, 2.4
+   * Get detailed income entries for a specific category and month
+   * Used for collapsible category rows in income reports
    */
+  async getCategoryIncomeDetails(
+    categoryId: number,
+    year: number,
+    month: number,
+    accessControl: AccessControl
+  ): Promise<any[]> {
+    // Validate access
+    if (!this.validateReportAccess(accessControl)) {
+      throw new Error('Access denied: Treasurer role required');
+    }
+
+    // Get income entries for the category and month
+    let incomeQuery = `
+      SELECT 
+        i.id,
+        i.amount,
+        i.description,
+        i.income_date,
+        i.source,
+        u.full_name as user_name,
+        b.name as budget_name
+      FROM incomes i
+      LEFT JOIN users u ON i.user_id = u.id
+      LEFT JOIN budgets b ON i.budget_id = b.id
+      LEFT JOIN income_category_assignments ica ON i.id = ica.income_id
+      WHERE ica.category_id = $1
+        AND EXTRACT(YEAR FROM i.income_date) = $2
+        AND EXTRACT(MONTH FROM i.income_date) = $3
+      ORDER BY i.income_date DESC, i.id DESC
+    `;
+
+    const incomeParams = [categoryId, year, month];
+    const incomeResult = await pool.query(incomeQuery, incomeParams);
+
+    return incomeResult.rows.map(row => ({
+      id: row.id,
+      amount: parseFloat(row.amount),
+      description: row.description,
+      incomeDate: row.income_date,
+      source: row.source,
+      userName: row.user_name,
+      budgetName: row.budget_name
+    }));
+  }
   async calculateAnnualBudgetExecution(
     year: number,
     accessControl: AccessControl
