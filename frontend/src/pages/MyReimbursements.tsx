@@ -105,6 +105,10 @@ export default function MyReimbursements() {
   };
 
   const formatCurrency = (amount: number) => {
+    // Add safety check for NaN values
+    if (isNaN(amount) || amount === null || amount === undefined) {
+      return '₪0.00';
+    }
     return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
   };
 
@@ -207,6 +211,20 @@ export default function MyReimbursements() {
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
+
+  // Calculate filtered total
+  const filteredTotal = filteredReimbursements.reduce((sum, reimb) => {
+    // Handle both string and number types from API
+    const amount = typeof reimb.amount === 'string' ? parseFloat(reimb.amount) : reimb.amount;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+
+  // Calculate charges total (charges don't have filters yet, but we can add them later)
+  const chargesTotal = charges.reduce((sum, charge) => {
+    // Handle both string and number types from API
+    const amount = typeof charge.amount === 'string' ? parseFloat(charge.amount) : charge.amount;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
 
   // Get unique months for filter dropdown
   const availableMonths = Array.from(
@@ -351,6 +369,32 @@ export default function MyReimbursements() {
             </div>
           </div>
 
+          {/* Filter Summary */}
+          {filteredReimbursements.length > 0 && !isNaN(filteredTotal) && (
+            <div style={styles.filterSummary}>
+              <span style={styles.filterSummaryText}>
+                {(() => {
+                  const statusText = statusFilter !== 'all' ? getStatusText(statusFilter) : null;
+                  const monthText = monthFilter !== 'all' ? availableMonths.find(m => m.key === monthFilter)?.label : null;
+                  
+                  let message = `מציג ${filteredReimbursements.length} בקשות החזר`;
+                  
+                  if (statusText && monthText) {
+                    message += ` בסטטוס "${statusText}" עבור ${monthText}`;
+                  } else if (statusText) {
+                    message += ` בסטטוס "${statusText}"`;
+                  } else if (monthText) {
+                    message += ` עבור ${monthText}`;
+                  }
+                  
+                  message += ` בסך ${formatCurrency(filteredTotal)}`;
+                  
+                  return message;
+                })()}
+              </span>
+            </div>
+          )}
+
           {/* Reimbursements Table */}
           {filteredReimbursements.length === 0 ? (
             <div style={styles.emptyState}>
@@ -440,6 +484,25 @@ export default function MyReimbursements() {
                       </td>
                     </tr>
                   ))}
+                  {/* Summary Row */}
+                  {filteredReimbursements.length > 0 && !isNaN(filteredTotal) && (
+                    <tr style={styles.summaryRow}>
+                      <td style={styles.summaryCell}>
+                        <strong>סה"כ</strong>
+                      </td>
+                      <td style={styles.summaryCell}>
+                        <strong>{filteredReimbursements.length} פריטים</strong>
+                      </td>
+                      <td style={{ ...styles.summaryCell, ...styles.summaryAmountCell }}>
+                        <strong>{formatCurrency(filteredTotal)}</strong>
+                      </td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -450,6 +513,16 @@ export default function MyReimbursements() {
         {charges.length > 0 && (
           <section style={styles.section}>
             <h2 style={styles.sectionTitle}>חיובים ({charges.length})</h2>
+            
+            {/* Charges Summary */}
+            {charges.length > 0 && !isNaN(chargesTotal) && (
+              <div style={styles.filterSummary}>
+                <span style={styles.filterSummaryText}>
+                  מציג {charges.length} חיובים בסך {formatCurrency(chargesTotal)}
+                </span>
+              </div>
+            )}
+            
             <div style={styles.tableContainer}>
               <table style={styles.table}>
                 <thead>
@@ -497,6 +570,24 @@ export default function MyReimbursements() {
                       </td>
                     </tr>
                   ))}
+                  {/* Summary Row */}
+                  {charges.length > 0 && !isNaN(chargesTotal) && (
+                    <tr style={styles.summaryRow}>
+                      <td style={styles.summaryCell}>
+                        <strong>סה"כ</strong>
+                      </td>
+                      <td style={styles.summaryCell}>
+                        <strong>{charges.length} פריטים</strong>
+                      </td>
+                      <td style={{ ...styles.summaryCell, ...styles.chargeSummaryAmountCell }}>
+                        <strong>-{formatCurrency(chargesTotal)}</strong>
+                      </td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                      <td style={styles.summaryCell}></td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -779,5 +870,39 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '8px',
     fontSize: '14px',
+  },
+  summaryRow: {
+    borderTop: '2px solid #667eea',
+    background: '#f8faff',
+  },
+  summaryCell: {
+    padding: '16px 12px',
+    textAlign: 'right',
+    color: '#2d3748',
+    fontSize: '14px',
+  },
+  summaryAmountCell: {
+    fontWeight: '600',
+    color: '#667eea',
+    whiteSpace: 'nowrap',
+    fontSize: '16px',
+  },
+  chargeSummaryAmountCell: {
+    fontWeight: '600',
+    color: '#e53e3e',
+    whiteSpace: 'nowrap',
+    fontSize: '16px',
+  },
+  filterSummary: {
+    background: '#e6f3ff',
+    padding: '12px 16px',
+    borderRadius: '6px',
+    marginBottom: '16px',
+    border: '1px solid #b3d9ff',
+  },
+  filterSummaryText: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#2c5aa0',
   },
 };
