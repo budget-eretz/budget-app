@@ -181,30 +181,8 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
     },
   ];
 
-  const monthlyIncomeColumns: TableColumn[] = [
-    { key: 'monthName', title: 'חודש', width: '40%', sortable: true },
-    { key: 'amount', title: 'סכום', width: '30%', sortable: true, align: 'right' },
-    { key: 'count', title: 'מספר פריטים', width: '30%', sortable: true, align: 'center' },
-  ];
-
-  const monthlyExpenseColumns: TableColumn[] = [
-    { key: 'monthName', title: 'חודש', width: '40%', sortable: true },
-    { key: 'amount', title: 'סכום', width: '30%', sortable: true, align: 'right' },
-    { key: 'count', title: 'מספר פריטים', width: '30%', sortable: true, align: 'center' },
-  ];
-
   // Prepare table data with month names
   const monthlyTrendsData = reportData?.monthlyBalance.map(data => ({
-    ...data,
-    monthName: HEBREW_MONTHS[data.month - 1]
-  })) || [];
-
-  const monthlyIncomeData = reportData?.monthlyIncome.map(data => ({
-    ...data,
-    monthName: HEBREW_MONTHS[data.month - 1]
-  })) || [];
-
-  const monthlyExpenseData = reportData?.monthlyExpenses.map(data => ({
     ...data,
     monthName: HEBREW_MONTHS[data.month - 1]
   })) || [];
@@ -262,6 +240,23 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>מגמות חודשיות</h3>
           <div style={styles.chartsAndTableContainer}>
+            {/* Table */}
+            <div style={styles.tableContainer}>
+              <SummaryTable
+                data={monthlyTrendsData}
+                columns={monthlyTrendsColumns}
+                showFooter={true}
+                footerData={{
+                  monthName: 'סה"כ',
+                  income: reportData?.yearlyTotals.income || 0,
+                  expenses: reportData?.yearlyTotals.expenses || 0,
+                  balance: reportData?.yearlyTotals.balance || 0
+                }}
+                striped={true}
+                bordered={true}
+              />
+            </div>
+            
             {/* Charts Row */}
             <div style={styles.chartsRow}>
               <div style={styles.chartContainer}>
@@ -283,58 +278,7 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
                 />
               </div>
             </div>
-            
-            {/* Table */}
-            <div style={styles.tableContainer}>
-              <SummaryTable
-                data={monthlyTrendsData}
-                columns={monthlyTrendsColumns}
-                showFooter={true}
-                footerData={{
-                  monthName: 'סה"כ',
-                  income: reportData?.yearlyTotals.income || 0,
-                  expenses: reportData?.yearlyTotals.expenses || 0,
-                  balance: reportData?.yearlyTotals.balance || 0
-                }}
-                striped={true}
-                bordered={true}
-              />
-            </div>
           </div>
-        </div>
-
-        {/* Monthly Income Details */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>פירוט הכנסות חודשי</h3>
-          {reportData.monthlyIncome.length > 0 ? (
-            <div style={styles.tableContainer}>
-              <SummaryTable
-                data={monthlyIncomeData}
-                columns={monthlyIncomeColumns}
-                striped={true}
-                bordered={true}
-              />
-            </div>
-          ) : (
-            <p style={styles.noData}>אין נתוני הכנסות לשנה זו</p>
-          )}
-        </div>
-
-        {/* Monthly Expenses Details */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>פירוט הוצאות חודשי</h3>
-          {reportData.monthlyExpenses.length > 0 ? (
-            <div style={styles.tableContainer}>
-              <SummaryTable
-                data={monthlyExpenseData}
-                columns={monthlyExpenseColumns}
-                striped={true}
-                bordered={true}
-              />
-            </div>
-          ) : (
-            <p style={styles.noData}>אין נתוני הוצאות לשנה זו</p>
-          )}
         </div>
       </div>
     </div>

@@ -243,12 +243,65 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
       </div>
 
       <div style={styles.sectionsContainer}>
-        {/* Income Section */}
+        {/* Income Section - Table Only */}
         <div style={styles.section}>
           <h3 style={styles.sectionTitle}>הכנסות לפי קטגוריות</h3>
           {reportData.income.byCategory.length > 0 ? (
-            <div style={styles.chartsAndTableContainer}>
-              {/* Charts Row */}
+            <div style={styles.tableContainer}>
+              <SummaryTable
+                data={reportData.income.byCategory}
+                columns={incomeTableColumns}
+                showFooter={true}
+                footerData={{
+                  categoryName: 'סה"כ',
+                  amount: reportData.income.total,
+                  count: reportData.income.byCategory.reduce((sum, cat) => sum + cat.count, 0)
+                }}
+                striped={true}
+                bordered={true}
+              />
+            </div>
+          ) : (
+            <p style={styles.noData}>אין הכנסות לחודש זה</p>
+          )}
+        </div>
+
+        {/* Expenses Section - Table Only */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>הוצאות לפי תקציבים</h3>
+          {reportData.expenses.byBudget.length > 0 ? (
+            <div style={styles.tableContainer}>
+              <CollapsibleSummaryTable
+                data={reportData.expenses.byBudget}
+                columns={expenseTableColumns}
+                showFooter={true}
+                footerData={{
+                  budgetName: 'סה"כ',
+                  budgetType: '',
+                  groupName: '',
+                  amount: reportData.expenses.total,
+                  count: reportData.expenses.byBudget.reduce((sum, budget) => sum + budget.count, 0)
+                }}
+                striped={true}
+                bordered={true}
+                expandableRowKey="budgetId"
+                year={year}
+                month={month}
+              />
+            </div>
+          ) : (
+            <p style={styles.noData}>אין הוצאות לחודש זה</p>
+          )}
+        </div>
+
+        {/* Charts Section - All Charts at Bottom */}
+        <div style={styles.chartsSection}>
+          <h3 style={styles.chartsSectionTitle}>גרפים וויזואליזציות</h3>
+          
+          {/* Income Charts */}
+          {reportData.income.byCategory.length > 0 && (
+            <div style={styles.chartSubsection}>
+              <h4 style={styles.chartSubsectionTitle}>הכנסות לפי קטגוריות</h4>
               <div style={styles.chartsRow}>
                 <div style={styles.chartContainer}>
                   <BarChart 
@@ -269,34 +322,13 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
                   />
                 </div>
               </div>
-              
-              {/* Table */}
-              <div style={styles.tableContainer}>
-                <SummaryTable
-                  data={reportData.income.byCategory}
-                  columns={incomeTableColumns}
-                  showFooter={true}
-                  footerData={{
-                    categoryName: 'סה"כ',
-                    amount: reportData.income.total,
-                    count: reportData.income.byCategory.reduce((sum, cat) => sum + cat.count, 0)
-                  }}
-                  striped={true}
-                  bordered={true}
-                />
-              </div>
             </div>
-          ) : (
-            <p style={styles.noData}>אין הכנסות לחודש זה</p>
           )}
-        </div>
 
-        {/* Expenses Section */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>הוצאות לפי תקציבים</h3>
-          {reportData.expenses.byBudget.length > 0 ? (
-            <div style={styles.chartsAndTableContainer}>
-              {/* Charts Row */}
+          {/* Expense Charts */}
+          {reportData.expenses.byBudget.length > 0 && (
+            <div style={styles.chartSubsection}>
+              <h4 style={styles.chartSubsectionTitle}>הוצאות לפי תקציבים</h4>
               <div style={styles.chartsRow}>
                 <div style={styles.chartContainer}>
                   <BarChart 
@@ -317,30 +349,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
                   />
                 </div>
               </div>
-              
-              {/* Table */}
-              <div style={styles.tableContainer}>
-                <CollapsibleSummaryTable
-                  data={reportData.expenses.byBudget}
-                  columns={expenseTableColumns}
-                  showFooter={true}
-                  footerData={{
-                    budgetName: 'סה"כ',
-                    budgetType: '',
-                    groupName: '',
-                    amount: reportData.expenses.total,
-                    count: reportData.expenses.byBudget.reduce((sum, budget) => sum + budget.count, 0)
-                  }}
-                  striped={true}
-                  bordered={true}
-                  expandableRowKey="budgetId"
-                  year={year}
-                  month={month}
-                />
-              </div>
             </div>
-          ) : (
-            <p style={styles.noData}>אין הוצאות לחודש זה</p>
           )}
         </div>
       </div>
@@ -426,6 +435,28 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '18px',
     fontWeight: 'bold',
     color: '#2d3748',
+    margin: '0 0 16px 0',
+  },
+  chartsSection: {
+    backgroundColor: '#f7fafc',
+    borderRadius: '8px',
+    padding: '20px',
+    marginTop: '16px',
+  },
+  chartsSectionTitle: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#2d3748',
+    margin: '0 0 24px 0',
+    textAlign: 'center',
+  },
+  chartSubsection: {
+    marginBottom: '32px',
+  },
+  chartSubsectionTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#4a5568',
     margin: '0 0 16px 0',
   },
   chartsAndTableContainer: {

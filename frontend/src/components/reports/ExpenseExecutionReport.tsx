@@ -274,6 +274,16 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
             <h3 style={styles.sectionTitle}>ביצוע תקציב חודשי - {HEBREW_MONTHS[month - 1]} {year}</h3>
             {currentMonthData.length > 0 ? (
               <div style={styles.chartsAndTableContainer}>
+                {/* Table */}
+                <div style={styles.tableContainer}>
+                  <SummaryTable
+                    data={currentMonthData}
+                    columns={budgetExecutionColumns}
+                    striped={true}
+                    bordered={true}
+                  />
+                </div>
+                
                 {/* Charts Row */}
                 <div style={styles.chartsRow}>
                   <div style={styles.chartContainer}>
@@ -319,16 +329,6 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
                     />
                   </div>
                 </div>
-                
-                {/* Table */}
-                <div style={styles.tableContainer}>
-                  <SummaryTable
-                    data={currentMonthData}
-                    columns={budgetExecutionColumns}
-                    striped={true}
-                    bordered={true}
-                  />
-                </div>
               </div>
             ) : (
               <p style={styles.noData}>אין נתוני הוצאות לחודש זה</p>
@@ -350,6 +350,26 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
             <h3 style={styles.sectionTitle}>ביצוע תקציב שנתי - {year}</h3>
             {reportData.annualTotals.byBudget.length > 0 ? (
               <div style={styles.chartsAndTableContainer}>
+                {/* Table */}
+                <div style={styles.tableContainer}>
+                  <SummaryTable
+                    data={reportData.annualTotals.byBudget}
+                    columns={budgetExecutionColumns}
+                    showFooter={true}
+                    footerData={{
+                      budgetName: 'סה"כ',
+                      budgetType: '',
+                      groupName: '',
+                      allocatedAmount: reportData.annualTotals.byBudget.reduce((sum, b) => sum + b.allocatedAmount, 0),
+                      spentAmount: reportData.annualTotals.total,
+                      remainingAmount: reportData.annualTotals.byBudget.reduce((sum, b) => sum + b.remainingAmount, 0),
+                      utilizationPercentage: 0
+                    }}
+                    striped={true}
+                    bordered={true}
+                  />
+                </div>
+                
                 {/* Charts Row */}
                 <div style={styles.chartsRow}>
                   <div style={styles.chartContainer}>
@@ -394,26 +414,6 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
                       legendPosition="bottom"
                     />
                   </div>
-                </div>
-                
-                {/* Table */}
-                <div style={styles.tableContainer}>
-                  <SummaryTable
-                    data={reportData.annualTotals.byBudget}
-                    columns={budgetExecutionColumns}
-                    showFooter={true}
-                    footerData={{
-                      budgetName: 'סה"כ',
-                      budgetType: '',
-                      groupName: '',
-                      allocatedAmount: reportData.annualTotals.byBudget.reduce((sum, b) => sum + b.allocatedAmount, 0),
-                      spentAmount: reportData.annualTotals.total,
-                      remainingAmount: reportData.annualTotals.byBudget.reduce((sum, b) => sum + b.remainingAmount, 0),
-                      utilizationPercentage: 0
-                    }}
-                    striped={true}
-                    bordered={true}
-                  />
                 </div>
               </div>
             ) : (

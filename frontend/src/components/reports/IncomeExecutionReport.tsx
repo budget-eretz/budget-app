@@ -302,6 +302,16 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
             <h3 style={styles.sectionTitle}>ניתוח הכנסות לפי קטגוריות - {HEBREW_MONTHS[month - 1]} {year}</h3>
             {currentMonthData.length > 0 ? (
               <div style={styles.chartsAndTableContainer}>
+                {/* Table */}
+                <div style={styles.tableContainer}>
+                  <SummaryTable
+                    data={currentMonthData}
+                    columns={incomeAnalysisColumns}
+                    striped={true}
+                    bordered={true}
+                  />
+                </div>
+                
                 {/* Charts Row */}
                 <div style={styles.chartsRow}>
                   <div style={styles.chartContainer}>
@@ -347,16 +357,6 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
                     />
                   </div>
                 </div>
-                
-                {/* Table */}
-                <div style={styles.tableContainer}>
-                  <SummaryTable
-                    data={currentMonthData}
-                    columns={incomeAnalysisColumns}
-                    striped={true}
-                    bordered={true}
-                  />
-                </div>
               </div>
             ) : (
               <p style={styles.noData}>אין נתוני הכנסות לחודש זה</p>
@@ -394,6 +394,24 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
             <h3 style={styles.sectionTitle}>ניתוח הכנסות שנתי לפי קטגוריות - {year}</h3>
             {reportData.annualTotals.byCategory.length > 0 ? (
               <div style={styles.chartsAndTableContainer}>
+                {/* Table */}
+                <div style={styles.tableContainer}>
+                  <SummaryTable
+                    data={reportData.annualTotals.byCategory}
+                    columns={incomeAnalysisColumns}
+                    showFooter={true}
+                    footerData={{
+                      categoryName: 'סה"כ',
+                      expectedAmount: reportData.annualTotals.byCategory.reduce((sum, cat) => sum + cat.expectedAmount, 0),
+                      actualAmount: reportData.annualTotals.total,
+                      difference: reportData.annualTotals.byCategory.reduce((sum, cat) => sum + cat.difference, 0),
+                      fulfillmentPercentage: 0
+                    }}
+                    striped={true}
+                    bordered={true}
+                  />
+                </div>
+                
                 {/* Charts Row */}
                 <div style={styles.chartsRow}>
                   <div style={styles.chartContainer}>
@@ -438,24 +456,6 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
                       legendPosition="bottom"
                     />
                   </div>
-                </div>
-                
-                {/* Table */}
-                <div style={styles.tableContainer}>
-                  <SummaryTable
-                    data={reportData.annualTotals.byCategory}
-                    columns={incomeAnalysisColumns}
-                    showFooter={true}
-                    footerData={{
-                      categoryName: 'סה"כ',
-                      expectedAmount: reportData.annualTotals.byCategory.reduce((sum, cat) => sum + cat.expectedAmount, 0),
-                      actualAmount: reportData.annualTotals.total,
-                      difference: reportData.annualTotals.byCategory.reduce((sum, cat) => sum + cat.difference, 0),
-                      fulfillmentPercentage: 0
-                    }}
-                    striped={true}
-                    bordered={true}
-                  />
                 </div>
               </div>
             ) : (
