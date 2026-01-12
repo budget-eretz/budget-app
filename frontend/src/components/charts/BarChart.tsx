@@ -11,6 +11,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { exportChart } from './utils';
+import { generateColorPalette, generateBorderColors } from '../../utils/chartColors';
 
 // Fix Chart.js types
 type ChartJSRef = ChartJS<'bar', number[], string>;
@@ -130,6 +131,24 @@ export default function BarChart({
   const handleExport = () => {
     exportChart(chartRef, { filename: exportFilename });
   };
+  
+  // Generate distinct colors for datasets
+  const backgroundColors = generateColorPalette(Math.max(data.datasets.length, data.labels.length));
+  const borderColors = generateBorderColors(backgroundColors);
+  
+  // Process data to ensure proper colors
+  const processedData = {
+    ...data,
+    datasets: data.datasets.map((dataset, index) => ({
+      ...dataset,
+      backgroundColor: dataset.backgroundColor || 
+        (data.datasets.length === 1 ? backgroundColors.slice(0, data.labels.length) : backgroundColors[index]),
+      borderColor: dataset.borderColor || 
+        (data.datasets.length === 1 ? borderColors.slice(0, data.labels.length) : borderColors[index]),
+      borderWidth: dataset.borderWidth ?? 2,
+    })),
+  };
+  
   const chartOptions: ChartOptions<'bar'> = {
     ...defaultOptions,
     ...options,
@@ -210,7 +229,7 @@ export default function BarChart({
         </div>
       )}
       <div style={{ height: `${height}px` }}>
-        <Bar ref={chartRef} data={data} options={chartOptions} />
+        <Bar ref={chartRef} data={processedData} options={chartOptions} />
       </div>
     </div>
   );

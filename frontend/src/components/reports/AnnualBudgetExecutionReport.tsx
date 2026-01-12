@@ -3,6 +3,7 @@ import { reportsAPI } from '../../services/api';
 import { AnnualBudgetExecutionData } from '../../types';
 import { LineChart, BarChart, SummaryTable } from '../charts';
 import type { LineChartData, BarChartData, TableColumn } from '../charts';
+import { generateColorPalette, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
 
@@ -87,6 +88,8 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
     const incomeData = reportData.monthlyBalance.map(data => data.income);
     const expenseData = reportData.monthlyBalance.map(data => data.expenses);
     const balanceData = reportData.monthlyBalance.map(data => data.balance);
+    
+    const comparisonColors = getBudgetComparisonColors();
 
     return {
       labels,
@@ -94,26 +97,29 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
         {
           label: 'הכנסות',
           data: incomeData,
-          borderColor: '#48bb78',
-          backgroundColor: '#48bb7820',
+          borderColor: comparisonColors.actual,
+          backgroundColor: comparisonColors.actual + '20',
           fill: false,
           tension: 0.4,
+          borderWidth: 3,
         },
         {
           label: 'הוצאות',
           data: expenseData,
-          borderColor: '#f56565',
-          backgroundColor: '#f5656520',
+          borderColor: '#F56565',
+          backgroundColor: '#F5656520',
           fill: false,
           tension: 0.4,
+          borderWidth: 3,
         },
         {
           label: 'יתרה',
           data: balanceData,
-          borderColor: '#4299e1',
-          backgroundColor: '#4299e120',
+          borderColor: comparisonColors.planned,
+          backgroundColor: comparisonColors.planned + '20',
           fill: false,
           tension: 0.4,
+          borderWidth: 3,
         },
       ],
     };
@@ -127,6 +133,8 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
     const labels = reportData.monthlyBalance.map(data => HEBREW_MONTHS[data.month - 1]);
     const incomeData = reportData.monthlyBalance.map(data => data.income);
     const expenseData = reportData.monthlyBalance.map(data => data.expenses);
+    
+    const comparisonColors = getBudgetComparisonColors();
 
     return {
       labels,
@@ -134,16 +142,16 @@ export default function AnnualBudgetExecutionReport({ year, isLoading, setIsLoad
         {
           label: 'הכנסות',
           data: incomeData,
-          backgroundColor: '#48bb7880',
-          borderColor: '#48bb78',
-          borderWidth: 1,
+          backgroundColor: comparisonColors.actual + '80',
+          borderColor: comparisonColors.actual,
+          borderWidth: 2,
         },
         {
           label: 'הוצאות',
           data: expenseData,
-          backgroundColor: '#f5656580',
-          borderColor: '#f56565',
-          borderWidth: 1,
+          backgroundColor: '#F56565' + '80',
+          borderColor: '#F56565',
+          borderWidth: 2,
         },
       ],
     };

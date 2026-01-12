@@ -245,6 +245,10 @@ export const reportsAPI = {
   exportIncomeExecutionReport: (year: number, month?: number) => 
     month ? api.get(`/reports/export/income-execution/${year}/${month}`, { responseType: 'blob' }) 
           : api.get(`/reports/export/income-execution/${year}`, { responseType: 'blob' }),
+          
+  // Budget fund details for collapsible rows
+  getBudgetFundDetails: (budgetId: number, year: number, month: number) =>
+    api.get(`/reports/budget-fund-details/${budgetId}/${year}/${month}`),
 };
 
 // Users API

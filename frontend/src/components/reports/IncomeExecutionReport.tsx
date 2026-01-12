@@ -3,6 +3,7 @@ import { reportsAPI } from '../../services/api';
 import { IncomeExecutionData } from '../../types';
 import { BarChart, PieChart, SummaryTable } from '../charts';
 import type { BarChartData, PieChartData, TableColumn } from '../charts';
+import { generateColorPalette, getIncomeColors, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
 
@@ -103,7 +104,15 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
     const labels = data.map(category => category.categoryName);
     const expectedAmounts = data.map(category => category.expectedAmount);
     const actualAmounts = data.map(category => category.actualAmount);
-    const colors = data.map(category => category.categoryColor || '#36A2EB');
+    
+    // Use category colors if available, otherwise generate distinct colors
+    const categoryColors = data.map(category => category.categoryColor);
+    const hasCustomColors = categoryColors.some(color => color && color !== '');
+    const colors = hasCustomColors ? 
+      categoryColors.map((color, index) => color || getIncomeColors(labels.length)[index]) :
+      getIncomeColors(labels.length);
+    
+    const comparisonColors = getBudgetComparisonColors();
 
     return {
       barData: {
@@ -112,16 +121,16 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
           {
             label: 'צפוי',
             data: expectedAmounts,
-            backgroundColor: colors.map(color => color + '40'),
-            borderColor: colors,
-            borderWidth: 1,
+            backgroundColor: comparisonColors.planned + '60',
+            borderColor: comparisonColors.planned,
+            borderWidth: 2,
           },
           {
             label: 'בפועל',
             data: actualAmounts,
-            backgroundColor: colors.map(color => color + '80'),
-            borderColor: colors,
-            borderWidth: 1,
+            backgroundColor: comparisonColors.actual + '80',
+            borderColor: comparisonColors.actual,
+            borderWidth: 2,
           }
         ]
       },
@@ -131,7 +140,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
           data: actualAmounts,
           backgroundColor: colors,
           borderColor: colors.map(color => color + 'CC'),
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       }
     };
@@ -153,7 +162,7 @@ export default function IncomeExecutionReport({ year, month, isLoading, setIsLoa
         data: fulfillmentData,
         backgroundColor: colors.map(color => color + '80'),
         borderColor: colors,
-        borderWidth: 1,
+        borderWidth: 2,
       }]
     };
   };

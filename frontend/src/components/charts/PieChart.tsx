@@ -8,6 +8,7 @@ import {
 } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
 import { exportChart } from './utils';
+import { generateColorPalette, generateBorderColors } from '../../utils/chartColors';
 
 // Fix Chart.js types
 type ChartJSRef = ChartJS<'pie', number[], string>;
@@ -37,57 +38,6 @@ export interface PieChartProps {
   exportFilename?: string;
 }
 
-const defaultColors = [
-  '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-  '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384',
-  '#36A2EB', '#FFCE56'
-];
-
-const defaultOptions: ChartOptions<'pie'> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'right' as const,
-      rtl: true,
-      labels: {
-        font: {
-          family: 'Arial, sans-serif',
-        },
-        padding: 20,
-        usePointStyle: true,
-        pointStyle: 'circle',
-      },
-    },
-    title: {
-      display: false,
-    },
-    tooltip: {
-      rtl: true,
-      titleFont: {
-        family: 'Arial, sans-serif',
-      },
-      bodyFont: {
-        family: 'Arial, sans-serif',
-      },
-      callbacks: {
-        label: function(context) {
-          const value = context.parsed;
-          const total = context.dataset.data.reduce((sum: number, val: number) => sum + val, 0);
-          const percentage = ((value / total) * 100).toFixed(1);
-          const formattedValue = new Intl.NumberFormat('he-IL', {
-            style: 'currency',
-            currency: 'ILS',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          }).format(value);
-          return `${context.label}: ${formattedValue} (${percentage}%)`;
-        },
-      },
-    },
-  },
-};
-
 export default function PieChart({ 
   data, 
   options = {}, 
@@ -104,15 +54,65 @@ export default function PieChart({
   const handleExport = () => {
     exportChart(chartRef, { filename: exportFilename });
   };
+  
+  // Generate distinct colors based on the number of data points
+  const backgroundColors = generateColorPalette(data.labels.length);
+  const borderColors = generateBorderColors(backgroundColors);
+  
   // Ensure colors are applied to datasets
   const processedData = {
     ...data,
     datasets: data.datasets.map(dataset => ({
       ...dataset,
-      backgroundColor: dataset.backgroundColor || defaultColors.slice(0, data.labels.length),
-      borderColor: dataset.borderColor || defaultColors.slice(0, data.labels.length).map(color => color + '80'),
-      borderWidth: dataset.borderWidth ?? 1,
+      backgroundColor: dataset.backgroundColor || backgroundColors,
+      borderColor: dataset.borderColor || borderColors,
+      borderWidth: dataset.borderWidth ?? 2,
     })),
+  };
+
+  const defaultOptions: ChartOptions<'pie'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right' as const,
+        rtl: true,
+        labels: {
+          font: {
+            family: 'Arial, sans-serif',
+          },
+          padding: 20,
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      title: {
+        display: false,
+      },
+      tooltip: {
+        rtl: true,
+        titleFont: {
+          family: 'Arial, sans-serif',
+        },
+        bodyFont: {
+          family: 'Arial, sans-serif',
+        },
+        callbacks: {
+          label: function(context) {
+            const value = context.parsed;
+            const total = context.dataset.data.reduce((sum: number, val: number) => sum + val, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            const formattedValue = new Intl.NumberFormat('he-IL', {
+              style: 'currency',
+              currency: 'ILS',
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            }).format(value);
+            return `${context.label}: ${formattedValue} (${percentage}%)`;
+          },
+        },
+      },
+    },
   };
 
   const chartOptions: ChartOptions<'pie'> = {
@@ -150,8 +150,8 @@ export default function PieChart({
                 
                 return {
                   text: `${label}: ${formattedValue} (${percentage}%)`,
-                  fillStyle: (dataset.backgroundColor as string[])?.[index] || defaultColors[index],
-                  strokeStyle: (dataset.borderColor as string[])?.[index] || defaultColors[index],
+                  fillStyle: (dataset.backgroundColor as string[])?.[index] || backgroundColors[index],
+                  strokeStyle: (dataset.borderColor as string[])?.[index] || borderColors[index],
                   lineWidth: 1,
                   hidden: false,
                   index: index,

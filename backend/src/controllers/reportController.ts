@@ -870,3 +870,43 @@ export async function validateDataSources(req: Request, res: Response) {
     res.status(500).json({ error: 'Failed to validate data sources' });
   }
 }
+
+// Get fund details for a budget in monthly closing report
+// Used for collapsible budget rows
+export async function getBudgetFundDetails(req: Request, res: Response) {
+  try {
+    const { budgetId, year, month } = req.params;
+    const user = req.user!;
+
+    // Validate parameters
+    const budgetIdNum = parseInt(budgetId);
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+    
+    if (isNaN(budgetIdNum) || isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({ error: 'Invalid budget ID, year, or month parameter' });
+    }
+
+    const reportService = new ReportService();
+    
+    // Create access control from user
+    const accessControl = await reportService.createAccessControl({
+      id: user.userId,
+      is_circle_treasurer: user.isCircleTreasurer,
+      is_group_treasurer: user.isGroupTreasurer
+    });
+
+    // Get fund details for the budget
+    const fundDetails = await reportService.getBudgetFundDetails(budgetIdNum, yearNum, monthNum, accessControl);
+
+    res.json({ funds: fundDetails });
+  } catch (error) {
+    console.error('Get budget fund details error:', error);
+    
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return res.status(403).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Failed to get budget fund details' });
+  }
+}

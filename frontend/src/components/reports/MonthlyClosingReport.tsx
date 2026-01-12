@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../../services/api';
 import { MonthlyClosingData } from '../../types';
-import { BarChart, PieChart, SummaryTable } from '../charts';
-import type { BarChartData, PieChartData, TableColumn } from '../charts';
+import { BarChart, PieChart, SummaryTable, CollapsibleSummaryTable } from '../charts';
+import type { BarChartData, PieChartData, TableColumn, CollapsibleTableColumn } from '../charts';
+import { generateColorPalette, getIncomeColors, getExpenseColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
 import { apiCallWithRetry } from '../../utils/networkUtils';
@@ -96,7 +97,13 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
 
     const labels = reportData.income.byCategory.map(cat => cat.categoryName);
     const amounts = reportData.income.byCategory.map(cat => cat.amount);
-    const colors = reportData.income.byCategory.map(cat => cat.categoryColor || '#36A2EB');
+    
+    // Use category colors if available, otherwise generate distinct colors
+    const categoryColors = reportData.income.byCategory.map(cat => cat.categoryColor);
+    const hasCustomColors = categoryColors.some(color => color && color !== '');
+    const colors = hasCustomColors ? 
+      categoryColors.map((color, index) => color || getIncomeColors(labels.length)[index]) :
+      getIncomeColors(labels.length);
 
     return {
       barData: {
@@ -106,7 +113,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
           data: amounts,
           backgroundColor: colors.map(color => color + '80'),
           borderColor: colors,
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       },
       pieData: {
@@ -115,7 +122,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
           data: amounts,
           backgroundColor: colors,
           borderColor: colors.map(color => color + 'CC'),
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       }
     };
@@ -131,9 +138,9 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
 
     const labels = reportData.expenses.byBudget.map(budget => budget.budgetName);
     const amounts = reportData.expenses.byBudget.map(budget => budget.amount);
-    const colors = reportData.expenses.byBudget.map(budget => 
-      budget.budgetType === 'circle' ? '#48bb78' : '#ed8936'
-    );
+    
+    // Generate distinct colors for each budget instead of just circle/group colors
+    const colors = getExpenseColors(labels.length);
 
     return {
       barData: {
@@ -143,7 +150,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
           data: amounts,
           backgroundColor: colors.map(color => color + '80'),
           borderColor: colors,
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       },
       pieData: {
@@ -152,7 +159,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
           data: amounts,
           backgroundColor: colors,
           borderColor: colors.map(color => color + 'CC'),
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       }
     };
@@ -165,7 +172,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
     { key: 'count', title: 'מספר פריטים', width: '30%', sortable: true, align: 'center' },
   ];
 
-  const expenseTableColumns: TableColumn[] = [
+  const expenseTableColumns: CollapsibleTableColumn[] = [
     { key: 'budgetName', title: 'תקציב', width: '25%', sortable: true },
     { 
       key: 'budgetType', 
@@ -313,7 +320,7 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
               
               {/* Table */}
               <div style={styles.tableContainer}>
-                <SummaryTable
+                <CollapsibleSummaryTable
                   data={reportData.expenses.byBudget}
                   columns={expenseTableColumns}
                   showFooter={true}
@@ -326,6 +333,9 @@ export default function MonthlyClosingReport({ year, month, isLoading, setIsLoad
                   }}
                   striped={true}
                   bordered={true}
+                  expandableRowKey="budgetId"
+                  year={year}
+                  month={month}
                 />
               </div>
             </div>

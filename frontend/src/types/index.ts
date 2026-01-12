@@ -510,6 +510,13 @@ export interface BudgetSummary {
   count: number;
 }
 
+export interface FundSummary {
+  fundId: number;
+  fundName: string;
+  amount: number;
+  count: number;
+}
+
 export interface BudgetExecutionSummary {
   budgetId: number;
   budgetName: string;

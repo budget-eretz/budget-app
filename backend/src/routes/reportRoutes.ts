@@ -32,4 +32,7 @@ router.post('/validate/consistency', requireTreasurer, reportController.validate
 router.get('/validate/data-sources/:year', requireTreasurer, reportController.validateDataSources);
 router.get('/validate/data-sources/:year/:month', requireTreasurer, reportController.validateDataSources);
 
+// Budget fund details endpoint for collapsible rows
+router.get('/budget-fund-details/:budgetId/:year/:month', requireTreasurer, reportController.getBudgetFundDetails);
+
 export default router;

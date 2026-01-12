@@ -81,6 +81,13 @@ export interface BudgetSummary {
   count: number;
 }
 
+export interface FundSummary {
+  fundId: number;
+  fundName: string;
+  amount: number;
+  count: number;
+}
+
 export interface BudgetExecutionSummary {
   budgetId: number;
   budgetName: string;
@@ -450,6 +457,103 @@ export class ReportService {
       },
       balance: totalIncome - totalExpenses
     };
+  }
+
+  /**
+   * Get fund-level expense details for a specific budget and month
+   * Used for collapsible budget rows in monthly closing report
+   */
+  async getBudgetFundDetails(
+    budgetId: number,
+    year: number,
+    month: number,
+    accessControl: AccessControl
+  ): Promise<FundSummary[]> {
+    // Validate access
+    if (!this.validateReportAccess(accessControl)) {
+      throw new Error('Access denied: Treasurer role required');
+    }
+
+    // Get fund-level expense details for the budget
+    let fundQuery = `
+      SELECT 
+        f.id as fund_id,
+        f.name as fund_name,
+        SUM(expenses.amount) as total_amount,
+        COUNT(expenses.amount) as expense_count
+      FROM funds f
+      LEFT JOIN (
+        -- Approved and paid reimbursements
+        SELECT r.fund_id, r.amount
+        FROM reimbursements r
+        WHERE r.status IN ('approved', 'paid')
+          AND EXTRACT(YEAR FROM r.expense_date) = $1
+          AND EXTRACT(MONTH FROM r.expense_date) = $2
+        
+        UNION ALL
+        
+        -- Direct expenses
+        SELECT de.fund_id, de.amount
+        FROM direct_expenses de
+        WHERE EXTRACT(YEAR FROM de.expense_date) = $1
+          AND EXTRACT(MONTH FROM de.expense_date) = $2
+      ) expenses ON f.id = expenses.fund_id
+      WHERE f.budget_id = $3
+    `;
+
+    const fundParams = [year, month, budgetId];
+
+    // Apply budget access control
+    const budgetFilter = this.getBudgetAccessFilter(accessControl);
+    if (budgetFilter.whereClause) {
+      // Add budget access control by joining with budgets table
+      fundQuery = `
+        SELECT 
+          f.id as fund_id,
+          f.name as fund_name,
+          SUM(expenses.amount) as total_amount,
+          COUNT(expenses.amount) as expense_count
+        FROM funds f
+        JOIN budgets b ON f.budget_id = b.id
+        LEFT JOIN (
+          -- Approved and paid reimbursements
+          SELECT r.fund_id, r.amount
+          FROM reimbursements r
+          WHERE r.status IN ('approved', 'paid')
+            AND EXTRACT(YEAR FROM r.expense_date) = $1
+            AND EXTRACT(MONTH FROM r.expense_date) = $2
+          
+          UNION ALL
+          
+          -- Direct expenses
+          SELECT de.fund_id, de.amount
+          FROM direct_expenses de
+          WHERE EXTRACT(YEAR FROM de.expense_date) = $1
+            AND EXTRACT(MONTH FROM de.expense_date) = $2
+        ) expenses ON f.id = expenses.fund_id
+        WHERE f.budget_id = $3
+      `;
+      
+      // Add access control filter
+      const accessFilter = budgetFilter.whereClause.replace('$PARAM', `${fundParams.length + 1}`);
+      fundQuery += ` AND ${accessFilter.replace('b.', 'b.')}`;
+      fundParams.push(...budgetFilter.params);
+    }
+
+    fundQuery += `
+      GROUP BY f.id, f.name
+      HAVING SUM(expenses.amount) > 0 OR COUNT(expenses.amount) > 0
+      ORDER BY f.name
+    `;
+
+    const fundResult = await pool.query(fundQuery, fundParams);
+
+    return fundResult.rows.map(row => ({
+      fundId: row.fund_id,
+      fundName: row.fund_name,
+      amount: parseFloat(row.total_amount) || 0,
+      count: parseInt(row.expense_count) || 0
+    }));
   }
 
   /**

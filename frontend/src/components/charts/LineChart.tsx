@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { exportChart } from './utils';
+import { generateColorPalette, getColorsWithAlpha } from '../../utils/chartColors';
 
 // Fix Chart.js types
 type ChartJSRef = ChartJS<'line', number[], string>;
@@ -148,15 +149,22 @@ export default function LineChart({
   const handleExport = () => {
     exportChart(chartRef, { filename: exportFilename });
   };
+  
+  // Generate distinct colors for datasets
+  const lineColors = generateColorPalette(data.datasets.length);
+  const backgroundColors = getColorsWithAlpha(lineColors, 0.1);
+  
   // Apply smooth curves to datasets if requested
   const processedData = {
     ...data,
-    datasets: data.datasets.map(dataset => ({
+    datasets: data.datasets.map((dataset, index) => ({
       ...dataset,
       tension: smooth ? (dataset.tension ?? 0.4) : 0,
       pointRadius: dataset.pointRadius ?? 4,
       pointHoverRadius: dataset.pointHoverRadius ?? 6,
-      borderWidth: dataset.borderWidth ?? 2,
+      borderWidth: dataset.borderWidth ?? 3,
+      borderColor: dataset.borderColor || lineColors[index],
+      backgroundColor: dataset.backgroundColor || backgroundColors[index],
     })),
   };
 

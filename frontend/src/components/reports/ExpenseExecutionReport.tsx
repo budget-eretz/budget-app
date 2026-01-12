@@ -3,6 +3,7 @@ import { reportsAPI } from '../../services/api';
 import { ExpenseExecutionData } from '../../types';
 import { BarChart, PieChart, SummaryTable } from '../charts';
 import type { BarChartData, PieChartData, TableColumn } from '../charts';
+import { generateColorPalette, getExpenseColors, getBudgetComparisonColors } from '../../utils/chartColors';
 import ReportErrorDisplay from '../ReportErrorDisplay';
 import { parseError, ReportError } from '../../utils/errorHandling';
 
@@ -96,9 +97,10 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
     const labels = data.map(budget => budget.budgetName);
     const allocatedAmounts = data.map(budget => budget.allocatedAmount);
     const spentAmounts = data.map(budget => budget.spentAmount);
-    const colors = data.map(budget => 
-      budget.budgetType === 'circle' ? '#48bb78' : '#ed8936'
-    );
+    
+    // Generate distinct colors for each budget
+    const colors = getExpenseColors(labels.length);
+    const comparisonColors = getBudgetComparisonColors();
 
     return {
       barData: {
@@ -107,16 +109,16 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
           {
             label: 'הוקצה',
             data: allocatedAmounts,
-            backgroundColor: colors.map(color => color + '40'),
-            borderColor: colors,
-            borderWidth: 1,
+            backgroundColor: comparisonColors.planned + '60',
+            borderColor: comparisonColors.planned,
+            borderWidth: 2,
           },
           {
             label: 'הוצא',
             data: spentAmounts,
-            backgroundColor: colors.map(color => color + '80'),
-            borderColor: colors,
-            borderWidth: 1,
+            backgroundColor: comparisonColors.actual + '80',
+            borderColor: comparisonColors.actual,
+            borderWidth: 2,
           }
         ]
       },
@@ -126,7 +128,7 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
           data: spentAmounts,
           backgroundColor: colors,
           borderColor: colors.map(color => color + 'CC'),
-          borderWidth: 1,
+          borderWidth: 2,
         }]
       }
     };
@@ -139,9 +141,12 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
 
     const labels = data.map(budget => budget.budgetName);
     const utilizationData = data.map(budget => budget.utilizationPercentage);
+    
+    // Use color coding based on utilization percentage
     const colors = utilizationData.map(percentage => 
-      percentage > 90 ? '#e53e3e' : 
-      percentage > 70 ? '#d69e2e' : '#38a169'
+      percentage > 90 ? '#F56565' : // Red for high utilization
+      percentage > 70 ? '#ED8936' : // Orange for medium utilization
+      '#48BB78' // Green for low utilization
     );
 
     return {
@@ -151,7 +156,7 @@ export default function ExpenseExecutionReport({ year, month, isLoading, setIsLo
         data: utilizationData,
         backgroundColor: colors.map(color => color + '80'),
         borderColor: colors,
-        borderWidth: 1,
+        borderWidth: 2,
       }]
     };
   };
