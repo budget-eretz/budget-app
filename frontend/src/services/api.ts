@@ -336,6 +336,7 @@ export const monthlyAllocationsAPI = {
 
 // Direct Expenses API
 export const directExpensesAPI = {
+  getAll: () => api.get('/direct-expenses'),
   getById: (id: number) => api.get(`/direct-expenses/${id}`),
   create: (data: { fundId: number; amount: number; description: string; expenseDate: string; payee: string; receiptUrl?: string }) =>
     api.post('/direct-expenses', data),

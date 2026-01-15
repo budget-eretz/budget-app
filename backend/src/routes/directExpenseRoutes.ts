@@ -5,12 +5,16 @@ import {
   updateDirectExpense,
   deleteDirectExpense,
   getDirectExpenseById,
+  getAllDirectExpenses,
 } from '../controllers/directExpenseController';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+// Get all direct expenses
+router.get('/', getAllDirectExpenses);
 
 // Create direct expense
 router.post('/', createDirectExpense);

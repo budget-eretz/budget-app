@@ -174,6 +174,58 @@ export const deleteDirectExpense = async (req: Request, res: Response) => {
   }
 };
 
+// Get all direct expenses (with access control)
+export const getAllDirectExpenses = async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const isCircleTreasurer = req.user!.isCircleTreasurer;
+  const isGroupTreasurer = req.user!.isGroupTreasurer;
+  const groupIds = req.user!.groupIds;
+
+  try {
+    let query = `
+      SELECT de.*, 
+             f.name as fund_name, 
+             f.budget_id,
+             b.name as budget_name,
+             CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
+             b.group_id,
+             u.full_name as created_by_name
+      FROM direct_expenses de
+      JOIN funds f ON de.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      JOIN users u ON de.created_by = u.id
+    `;
+
+    const conditions = [];
+    const values = [];
+
+    // Apply access control
+    if (!isCircleTreasurer) {
+      if (isGroupTreasurer && groupIds.length > 0) {
+        // Group treasurers see only their group expenses
+        conditions.push(`b.group_id = ANY($${values.length + 1})`);
+        values.push(groupIds);
+      } else {
+        // Regular members see no direct expenses
+        return res.json([]);
+      }
+    }
+    // Circle treasurers see all expenses (no filter needed)
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY de.expense_date DESC, de.created_at DESC';
+
+    const result = await pool.query(query, values);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching direct expenses:', error);
+    res.status(500).json({ error: 'Failed to fetch direct expenses' });
+  }
+};
+
 // Get direct expense by ID
 export const getDirectExpenseById = async (req: Request, res: Response) => {
   const { id } = req.params;

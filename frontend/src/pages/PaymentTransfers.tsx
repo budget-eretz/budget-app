@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats, RecurringTransfer } from '../types';
+import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats, RecurringTransfer, DirectExpense } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -7,11 +7,13 @@ import PaymentTransferTable from '../components/PaymentTransferTable';
 import PaymentTransferDetailsModal from '../components/PaymentTransferDetailsModal';
 import RecurringTransferFormModal from '../components/RecurringTransferFormModal';
 import RecurringTransferTable from '../components/RecurringTransferTable';
+import DirectExpenseFormModal from '../components/DirectExpenseFormModal';
+import DirectExpenseTable from '../components/DirectExpenseTable';
 import Modal from '../components/Modal';
-import api, { recurringTransfersAPI } from '../services/api';
+import api, { recurringTransfersAPI, directExpensesAPI } from '../services/api';
 
 export default function PaymentTransfers() {
-  const [activeTab, setActiveTab] = useState<'pending' | 'executed' | 'recurring'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'executed' | 'recurring' | 'direct'>('pending');
   const [pendingTransfers, setPendingTransfers] = useState<PaymentTransfer[]>([]);
   const [executedTransfers, setExecutedTransfers] = useState<PaymentTransfer[]>([]);
   const [stats, setStats] = useState<PaymentTransferStats | null>(null);
@@ -28,6 +30,11 @@ export default function PaymentTransfers() {
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransfer | undefined>(undefined);
   const [savingRecurring, setSavingRecurring] = useState(false);
 
+  // Direct expense state
+  const [showDirectExpenseForm, setShowDirectExpenseForm] = useState(false);
+  const [directExpenses, setDirectExpenses] = useState<DirectExpense[]>([]);
+  const [editingDirectExpense, setEditingDirectExpense] = useState<DirectExpense | undefined>(undefined);
+
   // Filters
   const [recipientFilter, setRecipientFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -42,11 +49,12 @@ export default function PaymentTransfers() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load transfers, stats, and recurring transfers
-      const [transfersResponse, statsResponse, recurringResponse] = await Promise.all([
+      // Load transfers, stats, recurring transfers, and direct expenses
+      const [transfersResponse, statsResponse, recurringResponse, directExpensesResponse] = await Promise.all([
         api.get('/payment-transfers'),
         api.get('/payment-transfers/stats'),
         recurringTransfersAPI.getAll(),
+        directExpensesAPI.getAll(),
       ]);
 
       const transfers = transfersResponse.data as PaymentTransfer[];
@@ -56,6 +64,7 @@ export default function PaymentTransfers() {
       setExecutedTransfers(transfers.filter(t => t.status === 'executed'));
       setStats(statsResponse.data);
       setRecurringTransfers(recurringResponse.data);
+      setDirectExpenses(directExpensesResponse.data);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני העברות', 'error');
       console.error('Error loading payment transfers:', error);
@@ -224,6 +233,32 @@ export default function PaymentTransfers() {
     }
   };
 
+  // Direct expense handlers
+  const handleAddDirectExpense = () => {
+    setEditingDirectExpense(undefined);
+    setShowDirectExpenseForm(true);
+  };
+
+  const handleEditDirectExpense = (expense: DirectExpense) => {
+    setEditingDirectExpense(expense);
+    setShowDirectExpenseForm(true);
+  };
+
+  const handleDeleteDirectExpense = async (expense: DirectExpense) => {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את ההוצאה הישירה ל-${expense.payee}?`)) {
+      return;
+    }
+
+    try {
+      await directExpensesAPI.delete(expense.id);
+      showToast('הוצאה ישירה נמחקה בהצלחה', 'success');
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה במחיקת הוצאה ישירה', 'error');
+      console.error('Error deleting direct expense:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.loading}>
@@ -233,8 +268,8 @@ export default function PaymentTransfers() {
     );
   }
 
-  const currentTransfers = activeTab === 'recurring' ? [] : (activeTab === 'pending' ? pendingTransfers : executedTransfers);
-  const filteredTransfers = activeTab === 'recurring' ? [] : filterTransfers(currentTransfers);
+  const currentTransfers = activeTab === 'recurring' || activeTab === 'direct' ? [] : (activeTab === 'pending' ? pendingTransfers : executedTransfers);
+  const filteredTransfers = activeTab === 'recurring' || activeTab === 'direct' ? [] : filterTransfers(currentTransfers);
 
   return (
     <div style={styles.container}>
@@ -290,10 +325,19 @@ export default function PaymentTransfers() {
           >
             העברות קבועות ({recurringTransfers.length})
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'direct' ? styles.activeTab : {}),
+            }}
+            onClick={() => setActiveTab('direct')}
+          >
+            הוצאות ישירות ({directExpenses.length})
+          </button>
         </div>
 
         {/* Filters - only show for pending/executed tabs */}
-        {activeTab !== 'recurring' && (
+        {activeTab !== 'recurring' && activeTab !== 'direct' && (
           <div style={styles.filtersContainer}>
             <div style={styles.filterRow}>
               <div style={styles.filterGroup}>
@@ -340,22 +384,41 @@ export default function PaymentTransfers() {
           </div>
         )}
 
-        {/* Add Recurring Transfer Button - only show in recurring tab */}
+        {/* Add Recurring Transfer and Direct Expense Buttons - only show in recurring tab */}
         {activeTab === 'recurring' && (
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
             <Button onClick={handleAddRecurring} variant="primary">
               + הוסף העברה קבועה חדשה
+            </Button>
+            <Button onClick={handleAddDirectExpense} variant="secondary">
+              + הוסף הוצאה ישירה
             </Button>
           </div>
         )}
 
-        {/* Transfer Table or Recurring Transfers Table */}
+        {/* Add Direct Expense Button - only show in direct tab */}
+        {activeTab === 'direct' && (
+          <div style={{ marginBottom: '20px' }}>
+            <Button onClick={handleAddDirectExpense} variant="primary">
+              + הוסף הוצאה ישירה חדשה
+            </Button>
+          </div>
+        )}
+
+        {/* Transfer Table or Recurring Transfers Table or Direct Expenses Table */}
         {activeTab === 'recurring' ? (
           <RecurringTransferTable
             transfers={recurringTransfers}
             onEdit={handleEditRecurring}
             onDelete={handleDeleteRecurring}
             onToggleStatus={handleToggleRecurringStatus}
+            showActions={true}
+          />
+        ) : activeTab === 'direct' ? (
+          <DirectExpenseTable
+            expenses={directExpenses}
+            onEdit={handleEditDirectExpense}
+            onDelete={handleDeleteDirectExpense}
             showActions={true}
           />
         ) : filteredTransfers.length === 0 ? (
@@ -458,6 +521,19 @@ export default function PaymentTransfers() {
           onSubmit={handleRecurringSubmit}
           transfer={editingRecurring}
           isLoading={savingRecurring}
+        />
+
+        {/* Direct Expense Form Modal */}
+        <DirectExpenseFormModal
+          isOpen={showDirectExpenseForm}
+          onClose={() => {
+            setShowDirectExpenseForm(false);
+            setEditingDirectExpense(undefined);
+          }}
+          onSuccess={async () => {
+            await loadData();
+          }}
+          expense={editingDirectExpense}
         />
       </div>
     </div>
