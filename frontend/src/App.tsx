@@ -93,7 +93,7 @@ function App() {
             <Route path="/funds/:fundId/monthly" element={<PrivateRoute><FundMonthlyDetail /></PrivateRoute>} />
             <Route path="/direct-expenses/new" element={<TreasurerRoute><NewDirectExpense /></TreasurerRoute>} />
             <Route path="/direct-expenses/:id/edit" element={<TreasurerRoute><EditDirectExpense /></TreasurerRoute>} />
-            <Route path="/movements/transfer" element={<CircleTreasurerRoute><TransferMovements /></CircleTreasurerRoute>} />
+            <Route path="/movements/transfer" element={<TreasurerRoute><TransferMovements /></TreasurerRoute>} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
           <BugReportFooter />

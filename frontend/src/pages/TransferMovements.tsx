@@ -5,6 +5,7 @@ import { Budget, Fund } from '../types';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 
 interface MoveResult {
   dryRun: boolean;
@@ -29,6 +30,7 @@ interface MoveResult {
 
 export default function TransferMovements() {
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [sourceBudgetId, setSourceBudgetId] = useState<number | undefined>();
@@ -65,7 +67,19 @@ export default function TransferMovements() {
       try {
         setLoading(true);
         const response = await budgetsAPI.getAll();
-        setBudgets(response.data || []);
+        let allBudgets = response.data || [];
+        
+        // Filter budgets based on user role
+        if (user?.isGroupTreasurer && !user?.isCircleTreasurer) {
+          // Group treasurer: show only their group budgets (not circle budgets)
+          const userGroupIds = user.groups?.map(g => g.id) || [];
+          allBudgets = allBudgets.filter(budget => 
+            budget.group_id && userGroupIds.includes(budget.group_id)
+          );
+        }
+        // Circle treasurer sees all budgets (no filtering needed)
+        
+        setBudgets(allBudgets);
       } catch (error: any) {
         console.error('Failed to load budgets', error);
         showToast(error?.response?.data?.error || 'שגיאה בטעינת תקציבים', 'error');
@@ -77,7 +91,7 @@ export default function TransferMovements() {
     loadBudgets();
     // showToast reference changes every render, so avoid dependency to prevent infinite re-renders
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!sourceBudgetId) {
@@ -186,11 +200,19 @@ export default function TransferMovements() {
       <div style={styles.content}>
         <div style={styles.header}>
           <div>
-            <p style={styles.kicker}>כלי גזבר מעגל</p>
+            <p style={styles.kicker}>כלי גזבר</p>
             <h1 style={styles.title}>העברת תנועות בין תקציבים</h1>
             <p style={styles.subtitle}>
               מעביר החזרים, תכנונים והוצאות ישירות בין קרנות (בין תקציבים) בלי לבקש מהמשתמשים לערוך כלום.
             </p>
+            {user?.isGroupTreasurer && !user?.isCircleTreasurer && (
+              <div style={styles.infoBox}>
+                <span style={styles.infoIcon}>ℹ️</span>
+                <span style={styles.infoText}>
+                  כגזבר קבוצה, אתה יכול להעביר תנועות רק בין תקציבי הקבוצות שלך
+                </span>
+              </div>
+            )}
           </div>
           <div style={styles.actions}>
             <Button
@@ -551,6 +573,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     letterSpacing: '0.5px',
     textTransform: 'uppercase',
+  },
+  infoBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '12px',
+    padding: '12px 16px',
+    background: '#e6f7ff',
+    border: '1px solid #91d5ff',
+    borderRadius: '8px',
+  },
+  infoIcon: {
+    fontSize: '18px',
+  },
+  infoText: {
+    color: '#0050b3',
+    fontSize: '14px',
+    fontWeight: 500,
   },
   actions: {
     display: 'flex',

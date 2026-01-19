@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as budgetController from '../controllers/budgetController';
-import { authenticateToken, requireCircleTreasurer } from '../middleware/auth';
+import { authenticateToken, requireCircleTreasurer, requireTreasurer } from '../middleware/auth';
 
 const router = Router();
 
@@ -10,8 +10,8 @@ router.get('/', budgetController.getBudgets);
 router.get('/:id', budgetController.getBudgetById);
 router.get('/:budgetId/monthly-status/:year/:month', budgetController.getBudgetMonthlyStatus);
 router.post('/', requireCircleTreasurer, budgetController.createBudget);
-router.patch('/:id', requireCircleTreasurer, budgetController.updateBudget);
+router.patch('/:id', requireTreasurer, budgetController.updateBudget); // Changed to requireTreasurer
 router.delete('/:id', requireCircleTreasurer, budgetController.deleteBudget);
-router.post('/transfer', requireCircleTreasurer, budgetController.transferBudget);
+router.post('/transfer', requireTreasurer, budgetController.transferBudget); // Changed to requireTreasurer
 
 export default router;

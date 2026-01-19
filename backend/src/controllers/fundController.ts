@@ -752,10 +752,6 @@ export async function getAllocationHistory(req: Request, res: Response) {
 export async function moveFundItems(req: Request, res: Response) {
   const user = req.user!;
 
-  if (!user.isCircleTreasurer) {
-    return res.status(403).json({ error: 'Only circle treasurer can move fund items' });
-  }
-
   const {
     sourceFundId,
     targetFundId,
@@ -815,6 +811,33 @@ export async function moveFundItems(req: Request, res: Response) {
 
     if (!sourceFund || !targetFund) {
       return res.status(404).json({ error: 'Source or target fund not found' });
+    }
+
+    // Permission checks
+    const isCircleTreas = user.isCircleTreasurer;
+    
+    if (!isCircleTreas && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'Only treasurers can move fund items' });
+    }
+
+    // Group treasurer restrictions
+    if (!isCircleTreas) {
+      // Get user's accessible group IDs
+      const userGroupsResult = await pool.query(
+        'SELECT group_id FROM user_groups WHERE user_id = $1',
+        [user.userId]
+      );
+      const userGroupIds = userGroupsResult.rows.map(row => row.group_id);
+
+      // Both funds must belong to group budgets (not circle budgets)
+      if (sourceFund.group_id === null || targetFund.group_id === null) {
+        return res.status(403).json({ error: 'גזברי קבוצה יכולים להעביר רק בין תקציבי קבוצה' });
+      }
+
+      // Both funds must belong to groups the user has access to
+      if (!userGroupIds.includes(sourceFund.group_id) || !userGroupIds.includes(targetFund.group_id)) {
+        return res.status(403).json({ error: 'אין לך הרשאה להעביר תנועות בין תקציבים אלה' });
+      }
     }
 
     const moveResult = {

@@ -145,6 +145,35 @@ export async function updateBudget(req: Request, res: Response) {
       return res.status(403).json({ error: 'Access denied to this budget' });
     }
 
+    // Get budget details to check if it's a group budget
+    const budgetCheck = await pool.query(
+      'SELECT group_id FROM budgets WHERE id = $1',
+      [id]
+    );
+
+    if (budgetCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    const budgetGroupId = budgetCheck.rows[0].group_id;
+    const isCircleTreas = await isCircleTreasurer(user.userId);
+
+    // Check permissions for updating specific fields
+    // Only circle treasurer can update circle budgets' name, totalAmount, fiscalYear
+    // Group treasurers can only update is_active for their group budgets
+    if (budgetGroupId === null && !isCircleTreas) {
+      // Circle budget - only circle treasurer can update
+      return res.status(403).json({ error: 'Only circle treasurer can update circle budgets' });
+    }
+
+    // For group budgets, group treasurers can update is_active only
+    if (budgetGroupId !== null && !isCircleTreas) {
+      // Group treasurer updating group budget
+      if (name !== undefined || totalAmount !== undefined || fiscalYear !== undefined) {
+        return res.status(403).json({ error: 'Group treasurers can only update is_active status' });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE budgets
        SET name = COALESCE($1, name),
@@ -173,23 +202,62 @@ export async function transferBudget(req: Request, res: Response) {
     const { fromBudgetId, toBudgetId, amount, description } = req.body;
     const user = req.user!;
 
-    if (!user.isCircleTreasurer) {
-      return res.status(403).json({ error: 'Only circle treasurer can transfer budgets' });
-    }
+    const isCircleTreas = await isCircleTreasurer(user.userId);
 
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Check from budget has enough funds
-      const fromBudget = await client.query(
-        'SELECT total_amount FROM budgets WHERE id = $1',
-        [fromBudgetId]
+      // Get both budgets to check permissions and group_id
+      const budgetsResult = await client.query(
+        'SELECT id, group_id, total_amount FROM budgets WHERE id = ANY($1)',
+        [[fromBudgetId, toBudgetId]]
       );
 
-      if (fromBudget.rows.length === 0) {
-        throw new Error('Source budget not found');
+      if (budgetsResult.rows.length !== 2) {
+        throw new Error('One or both budgets not found');
+      }
+
+      const fromBudget = budgetsResult.rows.find(b => b.id === fromBudgetId);
+      const toBudget = budgetsResult.rows.find(b => b.id === toBudgetId);
+
+      if (!fromBudget || !toBudget) {
+        throw new Error('Budget not found');
+      }
+
+      // Check if from budget has enough funds
+      if (Number(fromBudget.total_amount) < amount) {
+        throw new Error('Insufficient funds in source budget');
+      }
+
+      // Permission checks
+      if (isCircleTreas) {
+        // Circle treasurer can transfer between any budgets
+      } else {
+        // Group treasurer can only transfer between budgets of their groups
+        const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
+        
+        // Check if user is a group treasurer
+        const userResult = await client.query(
+          'SELECT is_group_treasurer FROM users WHERE id = $1',
+          [user.userId]
+        );
+
+        if (!userResult.rows[0]?.is_group_treasurer) {
+          throw new Error('Only treasurers can transfer budgets');
+        }
+
+        // Both budgets must be group budgets (not circle budgets)
+        if (fromBudget.group_id === null || toBudget.group_id === null) {
+          throw new Error('Group treasurers can only transfer between group budgets');
+        }
+
+        // Both budgets must belong to groups the user has access to
+        if (!accessibleGroupIds.includes(fromBudget.group_id) || 
+            !accessibleGroupIds.includes(toBudget.group_id)) {
+          throw new Error('Access denied to one or both budgets');
+        }
       }
 
       // Update budgets
@@ -222,7 +290,8 @@ export async function transferBudget(req: Request, res: Response) {
     }
   } catch (error) {
     console.error('Transfer budget error:', error);
-    res.status(500).json({ error: 'Failed to transfer budget' });
+    const errorMessage = error instanceof Error ? error.message : 'Failed to transfer budget';
+    res.status(500).json({ error: errorMessage });
   }
 }
 
