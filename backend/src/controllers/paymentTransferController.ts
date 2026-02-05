@@ -177,38 +177,42 @@ export async function getPaymentTransferById(req: Request, res: Response) {
     );
 
     // Get recurring transfer applications for this payment transfer
+    // Uses LEFT JOIN so we still get data even if recurring transfer was deleted
+    // Falls back to snapshot columns (description, fund_name, frequency) stored in the application
     const recurringResult = await pool.query(
       `SELECT
         rta.id as application_id,
         rt.id,
-        rt.fund_id,
-        rt.recipient_user_id,
-        rt.recipient_user_id as user_id,
+        COALESCE(rt.fund_id, NULL) as fund_id,
+        COALESCE(rt.recipient_user_id, pt.recipient_user_id) as recipient_user_id,
+        COALESCE(rt.recipient_user_id, pt.recipient_user_id) as user_id,
         rta.applied_amount as amount,
-        rt.description,
-        rt.start_date as expense_date,
+        COALESCE(rt.description, rta.description) as description,
+        COALESCE(rt.start_date, rta.created_at) as expense_date,
         NULL as receipt_url,
-        'active' as status,
+        COALESCE(rt.status, 'deleted') as status,
         rt.created_by as reviewed_by,
-        rt.created_at as reviewed_at,
+        COALESCE(rt.created_at, rta.created_at) as reviewed_at,
         NULL as notes,
-        rt.created_at,
+        rta.created_at,
         rt.updated_at,
-        f.name as fund_name,
+        COALESCE(f.name, rta.fund_name) as fund_name,
         f.budget_id,
-        u.full_name as user_name,
-        u.full_name as recipient_name,
+        COALESCE(u.full_name, pt_recipient.full_name) as user_name,
+        COALESCE(u.full_name, pt_recipient.full_name) as recipient_name,
         creator.full_name as reviewer_name,
         'recurring_transfer' as item_type,
-        rt.frequency,
+        COALESCE(rt.frequency, rta.frequency) as frequency,
         rt.start_date,
         rt.end_date,
         rta.period_year,
         rta.period_month
       FROM recurring_transfer_applications rta
-      JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
-      JOIN funds f ON rt.fund_id = f.id
-      JOIN users u ON rt.recipient_user_id = u.id
+      JOIN payment_transfers pt ON rta.payment_transfer_id = pt.id
+      JOIN users pt_recipient ON pt.recipient_user_id = pt_recipient.id
+      LEFT JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+      LEFT JOIN funds f ON rt.fund_id = f.id
+      LEFT JOIN users u ON rt.recipient_user_id = u.id
       LEFT JOIN users creator ON rt.created_by = creator.id
       WHERE rta.payment_transfer_id = $1
       ORDER BY rta.period_year DESC, rta.period_month DESC`,

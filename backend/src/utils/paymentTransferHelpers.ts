@@ -272,7 +272,7 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
   // Get active recurring transfers for this recipient and budget type
   // Only include transfers from active budgets
   const recurringResult = await db.query(
-    `SELECT rt.id, rt.amount, rt.frequency, rt.start_date, rt.end_date
+    `SELECT rt.id, rt.amount, rt.frequency, rt.start_date, rt.end_date, rt.description, f.name as fund_name
     FROM recurring_transfers rt
     JOIN funds f ON rt.fund_id = f.id
     JOIN budgets b ON f.budget_id = b.id
@@ -293,6 +293,9 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
     amount: number;
     periodYear: number;
     periodMonth: number;
+    description: string;
+    fundName: string;
+    frequency: string;
   }> = [];
 
   for (const recurring of recurringResult.rows) {
@@ -329,18 +332,21 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
       recurringTransferId: recurring.id,
       amount: recurring.amount,
       periodYear,
-      periodMonth
+      periodMonth,
+      description: recurring.description,
+      fundName: recurring.fund_name,
+      frequency: recurring.frequency
     });
   }
 
-  // Create application records for new recurring transfers
+  // Create application records for new recurring transfers (with snapshot data for historical records)
   for (const app of newApplications) {
     await db.query(
       `INSERT INTO recurring_transfer_applications
-       (recurring_transfer_id, payment_transfer_id, period_year, period_month, applied_amount)
-       VALUES ($1, $2, $3, $4, $5)
+       (recurring_transfer_id, payment_transfer_id, period_year, period_month, applied_amount, description, fund_name, frequency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (recurring_transfer_id, period_year, period_month) DO NOTHING`,
-      [app.recurringTransferId, transferId, app.periodYear, app.periodMonth, app.amount]
+      [app.recurringTransferId, transferId, app.periodYear, app.periodMonth, app.amount, app.description, app.fundName, app.frequency]
     );
   }
 
