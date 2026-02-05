@@ -25,6 +25,7 @@ const toCamelCase = (row: any) => ({
   createdByName: row.created_by_name,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  isBudgetActive: row.is_budget_active,
 });
 
 // Get all recurring transfers (treasurer only, filtered by access control)
@@ -33,13 +34,14 @@ export const getRecurringTransfers = async (req: Request, res: Response) => {
     const { isCircleTreasurer, isGroupTreasurer, groupIds } = req.user!;
 
     let query = `
-      SELECT 
+      SELECT
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
+        b.is_active as is_budget_active,
         CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
         g.name as group_name,
         creator.full_name as created_by_name
@@ -80,13 +82,14 @@ export const getMyRecurringTransfers = async (req: Request, res: Response) => {
     const userId = req.user!.userId;
 
     const query = `
-      SELECT 
+      SELECT
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
+        b.is_active as is_budget_active,
         CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
         g.name as group_name,
         creator.full_name as created_by_name
@@ -115,13 +118,14 @@ export const getRecurringTransferById = async (req: Request, res: Response) => {
     const { userId, isCircleTreasurer, isGroupTreasurer, groupIds } = req.user!;
 
     const query = `
-      SELECT 
+      SELECT
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
+        b.is_active as is_budget_active,
         CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
         g.name as group_name,
         creator.full_name as created_by_name
@@ -242,13 +246,14 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
 
     // Fetch full details
     const detailsQuery = `
-      SELECT 
+      SELECT
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
+        b.is_active as is_budget_active,
         CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
         g.name as group_name,
         creator.full_name as created_by_name
@@ -282,7 +287,7 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { userId, isCircleTreasurer, isGroupTreasurer, groupIds } = req.user!;
-    const { amount, description, endDate, frequency, status } = req.body;
+    const { fundId, amount, description, endDate, frequency, status } = req.body;
 
     // Validate treasurer permission
     if (!isCircleTreasurer && !isGroupTreasurer) {
@@ -317,6 +322,38 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 1;
+
+    if (fundId !== undefined) {
+      // Verify the new fund exists and user has access
+      const fundCheck = await pool.query(
+        `SELECT f.id, b.group_id, b.is_active
+         FROM funds f
+         JOIN budgets b ON f.budget_id = b.id
+         WHERE f.id = $1`,
+        [fundId]
+      );
+
+      if (fundCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'סעיף לא נמצא' });
+      }
+
+      const newFund = fundCheck.rows[0];
+
+      // Check if new budget is active
+      if (!newFund.is_active) {
+        return res.status(400).json({ error: 'לא ניתן להעביר לסעיף בתקציב לא פעיל' });
+      }
+
+      // Check access to new fund
+      if (!isCircleTreasurer) {
+        if (newFund.group_id && !groupIds.includes(newFund.group_id)) {
+          return res.status(403).json({ error: 'אין הרשאה לסעיף זה' });
+        }
+      }
+
+      updates.push(`fund_id = $${paramCount++}`);
+      values.push(fundId);
+    }
 
     if (amount !== undefined) {
       if (amount <= 0) {
@@ -370,13 +407,14 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
 
     // Fetch full details
     const detailsQuery = `
-      SELECT 
+      SELECT
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
+        b.is_active as is_budget_active,
         CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
         g.name as group_name,
         creator.full_name as created_by_name
@@ -391,13 +429,21 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [id]);
 
-    // If amount or status changed, update pending payment transfers
-    if (amount !== undefined || status !== undefined) {
+    // If amount, status, or fund changed, update pending payment transfers
+    if (amount !== undefined || status !== undefined || fundId !== undefined) {
       try {
+        // Update for old fund
         await updatePaymentTransfersForRecurringChange(
           transfer.recipient_user_id,
           transfer.fund_id
         );
+        // If fund changed, also update for new fund
+        if (fundId !== undefined && fundId !== transfer.fund_id) {
+          await updatePaymentTransfersForRecurringChange(
+            transfer.recipient_user_id,
+            fundId
+          );
+        }
       } catch (error) {
         console.error('Warning: Failed to update payment transfers after updating recurring transfer:', error);
       }

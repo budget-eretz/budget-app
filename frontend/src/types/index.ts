@@ -438,6 +438,7 @@ export interface RecurringTransfer {
   budgetName?: string;
   budgetType?: 'circle' | 'group';
   groupName?: string;
+  isBudgetActive?: boolean;
   amount: number;
   description: string;
   startDate: string;

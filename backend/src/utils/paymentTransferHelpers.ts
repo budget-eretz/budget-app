@@ -78,6 +78,64 @@ export async function releaseRecurringApplications(
 }
 
 /**
+ * Remove recurring transfer applications from pending payment transfers when a budget becomes inactive
+ * This ensures that recurring transfers from inactive budgets don't count in payment calculations
+ * @param budgetId - The budget ID that became inactive
+ * @param client - Optional database client (for use within transactions)
+ */
+export async function removeRecurringApplicationsForInactiveBudget(
+  budgetId: number,
+  client?: PoolClient
+): Promise<void> {
+  const db = client || pool;
+
+  // Find all applications from recurring transfers in this budget that are in pending payment transfers
+  const applicationsResult = await db.query(
+    `SELECT rta.id, rta.payment_transfer_id, rta.applied_amount
+     FROM recurring_transfer_applications rta
+     JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+     JOIN funds f ON rt.fund_id = f.id
+     JOIN payment_transfers pt ON rta.payment_transfer_id = pt.id
+     WHERE f.budget_id = $1
+       AND pt.status = 'pending'`,
+    [budgetId]
+  );
+
+  if (applicationsResult.rows.length === 0) {
+    console.log(`[removeRecurringApplicationsForInactiveBudget] No applications to remove for budget #${budgetId}`);
+    return;
+  }
+
+  // Group by payment_transfer_id to update totals
+  const transferAmounts = new Map<number, number>();
+  const applicationIds: number[] = [];
+
+  for (const app of applicationsResult.rows) {
+    applicationIds.push(app.id);
+    const currentAmount = transferAmounts.get(app.payment_transfer_id) || 0;
+    transferAmounts.set(app.payment_transfer_id, currentAmount + parseFloat(app.applied_amount));
+  }
+
+  // Delete all applications
+  await db.query(
+    `DELETE FROM recurring_transfer_applications WHERE id = ANY($1)`,
+    [applicationIds]
+  );
+
+  // Update payment transfer totals
+  for (const [transferId, amount] of transferAmounts.entries()) {
+    await db.query(
+      `UPDATE payment_transfers
+       SET total_amount = total_amount - $1
+       WHERE id = $2`,
+      [amount, transferId]
+    );
+  }
+
+  console.log(`[removeRecurringApplicationsForInactiveBudget] Removed ${applicationIds.length} applications from ${transferAmounts.size} transfers for budget #${budgetId}`);
+}
+
+/**
  * Helper function to determine if a fund is from circle or group budget
  * @param fundId - The fund ID to check
  * @param client - Optional database client (for use within transactions)
@@ -212,6 +270,7 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
   const { recipient_user_id, budget_type, group_id } = transferResult.rows[0];
 
   // Get active recurring transfers for this recipient and budget type
+  // Only include transfers from active budgets
   const recurringResult = await db.query(
     `SELECT rt.id, rt.amount, rt.frequency, rt.start_date, rt.end_date
     FROM recurring_transfers rt
@@ -219,6 +278,7 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
     JOIN budgets b ON f.budget_id = b.id
     WHERE rt.recipient_user_id = $1
       AND rt.status = 'active'
+      AND b.is_active = true
       AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
       AND (
         ($2 = 'circle' AND b.group_id IS NULL) OR

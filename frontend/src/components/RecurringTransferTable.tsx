@@ -33,17 +33,25 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
+  const getStatusLabel = (transfer: RecurringTransfer) => {
+    // If budget is inactive, show that instead of the transfer status
+    if (transfer.isBudgetActive === false) {
+      return 'תקציב לא פעיל';
+    }
+    switch (transfer.status) {
       case 'active': return 'פעיל';
       case 'paused': return 'מושהה';
       case 'cancelled': return 'בוטל';
-      default: return status;
+      default: return transfer.status;
     }
   };
 
-  const getStatusStyle = (status: string): React.CSSProperties => {
-    switch (status) {
+  const getStatusStyle = (transfer: RecurringTransfer): React.CSSProperties => {
+    // If budget is inactive, use special style
+    if (transfer.isBudgetActive === false) {
+      return { ...styles.statusBadge, ...styles.statusBudgetInactive };
+    }
+    switch (transfer.status) {
       case 'active':
         return { ...styles.statusBadge, ...styles.statusActive };
       case 'paused':
@@ -87,11 +95,21 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
       label: 'סעיף',
       render: (transfer: RecurringTransfer) => (
         <div>
-          <div style={styles.fundName}>{transfer.fundName}</div>
+          <div style={{
+            ...styles.fundName,
+            ...(transfer.isBudgetActive === false ? styles.inactiveBudgetText : {})
+          }}>
+            {transfer.fundName}
+            {transfer.isBudgetActive === false && ' ⚠️'}
+          </div>
           {transfer.budgetName && (
-            <div style={styles.budgetInfo}>
+            <div style={{
+              ...styles.budgetInfo,
+              ...(transfer.isBudgetActive === false ? styles.inactiveBudgetText : {})
+            }}>
               {transfer.budgetName}
               {transfer.budgetType === 'group' && transfer.groupName && ` - ${transfer.groupName}`}
+              {transfer.isBudgetActive === false && ' (לא פעיל)'}
             </div>
           )}
         </div>
@@ -136,8 +154,8 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
       key: 'status',
       label: 'סטטוס',
       render: (transfer: RecurringTransfer) => (
-        <span style={getStatusStyle(transfer.status)}>
-          {getStatusLabel(transfer.status)}
+        <span style={getStatusStyle(transfer)}>
+          {getStatusLabel(transfer)}
         </span>
       ),
     },
@@ -149,7 +167,7 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
       label: 'פעולות',
       render: (transfer: RecurringTransfer) => (
         <div style={styles.actionsCell}>
-          {onToggleStatus && transfer.status !== 'cancelled' && (
+          {onToggleStatus && transfer.status !== 'cancelled' && transfer.isBudgetActive !== false && (
             <button
               onClick={() => onToggleStatus(transfer)}
               style={styles.toggleBtn}
@@ -163,10 +181,10 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
           {onEdit && transfer.status !== 'cancelled' && (
             <button
               onClick={() => onEdit(transfer)}
-              style={styles.editBtn}
+              style={transfer.isBudgetActive === false ? styles.editBtnHighlight : styles.editBtn}
               className="action-btn edit-btn"
-              title="ערוך"
-              aria-label="ערוך"
+              title={transfer.isBudgetActive === false ? 'ערוך והעבר לסעיף פעיל' : 'ערוך'}
+              aria-label={transfer.isBudgetActive === false ? 'ערוך והעבר לסעיף פעיל' : 'ערוך'}
             >
               ✏️
             </button>
@@ -245,6 +263,14 @@ tableHoverStyle.textContent = `
   .delete-btn:hover {
     background: #e53e3e !important;
   }
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
 `;
 if (!document.head.querySelector('style[data-recurring-transfer-table]')) {
   tableHoverStyle.setAttribute('data-recurring-transfer-table', 'true');
@@ -302,6 +328,10 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#718096',
     marginTop: '2px',
   },
+  inactiveBudgetText: {
+    color: '#c53030',
+    textDecoration: 'line-through',
+  },
   amount: {
     fontWeight: '600',
     color: '#2d3748',
@@ -332,6 +362,10 @@ const styles: Record<string, React.CSSProperties> = {
   statusCancelled: {
     background: '#f7fafc',
     color: '#718096',
+  },
+  statusBudgetInactive: {
+    background: '#fed7d7',
+    color: '#c53030',
   },
   actionsCell: {
     display: 'flex',
@@ -368,6 +402,22 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  editBtnHighlight: {
+    padding: '6px 10px',
+    border: '2px solid #c53030',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#fc8181',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    animation: 'pulse 2s infinite',
   },
   deleteBtn: {
     padding: '6px 10px',

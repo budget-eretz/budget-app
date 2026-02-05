@@ -267,8 +267,9 @@ export default function PaymentTransfers() {
     setGeneratingRecurring(true);
     try {
       const response = await paymentTransfersAPI.generateRecurring();
-      if (response.data.count > 0) {
-        showToast(`נוצרו/עודכנו ${response.data.count} העברות קבועות`, 'success');
+      const { count, removedCount, message } = response.data;
+      if (count > 0 || removedCount > 0) {
+        showToast(message, 'success');
         await loadData();
       } else {
         showToast('אין העברות קבועות חדשות לייצור', 'info');

@@ -165,6 +165,11 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
                 סעיף <span style={{ color: '#ef4444' }}>*</span>
+                {transfer?.isBudgetActive === false && (
+                  <span style={{ color: '#c53030', fontWeight: 'normal', marginRight: '0.5rem' }}>
+                    (התקציב הנוכחי לא פעיל - יש לבחור סעיף חדש)
+                  </span>
+                )}
               </label>
               <select
                 value={fundId}
@@ -175,13 +180,12 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
                 style={{
                   width: '100%',
                   padding: '0.5rem',
-                  border: '1px solid #d1d5db',
+                  border: transfer?.isBudgetActive === false ? '2px solid #c53030' : '1px solid #d1d5db',
                   borderRadius: '0.375rem',
                   fontSize: '1rem',
-                  backgroundColor: !!transfer ? '#f3f4f6' : 'white'
+                  backgroundColor: 'white'
                 }}
                 required
-                disabled={!!transfer}
               >
                 <option value={0}>בחר סעיף</option>
                 {Array.isArray(budgetsWithFunds) && budgetsWithFunds.map((budget) => (
@@ -194,6 +198,11 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
                   </optgroup>
                 ))}
               </select>
+              {transfer && (
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  ניתן לשנות את הסעיף להעברה קבועה קיימת
+                </p>
+              )}
             </div>
 
             {/* Amount */}

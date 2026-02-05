@@ -535,7 +535,62 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
 
     await client.query('BEGIN');
 
-    // Find all users with active recurring transfers that haven't been applied for the current period
+    // STEP 1: Remove applications from inactive budgets
+    // Find all applications from recurring transfers in inactive budgets that are in pending payment transfers
+    let cleanupQuery = `
+      SELECT rta.id, rta.payment_transfer_id, rta.applied_amount, b.id as budget_id
+      FROM recurring_transfer_applications rta
+      JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+      JOIN funds f ON rt.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      JOIN payment_transfers pt ON rta.payment_transfer_id = pt.id
+      WHERE b.is_active = false
+        AND pt.status = 'pending'
+    `;
+
+    // Apply access control for cleanup too
+    if (!user.isCircleTreasurer) {
+      cleanupQuery += ` AND b.group_id = ANY($1)`;
+    } else if (user.isCircleTreasurer && !user.isGroupTreasurer) {
+      cleanupQuery += ` AND b.group_id IS NULL`;
+    }
+
+    const cleanupParams = !user.isCircleTreasurer ? [user.groupIds] : [];
+    const inactiveApplications = await client.query(cleanupQuery, cleanupParams);
+
+    let removedCount = 0;
+    if (inactiveApplications.rows.length > 0) {
+      // Group by payment_transfer_id to update totals
+      const transferAmounts = new Map<number, number>();
+      const applicationIds: number[] = [];
+
+      for (const app of inactiveApplications.rows) {
+        applicationIds.push(app.id);
+        const currentAmount = transferAmounts.get(app.payment_transfer_id) || 0;
+        transferAmounts.set(app.payment_transfer_id, currentAmount + parseFloat(app.applied_amount));
+      }
+
+      // Delete all applications from inactive budgets
+      await client.query(
+        `DELETE FROM recurring_transfer_applications WHERE id = ANY($1)`,
+        [applicationIds]
+      );
+
+      // Update payment transfer totals
+      for (const [transferId, amount] of transferAmounts.entries()) {
+        await client.query(
+          `UPDATE payment_transfers
+           SET total_amount = total_amount - $1
+           WHERE id = $2`,
+          [amount, transferId]
+        );
+      }
+
+      removedCount = applicationIds.length;
+      console.log(`[generateRecurringTransfers] Removed ${removedCount} applications from inactive budgets`);
+    }
+
+    // STEP 2: Find all users with active recurring transfers that haven't been applied for the current period
     let query = `
       SELECT DISTINCT
         rt.recipient_user_id,
@@ -546,6 +601,7 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       WHERE rt.status = 'active'
+        AND b.is_active = true
         AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
         AND NOT EXISTS (
           SELECT 1 FROM recurring_transfer_applications rta
@@ -616,9 +672,22 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
 
     await client.query('COMMIT');
 
+    // Build response message
+    let message = '';
+    if (removedCount > 0 && created.length > 0) {
+      message = `הוסרו ${removedCount} העברות מתקציבים לא פעילים, נוצרו/עודכנו ${created.length} העברות`;
+    } else if (removedCount > 0) {
+      message = `הוסרו ${removedCount} העברות מתקציבים לא פעילים`;
+    } else if (created.length > 0) {
+      message = `נוצרו/עודכנו ${created.length} העברות`;
+    } else {
+      message = 'אין שינויים';
+    }
+
     res.json({
-      message: `נוצרו/עודכנו ${created.length} העברות`,
+      message,
       count: created.length,
+      removedCount,
       transferIds: created
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { getUserAccessibleGroupIds, canAccessBudget, isCircleTreasurer } from '../middleware/accessControl';
+import { removeRecurringApplicationsForInactiveBudget } from '../utils/paymentTransferHelpers';
 
 export async function getBudgets(req: Request, res: Response) {
   try {
@@ -219,6 +220,16 @@ export async function updateBudget(req: Request, res: Response) {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    // If budget was deactivated, remove recurring transfer applications from pending payment transfers
+    if (isActive === false) {
+      try {
+        await removeRecurringApplicationsForInactiveBudget(parseInt(id));
+        console.log(`[updateBudget] Removed recurring applications for inactive budget #${id}`);
+      } catch (error) {
+        console.error('Warning: Failed to remove recurring applications for inactive budget:', error);
+      }
     }
 
     res.json(result.rows[0]);
