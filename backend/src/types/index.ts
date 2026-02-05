@@ -61,8 +61,12 @@ export interface PlannedExpense {
   description: string;
   planned_date?: Date;
   status: 'planned' | 'executed' | 'cancelled';
+  apartment_id?: number;
   created_at: Date;
   updated_at: Date;
+
+  // Joined fields
+  apartment_name?: string;
 }
 
 export interface Reimbursement {
@@ -79,9 +83,10 @@ export interface Reimbursement {
   reviewed_at?: Date;
   notes?: string;
   payment_transfer_id?: number;
+  apartment_id?: number;
   created_at: Date;
   updated_at: Date;
-  
+
   // Joined fields
   fund_name?: string;
   budget_id?: number;
@@ -89,6 +94,7 @@ export interface Reimbursement {
   recipient_name?: string;
   reviewer_name?: string;
   payment_transfer_status?: 'pending' | 'executed';
+  apartment_name?: string;
 }
 
 export interface Income {
@@ -99,11 +105,15 @@ export interface Income {
   source: string;
   description?: string;
   income_date: Date;
+  status: 'pending' | 'confirmed';
+  confirmed_by?: number;
+  confirmed_at?: Date;
   created_at: Date;
-  
+
   // Joined fields
   user_name?: string;
   budget_name?: string;
+  confirmed_by_name?: string;
   categories?: IncomeCategory[];
 }
 
@@ -324,14 +334,16 @@ export interface DirectExpense {
   expense_date: Date;
   payee: string;
   receipt_url?: string;
+  apartment_id?: number;
   created_by: number;
   created_at: Date;
   updated_at: Date;
-  
+
   // Joined fields
   fund_name?: string;
   budget_id?: number;
   created_by_name?: string;
+  apartment_name?: string;
 }
 
 export interface MonthlyExpense {
@@ -361,7 +373,7 @@ export interface RecurringTransfer {
   created_by: number;
   created_at: Date;
   updated_at: Date;
-  
+
   // Joined fields
   recipient_name?: string;
   recipient_email?: string;
@@ -371,4 +383,72 @@ export interface RecurringTransfer {
   budget_type?: 'circle' | 'group';
   group_name?: string;
   created_by_name?: string;
+}
+
+// Apartment interfaces
+export interface Apartment {
+  id: number;
+  name: string;
+  description?: string;
+  created_by: number;
+  created_at: Date;
+  updated_at: Date;
+
+  // Joined fields
+  created_by_name?: string;
+  resident_count?: number;
+}
+
+export interface ApartmentWithResidents extends Apartment {
+  residents: User[];
+}
+
+export interface ApartmentExpenseSummary {
+  apartment_id: number;
+  apartment_name: string;
+  resident_count: number;
+
+  // Reimbursements by status
+  total_reimbursements_pending: number;
+  total_reimbursements_approved: number;
+  total_reimbursements_paid: number;
+  total_reimbursements_rejected: number;
+  total_reimbursements: number;
+  count_reimbursements: number;
+
+  // Planned expenses by status
+  total_planned_planned: number;
+  total_planned_executed: number;
+  total_planned_cancelled: number;
+  total_planned: number;
+  count_planned: number;
+
+  // Direct expenses
+  total_direct_expenses: number;
+  count_direct_expenses: number;
+
+  // Grand totals
+  grand_total: number;
+  grand_count: number;
+
+  residents?: User[];
+}
+
+export interface ApartmentExpenseDetail {
+  id: number;
+  type: 'reimbursement' | 'planned_expense' | 'direct_expense';
+  apartment_id: number;
+  apartment_name: string;
+  fund_id?: number;
+  fund_name?: string;
+  user_id?: number;
+  user_name?: string;
+  recipient_user_id?: number;
+  recipient_name?: string;
+  amount: number;
+  description: string;
+  expense_date: Date;
+  status?: string;
+  receipt_url?: string;
+  created_at: Date;
 }

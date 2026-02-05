@@ -65,9 +65,9 @@ export const fundsAPI = {
 export const plannedExpensesAPI = {
   getAll: (fundId?: number) => api.get('/planned-expenses', { params: { fundId } }),
   getById: (id: number) => api.get(`/planned-expenses/${id}`),
-  create: (data: { fundId: number; amount: number; description: string; plannedDate: string }) =>
+  create: (data: { fundId: number; amount: number; description: string; plannedDate: string; apartmentId?: number }) =>
     api.post('/planned-expenses', data),
-  update: (id: number, data: Partial<{ fundId?: number; amount: number; description: string; plannedDate: string; status: string }>) =>
+  update: (id: number, data: Partial<{ fundId?: number; amount: number; description: string; plannedDate: string; status: string; apartmentId?: number }>) =>
     api.patch(`/planned-expenses/${id}`, data),
   delete: (id: number) => api.delete(`/planned-expenses/${id}`),
 };
@@ -78,9 +78,9 @@ export const reimbursementsAPI = {
   getMy: (params?: { status?: string }) => api.get('/reimbursements/my', { params }),
   getSummary: () => api.get('/reimbursements/my/summary'),
   getById: (id: number) => api.get(`/reimbursements/${id}`),
-  create: (data: { fundId: number; amount: number; description: string; expenseDate: string; receiptUrl?: string; recipientUserId?: number }) =>
+  create: (data: { fundId: number; amount: number; description: string; expenseDate: string; receiptUrl?: string; recipientUserId?: number; apartmentId?: number }) =>
     api.post('/reimbursements', data),
-  update: (id: number, data: Partial<{ fundId: number; amount: number; description: string; expenseDate: string; receiptUrl: string; recipientUserId: number }>) =>
+  update: (id: number, data: Partial<{ fundId: number; amount: number; description: string; expenseDate: string; receiptUrl: string; recipientUserId: number; apartmentId?: number }>) =>
     api.patch(`/reimbursements/${id}`, data),
   delete: (id: number) => api.delete(`/reimbursements/${id}`),
   approve: (id: number, notes?: string) => api.post(`/reimbursements/${id}/approve`, { notes }),
@@ -105,22 +105,24 @@ export const reimbursementsAPI = {
 
 // Incomes API
 export const incomesAPI = {
-  getAll: (params?: { 
-    budgetId?: number; 
-    startDate?: string; 
-    endDate?: string; 
-    source?: string; 
-    categoryId?: number; 
-    year?: number; 
+  getAll: (params?: {
+    budgetId?: number;
+    startDate?: string;
+    endDate?: string;
+    source?: string;
+    categoryId?: number;
+    year?: number;
     month?: number;
+    status?: 'pending' | 'confirmed';
   }) => api.get('/incomes', { params }),
   getById: (id: number) => api.get(`/incomes/${id}`),
-  create: (data: { 
-    amount: number; 
-    source: string; 
-    description?: string; 
+  create: (data: {
+    amount: number;
+    source: string;
+    description?: string;
     incomeDate: string;
     categoryIds?: number[];
+    status?: 'pending' | 'confirmed';
   }) => api.post('/incomes', data),
   update: (id: number, data: Partial<{
     amount: number;
@@ -129,8 +131,9 @@ export const incomesAPI = {
     source: string;
   }>) => api.patch(`/incomes/${id}`, data),
   delete: (id: number) => api.delete(`/incomes/${id}`),
-  assignCategories: (id: number, categoryIds: number[]) => 
+  assignCategories: (id: number, categoryIds: number[]) =>
     api.post(`/incomes/${id}/categories`, { categoryIds }),
+  confirm: (id: number) => api.post(`/incomes/${id}/confirm`),
 };
 
 // Income Categories API
@@ -338,9 +341,9 @@ export const monthlyAllocationsAPI = {
 export const directExpensesAPI = {
   getAll: () => api.get('/direct-expenses'),
   getById: (id: number) => api.get(`/direct-expenses/${id}`),
-  create: (data: { fundId: number; amount: number; description: string; expenseDate: string; payee: string; receiptUrl?: string }) =>
+  create: (data: { fundId: number; amount: number; description: string; expenseDate: string; payee: string; receiptUrl?: string; apartmentId?: number }) =>
     api.post('/direct-expenses', data),
-  update: (id: number, data: Partial<{ amount: number; description: string; expenseDate: string; payee: string; receiptUrl: string }>) =>
+  update: (id: number, data: Partial<{ amount: number; description: string; expenseDate: string; payee: string; receiptUrl: string; apartmentId?: number }>) =>
     api.patch(`/direct-expenses/${id}`, data),
   delete: (id: number) => api.delete(`/direct-expenses/${id}`),
 };
@@ -367,6 +370,23 @@ export const recurringTransfersAPI = {
     status: 'active' | 'paused' | 'cancelled' 
   }>) => api.patch(`/recurring-transfers/${id}`, data),
   delete: (id: number) => api.delete(`/recurring-transfers/${id}`),
+};
+
+// Apartments API
+export const apartmentsAPI = {
+  getAll: () => api.get('/apartments'),
+  getById: (id: number) => api.get(`/apartments/${id}`),
+  create: (data: { name: string; description?: string }) =>
+    api.post('/apartments', data),
+  update: (id: number, data: Partial<{ name: string; description: string }>) =>
+    api.patch(`/apartments/${id}`, data),
+  delete: (id: number) => api.delete(`/apartments/${id}`),
+  assignResidents: (id: number, userIds: number[]) =>
+    api.post(`/apartments/${id}/residents`, { userIds }),
+  getExpenseSummary: (params?: { startDate?: string; endDate?: string; apartmentId?: number }) =>
+    api.get('/apartments/expense-summary', { params }),
+  getExpenseDetails: (id: number, params?: { startDate?: string; endDate?: string }) =>
+    api.get(`/apartments/${id}/expenses`, { params }),
 };
 
 export default api;

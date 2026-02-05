@@ -11,12 +11,15 @@ export async function getMyReimbursements(req: Request, res: Response) {
       SELECT r.*, f.name as fund_name, f.budget_id,
              submitter.full_name as user_name, submitter.email as user_email,
              recipient.full_name as recipient_name, recipient.email as recipient_email,
-             reviewer.full_name as reviewer_name
+             reviewer.full_name as reviewer_name,
+             r.apartment_id,
+             apt.name as apartment_name
       FROM reimbursements r
       JOIN funds f ON r.fund_id = f.id
       JOIN users submitter ON r.user_id = submitter.id
       LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
       LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
+      LEFT JOIN apartments apt ON r.apartment_id = apt.id
       WHERE (r.user_id = $1 OR r.recipient_user_id = $1)
     `;
 
@@ -46,12 +49,15 @@ export async function getReimbursements(req: Request, res: Response) {
       SELECT r.*, f.name as fund_name, f.budget_id,
              submitter.full_name as user_name, submitter.email as user_email,
              recipient.full_name as recipient_name, recipient.email as recipient_email,
-             reviewer.full_name as reviewer_name
+             reviewer.full_name as reviewer_name,
+             r.apartment_id,
+             apt.name as apartment_name
       FROM reimbursements r
       JOIN funds f ON r.fund_id = f.id
       JOIN users submitter ON r.user_id = submitter.id
       LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
       LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
+      LEFT JOIN apartments apt ON r.apartment_id = apt.id
     `;
 
     const params: any[] = [];
@@ -95,12 +101,15 @@ export async function getReimbursementById(req: Request, res: Response) {
       `SELECT r.*, f.name as fund_name, f.budget_id,
               submitter.full_name as user_name, submitter.email as user_email,
               recipient.full_name as recipient_name, recipient.email as recipient_email,
-              reviewer.full_name as reviewer_name
+              reviewer.full_name as reviewer_name,
+              r.apartment_id,
+              apt.name as apartment_name
        FROM reimbursements r
        JOIN funds f ON r.fund_id = f.id
        JOIN users submitter ON r.user_id = submitter.id
        LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
        LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
+       LEFT JOIN apartments apt ON r.apartment_id = apt.id
        WHERE r.id = $1`,
       [id]
     );
@@ -118,7 +127,7 @@ export async function getReimbursementById(req: Request, res: Response) {
 
 export async function createReimbursement(req: Request, res: Response) {
   try {
-    const { fundId, amount, description, expenseDate, receiptUrl, recipientUserId } = req.body;
+    const { fundId, amount, description, expenseDate, receiptUrl, recipientUserId, apartmentId } = req.body;
     const user = req.user!;
 
     // Validate fund access
@@ -170,10 +179,10 @@ export async function createReimbursement(req: Request, res: Response) {
     }
 
     const result = await pool.query(
-      `INSERT INTO reimbursements (fund_id, user_id, recipient_user_id, amount, description, expense_date, receipt_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO reimbursements (fund_id, user_id, recipient_user_id, amount, description, expense_date, receipt_url, apartment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [fundId, user.userId, finalRecipientId, amount, description, expenseDate, receiptUrl || null]
+      [fundId, user.userId, finalRecipientId, amount, description, expenseDate, receiptUrl || null, apartmentId || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -186,7 +195,7 @@ export async function createReimbursement(req: Request, res: Response) {
 export async function updateReimbursement(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { fundId, amount, description, expenseDate, receiptUrl, recipientUserId } = req.body;
+    const { fundId, amount, description, expenseDate, receiptUrl, recipientUserId, apartmentId } = req.body;
     const user = req.user!;
 
     // Validate ownership using middleware function
@@ -242,10 +251,11 @@ export async function updateReimbursement(req: Request, res: Response) {
            expense_date = COALESCE($4, expense_date),
            receipt_url = COALESCE($5, receipt_url),
            recipient_user_id = COALESCE($6, recipient_user_id),
+           apartment_id = COALESCE($7, apartment_id),
            updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $8
        RETURNING *`,
-      [fundId, amount, description, expenseDate, receiptUrl, recipientUserId, id]
+      [fundId, amount, description, expenseDate, receiptUrl, recipientUserId, apartmentId, id]
     );
 
     res.json(result.rows[0]);
@@ -902,17 +912,19 @@ export async function getTreasurerReimbursements(req: Request, res: Response) {
 
     // Base query with all necessary joins
     let baseQuery = `
-      SELECT r.*, 
-             f.name as fund_name, 
+      SELECT r.*,
+             f.name as fund_name,
              f.budget_id,
              b.name as budget_name,
              CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
-             submitter.full_name as user_name, 
+             submitter.full_name as user_name,
              submitter.email as user_email,
-             recipient.full_name as recipient_name, 
+             recipient.full_name as recipient_name,
              recipient.email as recipient_email,
              reviewer.full_name as reviewer_name,
-             under_reviewer.full_name as under_review_by_name
+             under_reviewer.full_name as under_review_by_name,
+             r.apartment_id,
+             apt.name as apartment_name
       FROM reimbursements r
       JOIN funds f ON r.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
@@ -920,6 +932,7 @@ export async function getTreasurerReimbursements(req: Request, res: Response) {
       LEFT JOIN users recipient ON r.recipient_user_id = recipient.id
       LEFT JOIN users reviewer ON r.reviewed_by = reviewer.id
       LEFT JOIN users under_reviewer ON r.under_review_by = under_reviewer.id
+      LEFT JOIN apartments apt ON r.apartment_id = apt.id
       WHERE 1=1
     `;
 

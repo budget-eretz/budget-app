@@ -4,7 +4,7 @@ import { DirectExpense } from '../types';
 
 // Create direct expense
 export const createDirectExpense = async (req: Request, res: Response) => {
-  const { fundId, amount, description, expenseDate, payee, receiptUrl } = req.body;
+  const { fundId, amount, description, expenseDate, payee, receiptUrl, apartmentId } = req.body;
   const userId = req.user!.userId;
 
   try {
@@ -37,11 +37,11 @@ export const createDirectExpense = async (req: Request, res: Response) => {
 
     // Create direct expense
     const result = await pool.query(
-      `INSERT INTO direct_expenses 
-       (fund_id, amount, description, expense_date, payee, receipt_url, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO direct_expenses
+       (fund_id, amount, description, expense_date, payee, receipt_url, created_by, apartment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [fundId, amount, description, expenseDate, payee, receiptUrl || null, userId]
+      [fundId, amount, description, expenseDate, payee, receiptUrl || null, userId, apartmentId || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -54,7 +54,7 @@ export const createDirectExpense = async (req: Request, res: Response) => {
 // Update direct expense
 export const updateDirectExpense = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { amount, description, expenseDate, payee, receiptUrl } = req.body;
+  const { amount, description, expenseDate, payee, receiptUrl, apartmentId } = req.body;
   const userId = req.user!.userId;
 
   try {
@@ -110,6 +110,10 @@ export const updateDirectExpense = async (req: Request, res: Response) => {
     if (receiptUrl !== undefined) {
       updateFields.push(`receipt_url = $${paramCount++}`);
       values.push(receiptUrl || null);
+    }
+    if (apartmentId !== undefined) {
+      updateFields.push(`apartment_id = $${paramCount++}`);
+      values.push(apartmentId || null);
     }
 
     updateFields.push(`updated_at = NOW()`);
@@ -183,17 +187,20 @@ export const getAllDirectExpenses = async (req: Request, res: Response) => {
 
   try {
     let query = `
-      SELECT de.*, 
-             f.name as fund_name, 
+      SELECT de.*,
+             f.name as fund_name,
              f.budget_id,
              b.name as budget_name,
              CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
              b.group_id,
-             u.full_name as created_by_name
+             u.full_name as created_by_name,
+             de.apartment_id,
+             apt.name as apartment_name
       FROM direct_expenses de
       JOIN funds f ON de.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       JOIN users u ON de.created_by = u.id
+      LEFT JOIN apartments apt ON de.apartment_id = apt.id
     `;
 
     const conditions = [];
@@ -232,13 +239,16 @@ export const getDirectExpenseById = async (req: Request, res: Response) => {
 
   try {
     const result = await pool.query(
-      `SELECT de.*, 
-              f.name as fund_name, 
+      `SELECT de.*,
+              f.name as fund_name,
               f.budget_id,
-              u.full_name as created_by_name
+              u.full_name as created_by_name,
+              de.apartment_id,
+              apt.name as apartment_name
        FROM direct_expenses de
        JOIN funds f ON de.fund_id = f.id
        JOIN users u ON de.created_by = u.id
+       LEFT JOIN apartments apt ON de.apartment_id = apt.id
        WHERE de.id = $1`,
       [id]
     );

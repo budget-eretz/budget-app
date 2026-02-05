@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { Income, IncomeCategory, BasicUser } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface IncomeFormModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export interface IncomeFormData {
   source: string;
   user_id?: number;
   categoryIds: number[];
+  status?: 'pending' | 'confirmed';
 }
 
 export default function IncomeFormModal({
@@ -28,6 +30,9 @@ export default function IncomeFormModal({
   categories,
   users,
 }: IncomeFormModalProps) {
+  const { user } = useAuth();
+  const isCircleTreasurer = user?.isCircleTreasurer || false;
+
   const [formData, setFormData] = useState<IncomeFormData>({
     amount: 0,
     income_date: new Date().toISOString().split('T')[0],
@@ -35,6 +40,7 @@ export default function IncomeFormModal({
     source: '',
     user_id: undefined,
     categoryIds: [],
+    status: 'pending',
   });
   const [sourceType, setSourceType] = useState<'user' | 'other'>('user');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,7 +52,7 @@ export default function IncomeFormModal({
         // Edit mode - populate form with existing income data
         const isUserSource = users.some(u => u.fullName === income.source);
         setSourceType(isUserSource ? 'user' : 'other');
-        
+
         setFormData({
           amount: income.amount,
           income_date: income.income_date.split('T')[0],
@@ -54,6 +60,7 @@ export default function IncomeFormModal({
           source: isUserSource ? '' : income.source,
           user_id: isUserSource ? income.user_id : undefined,
           categoryIds: income.categories?.map(c => c.id) || [],
+          status: income.status || 'pending',
         });
       } else {
         // Create mode - reset form
@@ -64,12 +71,13 @@ export default function IncomeFormModal({
           source: '',
           user_id: undefined,
           categoryIds: [],
+          status: 'pending',
         });
         setSourceType('user');
       }
       setErrors({});
     }
-  }, [isOpen, income, users]);
+  }, [isOpen, income, users, isCircleTreasurer]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -329,6 +337,27 @@ export default function IncomeFormModal({
           </div>
         )}
 
+        {/* Status - Only for Circle Treasurer */}
+        {isCircleTreasurer && (
+          <div style={styles.formGroup}>
+            <label style={styles.label}>סטטוס הכנסה:</label>
+            <select
+              value={formData.status || 'pending'}
+              onChange={(e) => setFormData({
+                ...formData,
+                status: e.target.value as 'pending' | 'confirmed'
+              })}
+              style={styles.select}
+            >
+              <option value="confirmed">אושר - הכסף הגיע</option>
+              <option value="pending">ממתין לאישור</option>
+            </select>
+            <p style={styles.helpText}>
+              הכנסה מאושרת מתווספת מיד לתקציב
+            </p>
+          </div>
+        )}
+
         {/* Form Actions */}
         <div style={styles.formActions}>
           <button
@@ -505,5 +534,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     cursor: 'pointer',
     transition: 'all 0.2s',
+  },
+  helpText: {
+    fontSize: '12px',
+    color: '#718096',
+    marginTop: '4px',
   },
 };

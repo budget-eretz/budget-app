@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI, authAPI } from '../services/api';
+import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI, authAPI, apartmentsAPI } from '../services/api';
+import { Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -23,8 +24,9 @@ interface Budget {
 export default function NewPlannedExpense() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
-  
+
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -37,12 +39,23 @@ export default function NewPlannedExpense() {
     amount: '',
     description: '',
     plannedDate: defaultPlannedDate,
+    apartmentId: '',
   });
   const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { planned: number; remaining: number }>>({});
 
   useEffect(() => {
     loadData();
+    loadApartments();
   }, []);
+
+  const loadApartments = async () => {
+    try {
+      const response = await apartmentsAPI.getAll();
+      setApartments(response.data);
+    } catch (error) {
+      console.error('Failed to load apartments:', error);
+    }
+  };
 
   useEffect(() => {
     // Pre-select fund if passed via navigation state
@@ -136,6 +149,7 @@ export default function NewPlannedExpense() {
           amount: expense.amount.toString(),
           description: expense.description,
           plannedDate: expense.planned_date.split('T')[0],
+          apartmentId: expense.apartment_id?.toString() || '',
         });
       }
     } catch (error: any) {
@@ -176,6 +190,7 @@ export default function NewPlannedExpense() {
           amount: parseFloat(formData.amount),
           description: formData.description,
           plannedDate: formData.plannedDate,
+          apartmentId: formData.apartmentId ? parseInt(formData.apartmentId) : undefined,
         });
         showToast('התכנון עודכן בהצלחה', 'success');
         navigate('/dashboard');
@@ -186,15 +201,17 @@ export default function NewPlannedExpense() {
           amount: parseFloat(formData.amount),
           description: formData.description,
           plannedDate: formData.plannedDate,
+          apartmentId: formData.apartmentId ? parseInt(formData.apartmentId) : undefined,
         });
         showToast('התכנון נוצר בהצלחה', 'success');
-        
+
         // Reset form for next entry instead of navigating away
         setFormData({
           fundId: '',
           amount: '',
           description: '',
           plannedDate: '',
+          apartmentId: '',
         });
       }
     } catch (error: any) {
@@ -296,6 +313,24 @@ export default function NewPlannedExpense() {
               <small style={{ color: '#718096', fontSize: '13px' }}>
                 מתי אתה מתכנן לבצע את ההוצאה?
               </small>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                דירה (אופציונלי)
+              </label>
+              <select
+                value={formData.apartmentId}
+                onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
+                style={styles.select}
+              >
+                <option value="">ללא דירה</option>
+                {apartments.map((apt) => (
+                  <option key={apt.id} value={apt.id}>
+                    {apt.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={styles.actions}>

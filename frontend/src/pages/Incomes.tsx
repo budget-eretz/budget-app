@@ -45,6 +45,7 @@ export default function Incomes() {
     endDate: '',
     source: '',
     categoryId: null as number | null,
+    status: '' as '' | 'pending' | 'confirmed',
   });
   
   // Debounced filter values for performance
@@ -93,6 +94,7 @@ export default function Incomes() {
       if (debouncedActualFilters.endDate) params.endDate = debouncedActualFilters.endDate;
       if (debouncedActualFilters.source) params.source = debouncedActualFilters.source;
       if (debouncedActualFilters.categoryId) params.categoryId = debouncedActualFilters.categoryId;
+      if (debouncedActualFilters.status) params.status = debouncedActualFilters.status;
 
       const response = await incomesAPI.getAll(params);
       setIncomes(response.data);
@@ -133,6 +135,20 @@ export default function Incomes() {
       console.error('Error refreshing comparison:', error);
     }
   }, [comparisonMonth.year, comparisonMonth.month]);
+
+  const handleConfirmIncome = async (id: number) => {
+    if (!window.confirm('האם אתה בטוח שברצונך לאשר הכנסה זו? הסכום יתווסף לתקציב המעגלי.')) {
+      return;
+    }
+
+    try {
+      await incomesAPI.confirm(id);
+      showToast('הכנסה אושרה בהצלחה', 'success');
+      await refreshIncomes();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה באישור הכנסה', 'error');
+    }
+  };
 
   // Helper functions
   const isCircleTreasurer = user?.isCircleTreasurer || false;
@@ -331,6 +347,30 @@ export default function Incomes() {
           </div>
         </div>
 
+        {/* Status Summary Card - Only for Circle Treasurer */}
+        {isCircleTreasurer && (
+          <div style={styles.summaryCard}>
+            <div style={styles.summaryRow}>
+              <div style={styles.summaryItem}>
+                <div style={styles.summaryLabel}>הכנסות ממתינות</div>
+                <div style={{ ...styles.summaryValue, color: '#f59e0b' }}>
+                  {formatCurrency(incomes
+                    .filter(i => i.status === 'pending')
+                    .reduce((sum, i) => sum + Number(i.amount), 0))}
+                </div>
+              </div>
+              <div style={styles.summaryItem}>
+                <div style={styles.summaryLabel}>הכנסות מאושרות</div>
+                <div style={{ ...styles.summaryValue, color: '#10b981' }}>
+                  {formatCurrency(incomes
+                    .filter(i => i.status === 'confirmed')
+                    .reduce((sum, i) => sum + Number(i.amount), 0))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Task 8.2: Actual Incomes Section */}
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
@@ -375,9 +415,9 @@ export default function Incomes() {
                 <label style={styles.filterLabel}>קטגוריה:</label>
                 <select
                   value={actualFilters.categoryId || ''}
-                  onChange={(e) => setActualFilters({ 
-                    ...actualFilters, 
-                    categoryId: e.target.value ? parseInt(e.target.value) : null 
+                  onChange={(e) => setActualFilters({
+                    ...actualFilters,
+                    categoryId: e.target.value ? parseInt(e.target.value) : null
                   })}
                   style={styles.filterSelect}
                 >
@@ -385,6 +425,22 @@ export default function Incomes() {
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>סטטוס:</label>
+                <select
+                  value={actualFilters.status}
+                  onChange={(e) => setActualFilters({
+                    ...actualFilters,
+                    status: e.target.value as '' | 'pending' | 'confirmed'
+                  })}
+                  style={styles.filterSelect}
+                >
+                  <option value="">הכל</option>
+                  <option value="pending">ממתין לאישור</option>
+                  <option value="confirmed">אושר</option>
                 </select>
               </div>
 
@@ -405,6 +461,7 @@ export default function Incomes() {
                     endDate: '',
                     source: '',
                     categoryId: null,
+                    status: '',
                   });
                 }}
                 style={styles.clearButton}
@@ -435,13 +492,13 @@ export default function Incomes() {
               onDelete={async (id) => {
                 const income = incomes.find(i => i.id === id);
                 if (!income) return;
-                
+
                 // Allow users to delete their own incomes or treasurers to delete any income
                 if (income.user_id !== user?.id && !isCircleTreasurer) {
                   showToast('אין לך הרשאה למחוק הכנסה זו', 'error');
                   return;
                 }
-                
+
                 if (window.confirm('האם אתה בטוח שברצונך למחוק הכנסה זו?')) {
                   try {
                     await incomesAPI.delete(id);
@@ -453,7 +510,9 @@ export default function Incomes() {
                   }
                 }
               }}
+              onConfirm={handleConfirmIncome}
               canEdit={true}
+              canConfirm={isCircleTreasurer}
             />
           )}
         </div>
@@ -770,14 +829,16 @@ export default function Incomes() {
                 description: data.description,
                 incomeDate: data.income_date,
                 categoryIds: data.categoryIds,
+                status: data.status,
               };
-              
+
               if (editingIncome) {
                 await incomesAPI.update(editingIncome.id, {
                   amount: data.amount,
                   source: data.source,
                   description: data.description,
                   incomeDate: data.income_date,
+                  status: data.status,
                 });
                 if (data.categoryIds.length > 0) {
                   await incomesAPI.assignCategories(editingIncome.id, data.categoryIds);
@@ -787,10 +848,10 @@ export default function Incomes() {
                 await incomesAPI.create(apiData);
                 showToast('הכנסה נוצרה בהצלחה', 'success');
               }
-              
+
               // Refresh incomes data
               await refreshIncomes();
-              
+
               // Close modal and reset state
               setShowIncomeModal(false);
               setEditingIncome(null);

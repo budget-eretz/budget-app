@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { fundsAPI, directExpensesAPI } from '../services/api';
-import { BudgetWithFunds } from '../types';
+import { fundsAPI, directExpensesAPI, apartmentsAPI } from '../services/api';
+import { BudgetWithFunds, Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import '../styles/NewReimbursement.css';
 
@@ -11,17 +11,20 @@ const NewDirectExpense: React.FC = () => {
   const preselectedFundId = searchParams.get('fundId');
 
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
+  const [apartments, setApartments] = useState<Apartment[]>([]);
   const [selectedFundId, setSelectedFundId] = useState<string>(preselectedFundId || '');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [payee, setPayee] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [receiptUrl, setReceiptUrl] = useState('');
+  const [apartmentId, setApartmentId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
     fetchAccessibleFunds();
+    loadApartments();
   }, []);
 
   const fetchAccessibleFunds = async () => {
@@ -31,6 +34,15 @@ const NewDirectExpense: React.FC = () => {
     } catch (error) {
       console.error('Error fetching funds:', error);
       showToast('שגיאה בטעינת סעיפים', 'error');
+    }
+  };
+
+  const loadApartments = async () => {
+    try {
+      const response = await apartmentsAPI.getAll();
+      setApartments(response.data);
+    } catch (error) {
+      console.error('Failed to load apartments:', error);
     }
   };
 
@@ -51,6 +63,7 @@ const NewDirectExpense: React.FC = () => {
         payee,
         expenseDate,
         receiptUrl: receiptUrl || undefined,
+        apartmentId: apartmentId ? parseInt(apartmentId) : undefined,
       });
 
       showToast('הוצאה ישירה נוצרה בהצלחה', 'success');
@@ -153,6 +166,22 @@ const NewDirectExpense: React.FC = () => {
             onChange={(e) => setReceiptUrl(e.target.value)}
             placeholder="https://..."
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="apartment">דירה (אופציונלי)</label>
+          <select
+            id="apartment"
+            value={apartmentId}
+            onChange={(e) => setApartmentId(e.target.value)}
+          >
+            <option value="">ללא דירה</option>
+            {apartments.map((apt) => (
+              <option key={apt.id} value={apt.id}>
+                {apt.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-actions">

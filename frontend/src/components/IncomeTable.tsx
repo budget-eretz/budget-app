@@ -6,7 +6,9 @@ interface IncomeTableProps {
   incomes: Income[];
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
+  onConfirm?: (id: number) => void;
   canEdit?: boolean;
+  canConfirm?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -32,7 +34,9 @@ export default function IncomeTable({
   incomes,
   onEdit,
   onDelete,
+  onConfirm,
   canEdit = false,
+  canConfirm = false,
 }: IncomeTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
@@ -276,10 +280,35 @@ export default function IncomeTable({
         </div>
       ),
     },
+    {
+      key: 'status',
+      label: 'סטטוס',
+      sortable: true,
+      filterable: false,
+      render: (income: Income) => {
+        const statusConfig = {
+          pending: { label: 'ממתין לאישור', color: '#f59e0b', bgColor: '#fef3c7' },
+          confirmed: { label: 'אושר', color: '#10b981', bgColor: '#d1fae5' },
+        };
+        const config = statusConfig[income.status];
+        return (
+          <span style={{
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontSize: '13px',
+            fontWeight: '600',
+            color: config.color,
+            backgroundColor: config.bgColor,
+          }}>
+            {config.label}
+          </span>
+        );
+      },
+    },
   ];
 
   // Add actions column if canEdit is true
-  if (canEdit && (onEdit || onDelete)) {
+  if (canEdit && (onEdit || onDelete || (canConfirm && onConfirm))) {
     columns.push({
       key: 'actions',
       label: 'פעולות',
@@ -287,6 +316,18 @@ export default function IncomeTable({
       filterable: false,
       render: (income: Income) => (
         <div style={styles.actionsCell}>
+          {canConfirm && income.status === 'pending' && onConfirm && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onConfirm(income.id);
+              }}
+              style={styles.confirmButton}
+              title="אשר הכנסה"
+            >
+              ✓ אשר
+            </button>
+          )}
           {onEdit && (
             <button
               onClick={() => onEdit(income.id)}
@@ -634,6 +675,17 @@ const styles: Record<string, React.CSSProperties> = {
   deleteBtn: {
     background: '#e53e3e',
     color: 'white',
+  },
+  confirmButton: {
+    padding: '6px 12px',
+    background: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
   },
   emptyState: {
     padding: '40px',

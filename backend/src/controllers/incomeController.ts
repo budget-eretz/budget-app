@@ -3,13 +3,15 @@ import pool from '../config/database';
 
 export async function getIncomes(req: Request, res: Response) {
   try {
-    const { budgetId, startDate, endDate, source, categoryId, year, month } = req.query;
+    const { budgetId, startDate, endDate, source, categoryId, year, month, status } = req.query;
 
     let query = `
-      SELECT i.*, u.full_name as user_name, b.name as budget_name
+      SELECT i.*, u.full_name as user_name, b.name as budget_name,
+             c.full_name as confirmed_by_name
       FROM incomes i
       JOIN users u ON i.user_id = u.id
       JOIN budgets b ON i.budget_id = b.id
+      LEFT JOIN users c ON i.confirmed_by = c.id
     `;
 
     const params: any[] = [];
@@ -62,6 +64,12 @@ export async function getIncomes(req: Request, res: Response) {
       paramIndex++;
     }
 
+    if (status) {
+      conditions.push(`i.status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
@@ -94,7 +102,7 @@ export async function getIncomes(req: Request, res: Response) {
 export async function createIncome(req: Request, res: Response) {
   const client = await pool.connect();
   try {
-    const { amount, source, description, incomeDate, categoryIds } = req.body;
+    const { amount, source, description, incomeDate, categoryIds, status: requestedStatus } = req.body;
     const user = req.user!;
 
     await client.query('BEGIN');
@@ -119,23 +127,38 @@ export async function createIncome(req: Request, res: Response) {
       incomeBudgetId = incomeBudgetResult.rows[0].id;
     }
 
-    // Insert income with the income budget
+    // Determine status: default is pending for all users (can be overridden by requestedStatus)
+    const status = requestedStatus || 'pending';
+
+    // Insert income with the income budget and status
     const result = await client.query(
-      `INSERT INTO incomes (budget_id, user_id, amount, source, description, income_date)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO incomes (budget_id, user_id, amount, source, description, income_date, status, confirmed_by, confirmed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [incomeBudgetId, user.userId, amount, source, description || null, incomeDate]
+      [
+        incomeBudgetId,
+        user.userId,
+        amount,
+        source,
+        description || null,
+        incomeDate,
+        status,
+        status === 'confirmed' ? user.userId : null,
+        status === 'confirmed' ? new Date() : null
+      ]
     );
 
     const income = result.rows[0];
 
-    // Update income budget total amount
-    await client.query(
-      `UPDATE budgets 
-       SET total_amount = total_amount + $1, updated_at = NOW()
-       WHERE id = $2`,
-      [amount, incomeBudgetId]
-    );
+    // Update income budget total amount only if status is confirmed
+    if (status === 'confirmed') {
+      await client.query(
+        `UPDATE budgets
+         SET total_amount = total_amount + $1, updated_at = NOW()
+         WHERE id = $2`,
+        [amount, incomeBudgetId]
+      );
+    }
 
     // Assign categories if provided
     if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
@@ -176,14 +199,14 @@ export async function updateIncome(req: Request, res: Response) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { amount, description, incomeDate, source } = req.body;
+    const { amount, description, incomeDate, source, status: requestedStatus } = req.body;
     const user = req.user!;
 
     await client.query('BEGIN');
 
-    // Check if income exists and get owner and current amount
+    // Check if income exists and get owner, current amount, and status
     const existing = await client.query(
-      'SELECT id, user_id, amount, budget_id FROM incomes WHERE id = $1',
+      'SELECT id, user_id, amount, budget_id, status FROM incomes WHERE id = $1',
       [id]
     );
 
@@ -195,7 +218,7 @@ export async function updateIncome(req: Request, res: Response) {
     // Users can update their own incomes, treasurers can update any income
     const isOwner = existing.rows[0].user_id === user.userId;
     const isTreasurer = user.isCircleTreasurer || user.isGroupTreasurer;
-    
+
     if (!isOwner && !isTreasurer) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'אין לך הרשאה לעדכן הכנסה זו' });
@@ -203,10 +226,17 @@ export async function updateIncome(req: Request, res: Response) {
 
     const oldAmount = parseFloat(existing.rows[0].amount);
     const budgetId = existing.rows[0].budget_id;
+    const currentStatus = existing.rows[0].status;
+
+    // Prevent direct status changes (only through confirmIncome)
+    if (requestedStatus && requestedStatus !== currentStatus) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס ישירות. השתמש באישור להכנסות ממתינות.' });
+    }
 
     // Update income
     const result = await client.query(
-      `UPDATE incomes 
+      `UPDATE incomes
        SET amount = COALESCE($1, amount),
            description = COALESCE($2, description),
            income_date = COALESCE($3, income_date),
@@ -218,11 +248,11 @@ export async function updateIncome(req: Request, res: Response) {
 
     const income = result.rows[0];
 
-    // Update budget total amount if amount changed
-    if (amount && amount !== oldAmount) {
+    // Update budget total amount if amount changed AND income is confirmed
+    if (amount && amount !== oldAmount && currentStatus === 'confirmed') {
       const amountDiff = parseFloat(amount) - oldAmount;
       await client.query(
-        `UPDATE budgets 
+        `UPDATE budgets
          SET total_amount = total_amount + $1, updated_at = NOW()
          WHERE id = $2`,
         [amountDiff, budgetId]
@@ -329,9 +359,9 @@ export async function deleteIncome(req: Request, res: Response) {
 
     await client.query('BEGIN');
 
-    // Check ownership or treasurer permission and get amount
+    // Check ownership or treasurer permission and get amount and status
     const existing = await client.query(
-      'SELECT user_id, amount, budget_id FROM incomes WHERE id = $1',
+      'SELECT user_id, amount, budget_id, status FROM incomes WHERE id = $1',
       [id]
     );
 
@@ -347,17 +377,20 @@ export async function deleteIncome(req: Request, res: Response) {
 
     const amount = parseFloat(existing.rows[0].amount);
     const budgetId = existing.rows[0].budget_id;
+    const status = existing.rows[0].status;
 
     // Delete income
     await client.query('DELETE FROM incomes WHERE id = $1', [id]);
 
-    // Update budget total amount
-    await client.query(
-      `UPDATE budgets 
-       SET total_amount = total_amount - $1, updated_at = NOW()
-       WHERE id = $2`,
-      [amount, budgetId]
-    );
+    // Update budget total amount only if income was confirmed
+    if (status === 'confirmed') {
+      await client.query(
+        `UPDATE budgets
+         SET total_amount = total_amount - $1, updated_at = NOW()
+         WHERE id = $2`,
+        [amount, budgetId]
+      );
+    }
 
     await client.query('COMMIT');
 
@@ -366,6 +399,92 @@ export async function deleteIncome(req: Request, res: Response) {
     await client.query('ROLLBACK');
     console.error('Delete income error:', error);
     res.status(500).json({ error: 'Failed to delete income' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function confirmIncome(req: Request, res: Response) {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    // Only circle treasurers can confirm
+    if (!user.isCircleTreasurer) {
+      return res.status(403).json({ error: 'רק גזבר מעגלי יכול לאשר הכנסות' });
+    }
+
+    await client.query('BEGIN');
+
+    // Check income exists and is pending
+    const existing = await client.query(
+      'SELECT id, amount, budget_id, status FROM incomes WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'הכנסה לא נמצאה' });
+    }
+
+    if (existing.rows[0].status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'הכנסה כבר אושרה' });
+    }
+
+    const amount = parseFloat(existing.rows[0].amount);
+    const budgetId = existing.rows[0].budget_id;
+
+    // Update income status
+    await client.query(
+      `UPDATE incomes
+       SET status = 'confirmed',
+           confirmed_by = $1,
+           confirmed_at = NOW()
+       WHERE id = $2`,
+      [user.userId, id]
+    );
+
+    // Update budget: add to total_amount (only confirmed incomes affect budget)
+    await client.query(
+      `UPDATE budgets
+       SET total_amount = total_amount + $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [amount, budgetId]
+    );
+
+    await client.query('COMMIT');
+
+    // Fetch full income data
+    const fullIncome = await pool.query(
+      `SELECT i.*, u.full_name as user_name, b.name as budget_name,
+              c.full_name as confirmed_by_name
+       FROM incomes i
+       JOIN users u ON i.user_id = u.id
+       JOIN budgets b ON i.budget_id = b.id
+       LEFT JOIN users c ON i.confirmed_by = c.id
+       WHERE i.id = $1`,
+      [id]
+    );
+
+    // Fetch categories for the income
+    const categoriesResult = await pool.query(
+      `SELECT ic.id, ic.name, ic.description, ic.color
+       FROM income_categories ic
+       JOIN income_category_assignments ica ON ic.id = ica.category_id
+       WHERE ica.income_id = $1
+       ORDER BY ic.name`,
+      [id]
+    );
+    fullIncome.rows[0].categories = categoriesResult.rows;
+
+    res.json(fullIncome.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Confirm income error:', error);
+    res.status(500).json({ error: 'אישור הכנסה נכשל' });
   } finally {
     client.release();
   }

@@ -81,6 +81,8 @@ export interface PlannedExpense {
   description: string;
   planned_date: string;
   status: 'planned' | 'executed' | 'cancelled';
+  apartment_id?: number;
+  apartment_name?: string;
   created_at: string;
 }
 
@@ -114,6 +116,8 @@ export interface Reimbursement {
   review_notes?: string;
   payment_transfer_id?: number;
   payment_transfer_status?: 'pending' | 'executed';
+  apartment_id?: number;
+  apartment_name?: string;
   created_at: string;
 }
 
@@ -158,6 +162,8 @@ export interface PaymentSummary {
   approvedCount: number;
 }
 
+export type IncomeStatus = 'pending' | 'confirmed';
+
 export interface Income {
   id: number;
   budget_id: number;
@@ -168,6 +174,10 @@ export interface Income {
   source: string;
   description?: string;
   income_date: string;
+  status: IncomeStatus;
+  confirmed_by?: number;
+  confirmed_by_name?: string;
+  confirmed_at?: string;
   created_at: string;
   categories?: IncomeCategory[];
 }
@@ -394,6 +404,8 @@ export interface DirectExpense {
   expenseDate: string;
   payee: string;
   receiptUrl?: string;
+  apartmentId?: number;
+  apartmentName?: string;
   createdBy: number;
   createdByName?: string;
   createdAt: string;
@@ -561,4 +573,70 @@ export interface MonthlyBalanceSummary {
   income: number;
   expenses: number;
   balance: number;
+}
+
+// Apartment interfaces
+export interface Apartment {
+  id: number;
+  name: string;
+  description?: string;
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+  residentCount?: number;
+}
+
+export interface ApartmentWithResidents extends Apartment {
+  residents: User[];
+}
+
+export interface ApartmentExpenseSummary {
+  apartmentId: number;
+  apartmentName: string;
+  residentCount: number;
+
+  // Reimbursements by status
+  totalReimbursementsPending: number;
+  totalReimbursementsApproved: number;
+  totalReimbursementsPaid: number;
+  totalReimbursementsRejected: number;
+  totalReimbursements: number;
+  countReimbursements: number;
+
+  // Planned expenses by status
+  totalPlannedPlanned: number;
+  totalPlannedExecuted: number;
+  totalPlannedCancelled: number;
+  totalPlanned: number;
+  countPlanned: number;
+
+  // Direct expenses
+  totalDirectExpenses: number;
+  countDirectExpenses: number;
+
+  // Grand totals
+  grandTotal: number;
+  grandCount: number;
+
+  residents?: User[];
+}
+
+export interface ApartmentExpenseDetail {
+  id: number;
+  type: 'reimbursement' | 'planned_expense' | 'direct_expense';
+  apartmentId: number;
+  apartmentName: string;
+  fundId?: number;
+  fundName?: string;
+  userId?: number;
+  userName?: string;
+  recipientUserId?: number;
+  recipientName?: string;
+  amount: number;
+  description: string;
+  expenseDate: string;
+  status?: string;
+  receiptUrl?: string;
+  createdAt: string;
 }

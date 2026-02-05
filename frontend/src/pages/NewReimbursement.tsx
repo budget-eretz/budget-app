@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI, authAPI } from '../services/api';
-import { BudgetWithFunds, BasicUser } from '../types';
+import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI, authAPI, apartmentsAPI } from '../services/api';
+import { BudgetWithFunds, BasicUser, Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -10,6 +10,7 @@ import '../styles/NewReimbursement.css';
 export default function NewReimbursement() {
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
   const [users, setUsers] = useState<BasicUser[]>([]);
+  const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
@@ -26,12 +27,23 @@ export default function NewReimbursement() {
     description: editingReimbursement?.description || '',
     expenseDate: editingReimbursement?.expense_date?.split('T')[0] || new Date().toISOString().split('T')[0],
     recipientUserId: editingReimbursement?.recipient_user_id?.toString() || '',
+    apartmentId: editingReimbursement?.apartment_id?.toString() || '',
   });
   const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { remaining: number; planned: number }>>({});
 
   useEffect(() => {
     loadData();
+    loadApartments();
   }, []);
+
+  const loadApartments = async () => {
+    try {
+      const response = await apartmentsAPI.getAll();
+      setApartments(response.data);
+    } catch (error) {
+      console.error('Failed to load apartments:', error);
+    }
+  };
 
   useEffect(() => {
     // Handle editing mode - populate form with existing reimbursement data
@@ -42,6 +54,7 @@ export default function NewReimbursement() {
         description: editingReimbursement.description || '',
         expenseDate: editingReimbursement.expense_date?.split('T')[0] || new Date().toISOString().split('T')[0],
         recipientUserId: editingReimbursement.recipient_user_id?.toString() || '',
+        apartmentId: editingReimbursement.apartment_id?.toString() || '',
       });
       return;
     }
@@ -168,6 +181,7 @@ export default function NewReimbursement() {
           description: formData.description,
           expenseDate: formData.expenseDate,
           recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
+          apartmentId: formData.apartmentId ? parseInt(formData.apartmentId) : undefined,
         });
 
         showToast('בקשת ההחזר עודכנה בהצלחה', 'success');
@@ -180,10 +194,11 @@ export default function NewReimbursement() {
           description: formData.description,
           expenseDate: formData.expenseDate,
           recipientUserId: formData.recipientUserId ? parseInt(formData.recipientUserId) : undefined,
+          apartmentId: formData.apartmentId ? parseInt(formData.apartmentId) : undefined,
         });
 
         showToast('בקשת ההחזר הוגשה בהצלחה! ניתן להגיש החזר נוסף', 'success');
-        
+
         // Reset form completely
         setFormData({
           fundId: '',
@@ -191,6 +206,7 @@ export default function NewReimbursement() {
           description: '',
           expenseDate: new Date().toISOString().split('T')[0],
           recipientUserId: '',
+          apartmentId: '',
         });
       }
     } catch (error: any) {
@@ -271,6 +287,24 @@ export default function NewReimbursement() {
               <small style={{ color: '#718096', fontSize: '13px' }}>
                 אם ההחזר מיועד למישהו אחר, בחר את שמו כאן
               </small>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                דירה (אופציונלי)
+              </label>
+              <select
+                value={formData.apartmentId}
+                onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
+                style={styles.select}
+              >
+                <option value="">ללא דירה</option>
+                {apartments.map((apt) => (
+                  <option key={apt.id} value={apt.id}>
+                    {apt.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={styles.field}>

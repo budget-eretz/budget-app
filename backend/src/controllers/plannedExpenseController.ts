@@ -7,10 +7,13 @@ export async function getPlannedExpenses(req: Request, res: Response) {
     const user = req.user!;
 
     let query = `
-      SELECT pe.*, f.name as fund_name, u.full_name as user_name
+      SELECT pe.*, f.name as fund_name, u.full_name as user_name,
+             pe.apartment_id,
+             apt.name as apartment_name
       FROM planned_expenses pe
       JOIN funds f ON pe.fund_id = f.id
       JOIN users u ON pe.user_id = u.id
+      LEFT JOIN apartments apt ON pe.apartment_id = apt.id
     `;
 
     const params: any[] = [];
@@ -43,7 +46,7 @@ export async function getPlannedExpenses(req: Request, res: Response) {
 
 export async function createPlannedExpense(req: Request, res: Response) {
   try {
-    const { fundId, amount, description, plannedDate } = req.body;
+    const { fundId, amount, description, plannedDate, apartmentId } = req.body;
     const user = req.user!;
 
     // Validate required fields
@@ -74,10 +77,10 @@ export async function createPlannedExpense(req: Request, res: Response) {
     }
 
     const result = await pool.query(
-      `INSERT INTO planned_expenses (fund_id, user_id, amount, description, planned_date)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO planned_expenses (fund_id, user_id, amount, description, planned_date, apartment_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [fundId, user.userId, amount, description, plannedDate]
+      [fundId, user.userId, amount, description, plannedDate, apartmentId || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -90,7 +93,7 @@ export async function createPlannedExpense(req: Request, res: Response) {
 export async function updatePlannedExpense(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { fundId, amount, description, plannedDate, status } = req.body;
+    const { fundId, amount, description, plannedDate, status, apartmentId } = req.body;
     const user = req.user!;
 
     // Check ownership
@@ -124,10 +127,11 @@ export async function updatePlannedExpense(req: Request, res: Response) {
            description = COALESCE($3, description),
            planned_date = COALESCE($4, planned_date),
            status = COALESCE($5, status),
+           apartment_id = COALESCE($6, apartment_id),
            updated_at = NOW()
-       WHERE id = $6
+       WHERE id = $7
        RETURNING *`,
-      [fundId, amount, description, plannedDate, status, id]
+      [fundId, amount, description, plannedDate, status, apartmentId, id]
     );
 
     res.json(result.rows[0]);
@@ -171,10 +175,13 @@ export async function getPlannedExpenseById(req: Request, res: Response) {
     const user = req.user!;
 
     const result = await pool.query(
-      `SELECT pe.*, f.name as fund_name, u.full_name as user_name
+      `SELECT pe.*, f.name as fund_name, u.full_name as user_name,
+              pe.apartment_id,
+              apt.name as apartment_name
        FROM planned_expenses pe
        JOIN funds f ON pe.fund_id = f.id
        JOIN users u ON pe.user_id = u.id
+       LEFT JOIN apartments apt ON pe.apartment_id = apt.id
        WHERE pe.id = $1`,
       [id]
     );
