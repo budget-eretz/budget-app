@@ -7,6 +7,7 @@ interface PaymentTransferDetailsModalProps {
   onClose: () => void;
   transfer: PaymentTransferDetails | null;
   onExecute?: (transferId: number) => void;
+  onDeleteRecurringApplication?: (transferId: number, applicationId: number) => void;
   canExecute: boolean;
 }
 
@@ -38,6 +39,7 @@ export default function PaymentTransferDetailsModal({
   onClose,
   transfer,
   onExecute,
+  onDeleteRecurringApplication,
   canExecute,
 }: PaymentTransferDetailsModalProps) {
   if (!transfer) return null;
@@ -123,30 +125,40 @@ export default function PaymentTransferDetailsModal({
                 <thead>
                   <tr style={styles.tableHeaderRow}>
                     <th style={styles.tableHeader}>תיאור</th>
+                    <th style={styles.tableHeader}>תקופה</th>
                     <th style={styles.tableHeader}>סעיף</th>
-                    <th style={styles.tableHeader}>תדירות</th>
-                    <th style={styles.tableHeader}>תאריך התחלה</th>
-                    <th style={styles.tableHeader}>תאריך סיום</th>
                     <th style={styles.tableHeader}>סכום</th>
+                    {transfer.status === 'pending' && onDeleteRecurringApplication && (
+                      <th style={styles.tableHeader}>פעולות</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {transfer.recurringTransfers.map((recurring) => (
-                    <tr key={`recurring-${recurring.id}`} style={styles.tableRow}>
+                    <tr key={`recurring-${recurring.application_id || recurring.id}`} style={styles.tableRow}>
                       <td style={styles.tableCell}>{recurring.description}</td>
-                      <td style={styles.tableCell}>{recurring.fundName || '-'}</td>
                       <td style={styles.tableCell}>
-                        {recurring.frequency === 'monthly' && 'חודשי'}
-                        {recurring.frequency === 'quarterly' && 'רבעוני'}
-                        {recurring.frequency === 'annual' && 'שנתי'}
+                        <span style={styles.periodBadge}>
+                          {recurring.period_display ||
+                            (recurring.frequency === 'monthly' ? 'חודשי' :
+                             recurring.frequency === 'quarterly' ? 'רבעוני' : 'שנתי')}
+                        </span>
                       </td>
-                      <td style={styles.tableCell}>{formatDate(recurring.startDate)}</td>
-                      <td style={styles.tableCell}>
-                        {recurring.endDate ? formatDate(recurring.endDate) : 'ללא הגבלה'}
-                      </td>
+                      <td style={styles.tableCell}>{recurring.fund_name || recurring.fundName || '-'}</td>
                       <td style={{...styles.tableCell, ...styles.recurringAmountCell}}>
                         {formatCurrency(recurring.amount)}
                       </td>
+                      {transfer.status === 'pending' && onDeleteRecurringApplication && recurring.application_id && (
+                        <td style={styles.tableCell}>
+                          <button
+                            onClick={() => onDeleteRecurringApplication(transfer.id, recurring.application_id!)}
+                            style={styles.deleteButton}
+                            title="הסר העברה קבועה זו מההעברה"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -348,6 +360,23 @@ const styles: Record<string, React.CSSProperties> = {
   recurringAmountCell: {
     fontWeight: 'bold',
     color: '#8b5cf6',
+  },
+  periodBadge: {
+    backgroundColor: '#ede9fe',
+    color: '#7c3aed',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    fontWeight: '500',
+  },
+  deleteButton: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '16px',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s',
   },
   infoBox: {
     backgroundColor: '#eff6ff',

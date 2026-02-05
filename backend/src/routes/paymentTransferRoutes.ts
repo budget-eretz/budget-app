@@ -25,4 +25,7 @@ router.get('/:id', paymentTransferController.getPaymentTransferById);
 // Execute payment transfer
 router.post('/:id/execute', paymentTransferController.executePaymentTransfer);
 
+// Delete a recurring transfer application from a payment transfer
+router.delete('/:transferId/recurring-application/:applicationId', paymentTransferController.deleteRecurringApplication);
+
 export default router;

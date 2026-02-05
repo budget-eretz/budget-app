@@ -281,6 +281,27 @@ export default function PaymentTransfers() {
     }
   };
 
+  // Delete a recurring transfer application from a payment transfer
+  const handleDeleteRecurringApplication = async (transferId: number, applicationId: number) => {
+    if (!confirm('האם אתה בטוח שברצונך להסיר העברה קבועה זו מההעברה?')) {
+      return;
+    }
+
+    try {
+      await paymentTransfersAPI.deleteRecurringApplication(transferId, applicationId);
+      showToast('העברה קבועה הוסרה מההעברה בהצלחה', 'success');
+      // Reload the transfer details
+      if (selectedTransferDetails) {
+        const response = await paymentTransfersAPI.getById(transferId);
+        setSelectedTransferDetails(response.data);
+      }
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בהסרת העברה קבועה', 'error');
+      console.error('Error deleting recurring application:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.loading}>
@@ -490,6 +511,7 @@ export default function PaymentTransfers() {
               setSelectedTransferDetails(null);
             }}
             onExecute={handleExecuteClick}
+            onDeleteRecurringApplication={handleDeleteRecurringApplication}
             canExecute={selectedTransferDetails.status === 'pending'}
           />
         )}

@@ -414,7 +414,7 @@ export interface DirectExpense {
 
 export interface MonthlyExpense {
   id: string;
-  type: 'reimbursement' | 'direct_expense';
+  type: 'reimbursement' | 'direct_expense' | 'recurring_transfer';
   submitter: string;
   recipient: string;
   amount: number;
@@ -433,6 +433,7 @@ export interface RecurringTransfer {
   recipientEmail?: string;
   fundId: number;
   fundName?: string;
+  fund_name?: string; // Alternative casing from backend
   budgetId?: number;
   budgetName?: string;
   budgetType?: 'circle' | 'group';
@@ -447,6 +448,11 @@ export interface RecurringTransfer {
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
+  // Application fields (when returned from payment transfer details)
+  application_id?: number;
+  period_year?: number;
+  period_month?: number;
+  period_display?: string;
 }
 
 // Report data interfaces

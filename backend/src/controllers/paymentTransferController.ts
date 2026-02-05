@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { canAccessBudgetType, updateTransferTotals } from '../utils/paymentTransferHelpers';
+import { canAccessBudgetType, updateTransferTotals, formatPeriodDisplay } from '../utils/paymentTransferHelpers';
 import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats } from '../types';
 
 /**
@@ -176,14 +176,15 @@ export async function getPaymentTransferById(req: Request, res: Response) {
       [id]
     );
 
-    // Get active recurring transfers for this recipient and budget type
+    // Get recurring transfer applications for this payment transfer
     const recurringResult = await pool.query(
-      `SELECT 
+      `SELECT
+        rta.id as application_id,
         rt.id,
         rt.fund_id,
         rt.recipient_user_id,
         rt.recipient_user_id as user_id,
-        rt.amount,
+        rta.applied_amount as amount,
         rt.description,
         rt.start_date as expense_date,
         NULL as receipt_url,
@@ -201,31 +202,33 @@ export async function getPaymentTransferById(req: Request, res: Response) {
         'recurring_transfer' as item_type,
         rt.frequency,
         rt.start_date,
-        rt.end_date
-      FROM recurring_transfers rt
+        rt.end_date,
+        rta.period_year,
+        rta.period_month
+      FROM recurring_transfer_applications rta
+      JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
       JOIN funds f ON rt.fund_id = f.id
-      JOIN budgets b ON f.budget_id = b.id
       JOIN users u ON rt.recipient_user_id = u.id
       LEFT JOIN users creator ON rt.created_by = creator.id
-      WHERE rt.recipient_user_id = $1
-        AND rt.status = 'active'
-        AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
-        AND (
-          ($2 = 'circle' AND b.group_id IS NULL) OR
-          ($2 = 'group' AND b.group_id = $3)
-        )
-      ORDER BY rt.created_at DESC`,
-      [transfer.recipientUserId, transfer.budgetType, transfer.groupId]
+      WHERE rta.payment_transfer_id = $1
+      ORDER BY rta.period_year DESC, rta.period_month DESC`,
+      [id]
     );
 
+    // Add period display to recurring transfer items
+    const recurringWithPeriod = recurringResult.rows.map(item => ({
+      ...item,
+      period_display: formatPeriodDisplay(item.frequency, item.period_year, item.period_month)
+    }));
+
     // Combine reimbursements, charges, and recurring transfers
-    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows, ...recurringResult.rows]
+    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows, ...recurringWithPeriod]
       .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
     const transferDetails: PaymentTransferDetails = {
       ...transfer,
       reimbursements: allItems,
-      recurringTransfers: recurringResult.rows
+      recurringTransfers: recurringWithPeriod
     };
 
     res.json(transferDetails);
@@ -622,6 +625,74 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
     await client.query('ROLLBACK');
     console.error('Error generating recurring transfers:', error);
     res.status(500).json({ error: 'שגיאה ביצירת העברות קבועות' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete a specific recurring transfer application from a payment transfer
+ * This allows treasurers to skip a recurring transfer for a specific period
+ */
+export async function deleteRecurringApplication(req: Request, res: Response) {
+  const client = await pool.connect();
+
+  try {
+    const user = req.user!;
+    const { transferId, applicationId } = req.params;
+
+    // Only treasurers can delete applications
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'רק גזברים יכולים למחוק העברות קבועות' });
+    }
+
+    await client.query('BEGIN');
+
+    // Get the application details
+    const applicationResult = await client.query(
+      `SELECT rta.*, pt.status as transfer_status, pt.budget_type, pt.group_id
+       FROM recurring_transfer_applications rta
+       JOIN payment_transfers pt ON rta.payment_transfer_id = pt.id
+       WHERE rta.id = $1 AND rta.payment_transfer_id = $2`,
+      [applicationId, transferId]
+    );
+
+    if (applicationResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'רשומת העברה קבועה לא נמצאה' });
+    }
+
+    const application = applicationResult.rows[0];
+
+    // Check if transfer is still pending
+    if (application.transfer_status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'לא ניתן למחוק העברה קבועה מהעברה שכבר בוצעה' });
+    }
+
+    // Check access control
+    const hasAccess = await canAccessBudgetType(user, application.budget_type, application.group_id);
+    if (!hasAccess) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'אין לך הרשאה למחוק העברה קבועה זו' });
+    }
+
+    // Delete the application
+    await client.query(
+      'DELETE FROM recurring_transfer_applications WHERE id = $1',
+      [applicationId]
+    );
+
+    // Recalculate the payment transfer totals
+    await updateTransferTotals(parseInt(transferId), client);
+
+    await client.query('COMMIT');
+
+    res.json({ message: 'העברה קבועה נמחקה מההעברה בהצלחה' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting recurring application:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת העברה קבועה' });
   } finally {
     client.release();
   }

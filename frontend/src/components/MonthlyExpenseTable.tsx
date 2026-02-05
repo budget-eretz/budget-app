@@ -286,7 +286,10 @@ export default function MonthlyExpenseTable({
       sortable: true,
       filterable: true,
       render: (expense: MonthlyExpense) => (
-        <span style={expense.type === 'direct_expense' ? styles.directExpenseLabel : {}}>
+        <span style={
+          expense.type === 'direct_expense' ? styles.directExpenseLabel :
+          expense.type === 'recurring_transfer' ? styles.recurringTransferLabel : {}
+        }>
           {expense.submitter || '-'}
         </span>
       ),
@@ -650,6 +653,10 @@ const styles: Record<string, React.CSSProperties> = {
   directExpenseLabel: {
     fontWeight: '700',
     color: '#2d3748',
+  },
+  recurringTransferLabel: {
+    fontWeight: '700',
+    color: '#8b5cf6',
   },
   description: {
     maxWidth: '250px',

@@ -15,7 +15,11 @@ export async function getFunds(req: Request, res: Response) {
              (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
               WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
              (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
-              WHERE fund_id = f.id) as spent_amount,
+              WHERE fund_id = f.id) +
+             (SELECT COALESCE(SUM(rta.applied_amount), 0)
+              FROM recurring_transfer_applications rta
+              JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+              WHERE rt.fund_id = f.id) as spent_amount,
              (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
               WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f
@@ -86,7 +90,11 @@ export async function getFundById(req: Request, res: Response) {
               (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
                WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
               (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
-               WHERE fund_id = f.id) as spent_amount,
+               WHERE fund_id = f.id) +
+              (SELECT COALESCE(SUM(rta.applied_amount), 0)
+               FROM recurring_transfer_applications rta
+               JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+               WHERE rt.fund_id = f.id) as spent_amount,
               (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
                WHERE fund_id = f.id AND status = 'planned') as planned_amount
        FROM funds f
@@ -247,7 +255,11 @@ export async function getAccessibleFunds(req: Request, res: Response) {
         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
          WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
         (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
-         WHERE fund_id = f.id) as spent_amount,
+         WHERE fund_id = f.id) +
+        (SELECT COALESCE(SUM(rta.applied_amount), 0)
+         FROM recurring_transfer_applications rta
+         JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+         WHERE rt.fund_id = f.id) as spent_amount,
         (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
          WHERE fund_id = f.id AND status = 'planned') as planned_amount
       FROM funds f
@@ -357,9 +369,9 @@ export async function getMonthlyStatus(req: Request, res: Response) {
       ? allocationResult.rows[0].allocation_type 
       : undefined;
 
-    // Calculate spent amount (pending, under_review, approved and paid reimbursements + direct expenses)
+    // Calculate spent amount (pending, under_review, approved and paid reimbursements + direct expenses + recurring transfers)
     const spentResult = await pool.query(
-      `SELECT 
+      `SELECT
          (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
           WHERE fund_id = $1
             AND EXTRACT(YEAR FROM expense_date) = $2
@@ -368,7 +380,13 @@ export async function getMonthlyStatus(req: Request, res: Response) {
          (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
           WHERE fund_id = $1
             AND EXTRACT(YEAR FROM expense_date) = $2
-            AND EXTRACT(MONTH FROM expense_date) = $3) as spent_amount`,
+            AND EXTRACT(MONTH FROM expense_date) = $3) +
+         (SELECT COALESCE(SUM(rta.applied_amount), 0)
+          FROM recurring_transfer_applications rta
+          JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+          WHERE rt.fund_id = $1
+            AND rta.period_year = $2
+            AND rta.period_month = $3) as spent_amount`,
       [fundId, year, month]
     );
 
@@ -488,7 +506,7 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
 
     // Get all direct expenses for the fund in the specified month
     const directExpensesResult = await pool.query(
-      `SELECT 
+      `SELECT
          'direct_expense' as type,
          'de-' || de.id as id,
          de.created_by as submitter_id,
@@ -504,6 +522,41 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
        ORDER BY de.expense_date DESC, de.created_at DESC`,
       [fundId, year, month]
     );
+
+    // Get recurring transfer applications for this fund in the specified month
+    const recurringResult = await pool.query(
+      `SELECT
+         'recurring_transfer' as type,
+         'rt-' || rta.id as id,
+         rt.recipient_user_id,
+         u.full_name as recipient_name,
+         rta.applied_amount as amount,
+         rt.description,
+         rta.period_year,
+         rta.period_month,
+         rt.frequency,
+         rta.created_at
+       FROM recurring_transfer_applications rta
+       JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+       JOIN users u ON rt.recipient_user_id = u.id
+       WHERE rt.fund_id = $1
+         AND rta.period_year = $2
+         AND rta.period_month = $3
+       ORDER BY rta.created_at DESC`,
+      [fundId, year, month]
+    );
+
+    // Helper to format period display for recurring transfers
+    const formatRecurringPeriod = (frequency: string, periodYear: number, periodMonth: number): string => {
+      const hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+        'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+      switch (frequency) {
+        case 'monthly': return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
+        case 'quarterly': return `רבעון ${Math.floor((periodMonth - 1) / 3) + 1} ${periodYear}`;
+        case 'annual': return `שנת ${periodYear}`;
+        default: return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
+      }
+    };
 
     // Combine and format expenses
     const expenses = [
@@ -532,6 +585,19 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
         receiptUrl: row.receipt_url,
         canEdit: canManageDirectExpenses,
         canDelete: canManageDirectExpenses
+      })),
+      ...recurringResult.rows.map(row => ({
+        id: row.id,
+        type: 'recurring_transfer',
+        submitter: 'העברה קבועה',
+        recipient: row.recipient_name,
+        amount: Number(row.amount),
+        description: `${row.description} - ${formatRecurringPeriod(row.frequency, row.period_year, row.period_month)}`,
+        date: new Date(row.period_year, row.period_month - 1, 1).toISOString(),
+        status: null,
+        receiptUrl: null,
+        canEdit: false,
+        canDelete: false
       }))
     ];
 
@@ -658,9 +724,9 @@ export async function getDashboardMonthlyStatus(req: Request, res: Response) {
           ? allocationResult.rows[0].allocation_type 
           : undefined;
 
-        // Calculate spent amount (pending, under_review, approved and paid reimbursements + direct expenses)
+        // Calculate spent amount (pending, under_review, approved and paid reimbursements + direct expenses + recurring transfers)
         const spentResult = await pool.query(
-          `SELECT 
+          `SELECT
              (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
               WHERE fund_id = $1
                 AND EXTRACT(YEAR FROM expense_date) = $2
@@ -669,7 +735,13 @@ export async function getDashboardMonthlyStatus(req: Request, res: Response) {
              (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
               WHERE fund_id = $1
                 AND EXTRACT(YEAR FROM expense_date) = $2
-                AND EXTRACT(MONTH FROM expense_date) = $3) as spent_amount`,
+                AND EXTRACT(MONTH FROM expense_date) = $3) +
+             (SELECT COALESCE(SUM(rta.applied_amount), 0)
+              FROM recurring_transfer_applications rta
+              JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+              WHERE rt.fund_id = $1
+                AND rta.period_year = $2
+                AND rta.period_month = $3) as spent_amount`,
           [fund.id, currentYear, currentMonth]
         );
 

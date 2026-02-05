@@ -311,6 +311,8 @@ export const paymentTransfersAPI = {
     api.get('/payment-transfers/stats'),
   generateRecurring: () =>
     api.post('/payment-transfers/generate-recurring'),
+  deleteRecurringApplication: (transferId: number, applicationId: number) =>
+    api.delete(`/payment-transfers/${transferId}/recurring-application/${applicationId}`),
 };
 
 // Monthly Allocations API
