@@ -95,6 +95,33 @@ export default function ApartmentExpenseReport({ year, isLoading, setIsLoading }
     }).format(amount);
   };
 
+  // Group data by apartment for subtotals
+  const apartmentGroups = new Map<number, PivotRow[]>();
+  pivotData.forEach((row) => {
+    if (!apartmentGroups.has(row.apartmentId)) {
+      apartmentGroups.set(row.apartmentId, []);
+    }
+    apartmentGroups.get(row.apartmentId)!.push(row);
+  });
+
+  // Calculate apartment subtotals
+  const apartmentSubtotals = new Map<number, { months: { [month: number]: number }, total: number }>();
+  apartmentGroups.forEach((rows, apartmentId) => {
+    const subtotal = {
+      months: {} as { [month: number]: number },
+      total: 0,
+    };
+    rows.forEach((row) => {
+      for (let month = 1; month <= 12; month++) {
+        if (row.months[month]) {
+          subtotal.months[month] = (subtotal.months[month] || 0) + row.months[month];
+        }
+      }
+      subtotal.total += row.total;
+    });
+    apartmentSubtotals.set(apartmentId, subtotal);
+  });
+
   // Calculate column totals
   const columnTotals = {
     months: {} as { [month: number]: number },
@@ -141,21 +168,46 @@ export default function ApartmentExpenseReport({ year, isLoading, setIsLoading }
                 </tr>
               </thead>
               <tbody>
-                {pivotData.map((row, index) => (
-                  <tr key={`${row.apartmentId}-${row.budgetId}-${row.fundId}`} style={styles.dataRow}>
-                    <td style={{ ...styles.cell, ...styles.firstColumn }}>{row.apartmentName}</td>
-                    <td style={styles.cell}>{row.budgetName}</td>
-                    <td style={styles.cell}>{row.fundName}</td>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
-                      <td key={month} style={styles.monthCell}>
-                        {formatCurrency(row.months[month])}
-                      </td>
-                    ))}
-                    <td style={{ ...styles.cell, ...styles.totalCell }}>
-                      {formatCurrency(row.total)}
-                    </td>
-                  </tr>
-                ))}
+                {Array.from(apartmentGroups.entries()).map(([apartmentId, rows]) => {
+                  const apartmentName = rows[0].apartmentName;
+                  const subtotal = apartmentSubtotals.get(apartmentId)!;
+
+                  return (
+                    <React.Fragment key={apartmentId}>
+                      {/* Apartment rows */}
+                      {rows.map((row) => (
+                        <tr key={`${row.apartmentId}-${row.budgetId}-${row.fundId}`} style={styles.dataRow}>
+                          <td style={{ ...styles.cell, ...styles.firstColumn }}>{row.apartmentName}</td>
+                          <td style={styles.cell}>{row.budgetName}</td>
+                          <td style={styles.cell}>{row.fundName}</td>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                            <td key={month} style={styles.monthCell}>
+                              {formatCurrency(row.months[month])}
+                            </td>
+                          ))}
+                          <td style={{ ...styles.cell, ...styles.totalCell }}>
+                            {formatCurrency(row.total)}
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Apartment subtotal row */}
+                      <tr key={`subtotal-${apartmentId}`} style={styles.subtotalRow}>
+                        <td colSpan={3} style={styles.subtotalLabel}>
+                          <strong>סיכום {apartmentName}</strong>
+                        </td>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                          <td key={month} style={styles.subtotalCell}>
+                            <strong>{formatCurrency(subtotal.months[month])}</strong>
+                          </td>
+                        ))}
+                        <td style={styles.subtotalTotalCell}>
+                          <strong>{formatCurrency(subtotal.total)}</strong>
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
 
                 {/* Totals Row */}
                 <tr style={styles.totalsRow}>
@@ -279,6 +331,37 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     backgroundColor: '#f7fafc',
     fontFamily: 'monospace',
+  },
+  subtotalRow: {
+    backgroundColor: '#e6f7ff',
+    borderTop: '2px solid #91d5ff',
+    borderBottom: '2px solid #91d5ff',
+  },
+  subtotalLabel: {
+    padding: '10px 8px',
+    textAlign: 'right',
+    color: '#1890ff',
+    fontSize: '14px',
+    borderLeft: '1px solid #91d5ff',
+  },
+  subtotalCell: {
+    padding: '10px 8px',
+    textAlign: 'center',
+    color: '#1890ff',
+    borderLeft: '1px solid #91d5ff',
+    fontFamily: 'monospace',
+    fontSize: '13px',
+    backgroundColor: '#e6f7ff',
+  },
+  subtotalTotalCell: {
+    padding: '10px 8px',
+    textAlign: 'center',
+    color: '#1890ff',
+    borderLeft: '1px solid #91d5ff',
+    fontFamily: 'monospace',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    backgroundColor: '#bae7ff',
   },
   totalsRow: {
     backgroundColor: '#edf2f7',
