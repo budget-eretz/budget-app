@@ -137,13 +137,9 @@ export default function Incomes() {
   }, [comparisonMonth.year, comparisonMonth.month]);
 
   const handleConfirmIncome = async (id: number) => {
-    if (!window.confirm('האם אתה בטוח שברצונך לאשר הכנסה זו? הסכום יתווסף לתקציב המעגלי.')) {
-      return;
-    }
-
     try {
       await incomesAPI.confirm(id);
-      showToast('הכנסה אושרה בהצלחה', 'success');
+      showToast('ההכנסה נקלטה בהצלחה', 'success');
       await refreshIncomes();
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה באישור הכנסה', 'error');

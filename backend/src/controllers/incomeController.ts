@@ -228,29 +228,92 @@ export async function updateIncome(req: Request, res: Response) {
     const budgetId = existing.rows[0].budget_id;
     const currentStatus = existing.rows[0].status;
 
-    // Prevent direct status changes (only through confirmIncome)
+    // Handle status changes - only circle treasurers can change status
     if (requestedStatus && requestedStatus !== currentStatus) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'לא ניתן לשנות סטטוס ישירות. השתמש באישור להכנסות ממתינות.' });
+      if (!user.isCircleTreasurer) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'רק גזבר מעגלי יכול לשנות סטטוס הכנסה' });
+      }
     }
 
-    // Update income
+    // Determine the final amount (new or old)
+    const finalAmount = amount !== undefined ? parseFloat(amount) : oldAmount;
+
+    // Update income (including status if provided)
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    let paramIndex = 1;
+
+    if (amount !== undefined) {
+      updateFields.push(`amount = $${paramIndex}`);
+      updateValues.push(amount);
+      paramIndex++;
+    }
+    if (description !== undefined) {
+      updateFields.push(`description = $${paramIndex}`);
+      updateValues.push(description);
+      paramIndex++;
+    }
+    if (incomeDate !== undefined) {
+      updateFields.push(`income_date = $${paramIndex}`);
+      updateValues.push(incomeDate);
+      paramIndex++;
+    }
+    if (source !== undefined) {
+      updateFields.push(`source = $${paramIndex}`);
+      updateValues.push(source);
+      paramIndex++;
+    }
+    if (requestedStatus !== undefined) {
+      updateFields.push(`status = $${paramIndex}`);
+      updateValues.push(requestedStatus);
+      paramIndex++;
+
+      if (requestedStatus === 'confirmed') {
+        updateFields.push(`confirmed_by = $${paramIndex}`);
+        updateValues.push(user.userId);
+        paramIndex++;
+        updateFields.push(`confirmed_at = NOW()`);
+      } else {
+        updateFields.push(`confirmed_by = NULL`);
+        updateFields.push(`confirmed_at = NULL`);
+      }
+    }
+
+    updateValues.push(id);
     const result = await client.query(
       `UPDATE incomes
-       SET amount = COALESCE($1, amount),
-           description = COALESCE($2, description),
-           income_date = COALESCE($3, income_date),
-           source = COALESCE($4, source)
-       WHERE id = $5
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramIndex}
        RETURNING *`,
-      [amount, description, incomeDate, source, id]
+      updateValues
     );
 
     const income = result.rows[0];
 
-    // Update budget total amount if amount changed AND income is confirmed
-    if (amount && amount !== oldAmount && currentStatus === 'confirmed') {
-      const amountDiff = parseFloat(amount) - oldAmount;
+    // Update budget based on status and amount changes
+    if (requestedStatus && requestedStatus !== currentStatus) {
+      // Status changed
+      if (requestedStatus === 'confirmed' && currentStatus === 'pending') {
+        // pending → confirmed: add final amount to budget
+        await client.query(
+          `UPDATE budgets
+           SET total_amount = total_amount + $1, updated_at = NOW()
+           WHERE id = $2`,
+          [finalAmount, budgetId]
+        );
+      } else if (requestedStatus === 'pending' && currentStatus === 'confirmed') {
+        // confirmed → pending: remove old amount from budget
+        await client.query(
+          `UPDATE budgets
+           SET total_amount = total_amount - $1, updated_at = NOW()
+           WHERE id = $2`,
+          [oldAmount, budgetId]
+        );
+      }
+    } else if (amount && amount !== oldAmount && currentStatus === 'confirmed') {
+      // Status didn't change, but amount changed and income is confirmed
+      const amountDiff = finalAmount - oldAmount;
       await client.query(
         `UPDATE budgets
          SET total_amount = total_amount + $1, updated_at = NOW()

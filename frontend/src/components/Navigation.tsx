@@ -141,24 +141,6 @@ export default function Navigation() {
                 >
                   ניהול קבוצות
                 </button>
-                <button
-                  onClick={() => handleNavigation('/apartments')}
-                  style={{
-                    ...styles.navLink,
-                    ...(isActive('/apartments') ? styles.navLinkActive : {}),
-                  }}
-                >
-                  ניהול דירות
-                </button>
-                <button
-                  onClick={() => handleNavigation('/apartment-expenses')}
-                  style={{
-                    ...styles.navLink,
-                    ...(isActive('/apartment-expenses') ? styles.navLinkActive : {}),
-                  }}
-                >
-                  דוח דירות
-                </button>
               </>
             )}
           </div>
@@ -288,24 +270,6 @@ export default function Navigation() {
                   }}
                 >
                   ניהול קבוצות
-                </button>
-                <button
-                  onClick={() => handleNavigation('/apartments')}
-                  style={{
-                    ...styles.mobileNavLink,
-                    ...(isActive('/apartments') ? styles.mobileNavLinkActive : {}),
-                  }}
-                >
-                  ניהול דירות
-                </button>
-                <button
-                  onClick={() => handleNavigation('/apartment-expenses')}
-                  style={{
-                    ...styles.mobileNavLink,
-                    ...(isActive('/apartment-expenses') ? styles.mobileNavLinkActive : {}),
-                  }}
-                >
-                  דוח דירות
                 </button>
             </>
           )}

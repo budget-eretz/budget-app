@@ -12,8 +12,6 @@ import MyReimbursements from './pages/MyReimbursements';
 import NewCharge from './pages/NewCharge';
 import UserManagement from './pages/UserManagement';
 import GroupManagement from './pages/GroupManagement';
-import ApartmentManagement from './pages/ApartmentManagement';
-import ApartmentExpenseReport from './pages/ApartmentExpenseReport';
 import PaymentTransfers from './pages/PaymentTransfers';
 import FundMonthlyDetail from './pages/FundMonthlyDetail';
 import Profile from './pages/Profile';
@@ -92,8 +90,6 @@ function App() {
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/users" element={<CircleTreasurerRoute><UserManagement /></CircleTreasurerRoute>} />
             <Route path="/groups" element={<CircleTreasurerRoute><GroupManagement /></CircleTreasurerRoute>} />
-            <Route path="/apartments" element={<CircleTreasurerRoute><ApartmentManagement /></CircleTreasurerRoute>} />
-            <Route path="/apartment-expenses" element={<CircleTreasurerRoute><ApartmentExpenseReport /></CircleTreasurerRoute>} />
             <Route path="/funds/:fundId/monthly" element={<PrivateRoute><FundMonthlyDetail /></PrivateRoute>} />
             <Route path="/direct-expenses/new" element={<TreasurerRoute><NewDirectExpense /></TreasurerRoute>} />
             <Route path="/direct-expenses/:id/edit" element={<TreasurerRoute><EditDirectExpense /></TreasurerRoute>} />

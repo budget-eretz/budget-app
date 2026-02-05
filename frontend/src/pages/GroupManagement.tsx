@@ -1,25 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { groupsAPI } from '../services/api';
-import { Group, User } from '../types';
+import { groupsAPI, apartmentsAPI } from '../services/api';
+import { Group, User, Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import GroupFormModal from '../components/GroupFormModal';
+import ApartmentFormModal from '../components/ApartmentFormModal';
+import AssignResidentsModal from '../components/AssignResidentsModal';
 import Modal from '../components/Modal';
 
 export default function GroupManagement() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'groups' | 'apartments'>('groups');
+
+  // Groups state
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
-  
-  // Modal states
+
+  // Groups modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -30,6 +36,20 @@ export default function GroupManagement() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
 
+  // Apartments state
+  const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [apartmentsSearchTerm, setApartmentsSearchTerm] = useState('');
+  const [filteredApartments, setFilteredApartments] = useState<Apartment[]>([]);
+
+  // Apartments modal states
+  const [showCreateApartmentModal, setShowCreateApartmentModal] = useState(false);
+  const [showEditApartmentModal, setShowEditApartmentModal] = useState(false);
+  const [selectedApartment, setSelectedApartment] = useState<Apartment | null>(null);
+  const [showDeleteApartmentConfirm, setShowDeleteApartmentConfirm] = useState(false);
+  const [apartmentToDelete, setApartmentToDelete] = useState<Apartment | null>(null);
+  const [showResidentsModal, setShowResidentsModal] = useState(false);
+  const [deletingApartment, setDeletingApartment] = useState(false);
+
   useEffect(() => {
     // Check permissions on mount - only Circle Treasurers can access
     if (!user?.isCircleTreasurer) {
@@ -38,12 +58,18 @@ export default function GroupManagement() {
       return;
     }
     loadGroups();
+    loadApartments();
   }, [user, navigate]);
 
   useEffect(() => {
-    // Apply search filter
+    // Apply search filter for groups
     applyFilters();
   }, [groups, searchTerm]);
+
+  useEffect(() => {
+    // Apply search filter for apartments
+    applyApartmentFilters();
+  }, [apartments, apartmentsSearchTerm]);
 
   const loadGroups = async () => {
     try {
@@ -158,6 +184,101 @@ export default function GroupManagement() {
     await loadGroups();
   };
 
+  // Apartments functions
+  const loadApartments = async () => {
+    try {
+      const response = await apartmentsAPI.getAll();
+      setApartments(response.data);
+    } catch (error: any) {
+      console.error('Failed to load apartments:', error);
+      if (error.response?.status !== 403 && error.response?.status !== 401) {
+        showToast(error.response?.data?.error || 'שגיאה בטעינת דירות', 'error');
+      }
+    }
+  };
+
+  const applyApartmentFilters = () => {
+    let filtered = [...apartments];
+
+    if (apartmentsSearchTerm.trim()) {
+      const term = apartmentsSearchTerm.toLowerCase();
+      filtered = filtered.filter(a =>
+        a.name.toLowerCase().includes(term) ||
+        (a.description && a.description.toLowerCase().includes(term))
+      );
+    }
+
+    setFilteredApartments(filtered);
+  };
+
+  const handleCreateApartment = () => {
+    setSelectedApartment(null);
+    setShowCreateApartmentModal(true);
+  };
+
+  const handleEditApartment = (apartment: Apartment) => {
+    setSelectedApartment(apartment);
+    setShowEditApartmentModal(true);
+  };
+
+  const handleDeleteApartment = (apartment: Apartment) => {
+    setApartmentToDelete(apartment);
+    setShowDeleteApartmentConfirm(true);
+  };
+
+  const confirmDeleteApartment = async () => {
+    if (!apartmentToDelete) return;
+
+    setDeletingApartment(true);
+    try {
+      await apartmentsAPI.delete(apartmentToDelete.id);
+      showToast('הדירה נמחקה בהצלחה', 'success');
+      setShowDeleteApartmentConfirm(false);
+      setApartmentToDelete(null);
+      await loadApartments();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'שגיאה במחיקת הדירה';
+      showToast(errorMessage, 'error');
+    } finally {
+      setDeletingApartment(false);
+    }
+  };
+
+  const cancelDeleteApartment = () => {
+    if (!deletingApartment) {
+      setShowDeleteApartmentConfirm(false);
+      setApartmentToDelete(null);
+    }
+  };
+
+  const handleManageResidents = (apartment: Apartment) => {
+    setSelectedApartment(apartment);
+    setShowResidentsModal(true);
+  };
+
+  const handleCloseCreateApartmentModal = () => {
+    setShowCreateApartmentModal(false);
+    setSelectedApartment(null);
+  };
+
+  const handleCloseEditApartmentModal = () => {
+    setShowEditApartmentModal(false);
+    setSelectedApartment(null);
+  };
+
+  const handleCloseResidentsModal = () => {
+    setShowResidentsModal(false);
+    setSelectedApartment(null);
+  };
+
+  const handleApartmentSaved = async () => {
+    await loadApartments();
+  };
+
+  const handleResidentsSaved = async () => {
+    await loadApartments();
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -170,28 +291,60 @@ export default function GroupManagement() {
   return (
     <div style={styles.container}>
       <Navigation />
-      
+
       <div style={styles.content}>
         <div style={styles.header}>
-          <h1 style={styles.title}>ניהול קבוצות</h1>
-          <Button onClick={handleCreateGroup} style={styles.createButton}>
-            יצירת קבוצה
-          </Button>
+          <h1 style={styles.title}>ניהול קבוצות ודירות</h1>
+          {activeTab === 'groups' && (
+            <Button onClick={handleCreateGroup} style={styles.createButton}>
+              יצירת קבוצה
+            </Button>
+          )}
+          {activeTab === 'apartments' && (
+            <Button onClick={handleCreateApartment} style={styles.createButton}>
+              יצירת דירה
+            </Button>
+          )}
         </div>
 
-        {/* Search Filter */}
-        <div style={styles.filters}>
-          <input
-            type="text"
-            placeholder="חיפוש לפי שם או תיאור..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
+        {/* Tabs */}
+        <div style={styles.tabs}>
+          <button
+            onClick={() => setActiveTab('groups')}
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'groups' ? styles.tabActive : {}),
+            }}
+          >
+            קבוצות
+          </button>
+          <button
+            onClick={() => setActiveTab('apartments')}
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'apartments' ? styles.tabActive : {}),
+            }}
+          >
+            דירות
+          </button>
         </div>
 
-        {/* Groups List */}
-        {filteredGroups.length === 0 ? (
+        {/* Groups Tab Content */}
+        {activeTab === 'groups' && (
+          <>
+            {/* Search Filter */}
+            <div style={styles.filters}>
+              <input
+                type="text"
+                placeholder="חיפוש לפי שם או תיאור..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+            </div>
+
+            {/* Groups List */}
+            {filteredGroups.length === 0 ? (
           <div style={styles.emptyState}>
             <p style={styles.emptyText}>
               {searchTerm 
@@ -244,11 +397,90 @@ export default function GroupManagement() {
           </div>
         )}
 
-        {/* Results count */}
-        {filteredGroups.length > 0 && (
-          <div style={styles.resultsCount}>
-            מציג {filteredGroups.length} מתוך {groups.length} קבוצות
-          </div>
+            {/* Results count */}
+            {filteredGroups.length > 0 && (
+              <div style={styles.resultsCount}>
+                מציג {filteredGroups.length} מתוך {groups.length} קבוצות
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Apartments Tab Content */}
+        {activeTab === 'apartments' && (
+          <>
+            {/* Search Filter */}
+            <div style={styles.filters}>
+              <input
+                type="text"
+                placeholder="חיפוש לפי שם או תיאור..."
+                value={apartmentsSearchTerm}
+                onChange={(e) => setApartmentsSearchTerm(e.target.value)}
+                style={styles.searchInput}
+              />
+            </div>
+
+            {/* Apartments List */}
+            {filteredApartments.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p style={styles.emptyText}>
+                  {apartmentsSearchTerm
+                    ? 'לא נמצאו דירות התואמות את החיפוש'
+                    : 'לא נמצאו דירות. צור את הדירה הראשונה שלך כדי להתחיל.'}
+                </p>
+                {!apartmentsSearchTerm && (
+                  <Button onClick={handleCreateApartment} style={styles.emptyCreateButton}>
+                    יצירת דירה ראשונה
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div style={styles.groupsGrid}>
+                {filteredApartments.map(apartment => (
+                  <div key={apartment.id} style={styles.groupCard}>
+                    <div style={styles.groupCardHeader}>
+                      <h3 style={styles.groupName}>{apartment.name}</h3>
+                      <div style={styles.memberCount}>
+                        {apartment.resident_count || 0} {apartment.resident_count === 1 ? 'דייר' : 'דיירים'}
+                      </div>
+                    </div>
+
+                    {apartment.description && (
+                      <p style={styles.groupDescription}>{apartment.description}</p>
+                    )}
+
+                    <div style={styles.groupCardActions}>
+                      <Button
+                        onClick={() => handleManageResidents(apartment)}
+                        style={styles.viewMembersButton}
+                      >
+                        ניהול דיירים
+                      </Button>
+                      <Button
+                        onClick={() => handleEditApartment(apartment)}
+                        style={styles.editButton}
+                      >
+                        עריכה
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteApartment(apartment)}
+                        style={styles.deleteButton}
+                      >
+                        מחיקה
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Results count */}
+            {filteredApartments.length > 0 && (
+              <div style={styles.resultsCount}>
+                מציג {filteredApartments.length} מתוך {apartments.length} דירות
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -305,6 +537,71 @@ export default function GroupManagement() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Create Apartment Modal */}
+      {showCreateApartmentModal && (
+        <ApartmentFormModal
+          isOpen={showCreateApartmentModal}
+          onClose={handleCloseCreateApartmentModal}
+          apartment={null}
+          onApartmentSaved={handleApartmentSaved}
+        />
+      )}
+
+      {/* Edit Apartment Modal */}
+      {showEditApartmentModal && selectedApartment && (
+        <ApartmentFormModal
+          isOpen={showEditApartmentModal}
+          onClose={handleCloseEditApartmentModal}
+          apartment={selectedApartment}
+          onApartmentSaved={handleApartmentSaved}
+        />
+      )}
+
+      {/* Delete Apartment Confirmation Modal */}
+      {showDeleteApartmentConfirm && apartmentToDelete && (
+        <Modal
+          isOpen={showDeleteApartmentConfirm}
+          onClose={cancelDeleteApartment}
+          title="מחיקת דירה"
+          size="sm"
+        >
+          <div style={styles.deleteConfirmContent}>
+            <p style={styles.deleteConfirmText}>
+              האם אתה בטוח שברצונך למחוק את הדירה <strong>{apartmentToDelete.name}</strong>?
+            </p>
+            <p style={styles.deleteConfirmWarning}>
+              פעולה זו אינה ניתנת לביטול. ניתן למחוק את הדירה רק אם אין לה הוצאות משויכות.
+            </p>
+            <div style={styles.deleteConfirmActions}>
+              <Button
+                onClick={cancelDeleteApartment}
+                disabled={deletingApartment}
+                style={styles.cancelButton}
+              >
+                ביטול
+              </Button>
+              <Button
+                onClick={confirmDeleteApartment}
+                disabled={deletingApartment}
+                style={styles.confirmDeleteButton}
+              >
+                {deletingApartment ? 'מוחק...' : 'מחק דירה'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Manage Residents Modal */}
+      {showResidentsModal && selectedApartment && (
+        <AssignResidentsModal
+          isOpen={showResidentsModal}
+          onClose={handleCloseResidentsModal}
+          apartment={selectedApartment}
+          onResidentsSaved={handleResidentsSaved}
+        />
       )}
 
       {/* View Members Modal */}
@@ -395,6 +692,28 @@ const styles: Record<string, React.CSSProperties> = {
   createButton: {
     padding: '12px 24px',
     fontSize: '16px',
+  },
+  tabs: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '24px',
+    borderBottom: '2px solid #e2e8f0',
+  },
+  tab: {
+    padding: '12px 24px',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#718096',
+    transition: 'all 0.2s',
+    marginBottom: '-2px',
+  },
+  tabActive: {
+    color: '#667eea',
+    borderBottom: '3px solid #667eea',
   },
   filters: {
     marginBottom: '24px',

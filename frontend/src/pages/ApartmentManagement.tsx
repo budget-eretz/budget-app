@@ -202,7 +202,7 @@ export default function ApartmentManagement() {
                 <div style={styles.apartmentCardHeader}>
                   <h3 style={styles.apartmentName}>{apartment.name}</h3>
                   <div style={styles.residentCount}>
-                    {apartment.residentCount || 0} {apartment.residentCount === 1 ? 'דייר' : 'דיירים'}
+                    {apartment.resident_count || 0} {apartment.resident_count === 1 ? 'דייר' : 'דיירים'}
                   </div>
                 </div>
 

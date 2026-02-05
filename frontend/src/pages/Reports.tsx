@@ -4,8 +4,9 @@ import MonthlyClosingReport from '../components/reports/MonthlyClosingReport';
 import AnnualBudgetExecutionReport from '../components/reports/AnnualBudgetExecutionReport';
 import ExpenseExecutionReport from '../components/reports/ExpenseExecutionReport';
 import IncomeExecutionReport from '../components/reports/IncomeExecutionReport';
+import ApartmentExpenseReport from '../components/reports/ApartmentExpenseReport';
 
-type ReportType = 'monthly-closing' | 'annual-budget' | 'expense-execution' | 'income-execution';
+type ReportType = 'monthly-closing' | 'annual-budget' | 'expense-execution' | 'income-execution' | 'apartment-expenses';
 
 const HEBREW_MONTHS = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -24,6 +25,7 @@ export default function Reports() {
     { id: 'annual-budget', name: 'דוח ביצוע תקציב שנתי', description: 'מעקב ביצוע תקציב לאורך השנה' },
     { id: 'expense-execution', name: 'דוח ביצוע הוצאות', description: 'ניתוח הוצאות לפי תקציבים' },
     { id: 'income-execution', name: 'דוח ביצוע הכנסות', description: 'ניתוח הכנסות לפי קטגוריות' },
+    { id: 'apartment-expenses', name: 'דוח הוצאות לפי דירות', description: 'סיכום והוצאות מפורטות לכל דירה' },
   ];
 
   const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - i);
@@ -65,12 +67,20 @@ export default function Reports() {
             setIsLoading={setIsLoading}
           />
         );
+      case 'apartment-expenses':
+        return (
+          <ApartmentExpenseReport
+            year={selectedYear}
+            isLoading={isLoading}
+            setIsLoading={setIsLoading}
+          />
+        );
       default:
         return null;
     }
   };
 
-  const needsMonthSelector = selectedReport !== 'annual-budget';
+  const needsMonthSelector = selectedReport !== 'annual-budget' && selectedReport !== 'apartment-expenses';
 
   return (
     <div style={styles.container}>

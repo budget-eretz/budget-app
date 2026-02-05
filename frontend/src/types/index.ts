@@ -584,7 +584,7 @@ export interface Apartment {
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
-  residentCount?: number;
+  resident_count?: number;
 }
 
 export interface ApartmentWithResidents extends Apartment {
