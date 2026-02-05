@@ -262,6 +262,8 @@ export const reportsAPI = {
     api.get(`/reports/detailed-annual-execution/${year}`),
   exportDetailedAnnualExecutionReport: (year: number) =>
     api.get(`/reports/export/detailed-annual-execution/${year}`, { responseType: 'blob' }),
+  exportDetailedAnnualExecutionReportExcel: (year: number) =>
+    api.get(`/reports/export/detailed-annual-execution-excel/${year}`, { responseType: 'blob' }),
 };
 
 // Users API

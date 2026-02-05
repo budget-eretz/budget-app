@@ -1364,21 +1364,17 @@ export class ReportService {
       throw new Error('Invalid year parameter');
     }
 
-    // Query 1: Actual income by category
+    // Query 1: Actual income by category using optimized view
     const incomeQuery = `
       SELECT
-        ic.id as category_id,
-        ic.name as category_name,
-        ic.color as category_color,
-        EXTRACT(MONTH FROM i.income_date)::integer as month,
-        SUM(i.amount) as actual_amount
-      FROM incomes i
-      JOIN income_category_assignments ica ON i.id = ica.income_id
-      JOIN income_categories ic ON ica.category_id = ic.id
-      WHERE EXTRACT(YEAR FROM i.income_date) = $1
-        AND i.status = 'approved'
-      GROUP BY ic.id, ic.name, ic.color, month
-      ORDER BY ic.name, month
+        category_id,
+        category_name,
+        category_color,
+        month,
+        total_amount as actual_amount
+      FROM monthly_income_by_category
+      WHERE year = $1
+      ORDER BY category_name, month
     `;
 
     // Query 2: Expected income by category

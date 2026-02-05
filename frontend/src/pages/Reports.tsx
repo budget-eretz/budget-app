@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import Navigation from '../components/Navigation';
 import MonthlyClosingReport from '../components/reports/MonthlyClosingReport';
-import AnnualBudgetExecutionReport from '../components/reports/AnnualBudgetExecutionReport';
 import ExpenseExecutionReport from '../components/reports/ExpenseExecutionReport';
 import IncomeExecutionReport from '../components/reports/IncomeExecutionReport';
 import ApartmentExpenseReport from '../components/reports/ApartmentExpenseReport';
 import DetailedAnnualExecutionReport from '../components/reports/DetailedAnnualExecutionReport';
 
-type ReportType = 'monthly-closing' | 'annual-budget' | 'expense-execution' | 'income-execution' | 'apartment-expenses' | 'detailed-annual-execution';
+type ReportType = 'monthly-closing' | 'expense-execution' | 'income-execution' | 'apartment-expenses' | 'detailed-annual-execution';
 
 const HEBREW_MONTHS = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -23,7 +22,6 @@ export default function Reports() {
 
   const reportTypes: { id: ReportType; name: string; description: string }[] = [
     { id: 'monthly-closing', name: 'דוח סגירה חודשי', description: 'סיכום הכנסות והוצאות לחודש' },
-    { id: 'annual-budget', name: 'דוח ביצוע תקציב שנתי', description: 'מעקב ביצוע תקציב לאורך השנה' },
     { id: 'detailed-annual-execution', name: 'דוח ביצוע שנתי מפורט', description: 'פירוט הכנסות והוצאות לפי חודשים עם תקציב ומימוש' },
     { id: 'expense-execution', name: 'דוח ביצוע הוצאות', description: 'ניתוח הוצאות לפי תקציבים' },
     { id: 'income-execution', name: 'דוח ביצוע הכנסות', description: 'ניתוח הכנסות לפי קטגוריות' },
@@ -39,14 +37,6 @@ export default function Reports() {
           <MonthlyClosingReport
             year={selectedYear}
             month={selectedMonth}
-            isLoading={isLoading}
-            setIsLoading={setIsLoading}
-          />
-        );
-      case 'annual-budget':
-        return (
-          <AnnualBudgetExecutionReport
-            year={selectedYear}
             isLoading={isLoading}
             setIsLoading={setIsLoading}
           />
@@ -90,7 +80,7 @@ export default function Reports() {
     }
   };
 
-  const needsMonthSelector = selectedReport !== 'annual-budget' && selectedReport !== 'apartment-expenses' && selectedReport !== 'detailed-annual-execution';
+  const needsMonthSelector = selectedReport !== 'apartment-expenses' && selectedReport !== 'detailed-annual-execution';
 
   return (
     <div style={styles.container}>

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { ReportService } from '../services/reportService';
 import { DataValidationError, VALIDATION_ERRORS } from '../services/reportValidationService';
+import ExcelJS from 'exceljs';
 
 export async function getDashboard(req: Request, res: Response) {
   try {
@@ -1110,4 +1111,596 @@ function formatDetailedAnnualExecutionForExport(data: any): string {
   lines.push(balanceRow);
 
   return lines.join('\n');
+}
+
+// Export Detailed Annual Execution Report to Excel with formatting
+export async function exportDetailedAnnualExecutionReportExcel(req: Request, res: Response) {
+  try {
+    const { year } = req.params;
+    const user = req.user!;
+
+    const yearNum = parseInt(year);
+    if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+      return res.status(400).json({ error: 'Invalid year parameter' });
+    }
+
+    const reportService = new ReportService();
+
+    // Create access control from user
+    const accessControl = await reportService.createAccessControl({
+      id: user.userId,
+      is_circle_treasurer: user.isCircleTreasurer,
+      is_group_treasurer: user.isGroupTreasurer
+    });
+
+    const reportData = await reportService.calculateDetailedAnnualExecution(
+      yearNum,
+      accessControl
+    );
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('דוח ביצוע שנתי מפורט');
+
+    const MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+                       'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
+    let currentRow = 1;
+
+    // Title
+    const titleRow = worksheet.getRow(currentRow);
+    titleRow.getCell(1).value = `דוח ביצוע שנתי מפורט - ${yearNum}`;
+    titleRow.getCell(1).font = { bold: true, size: 16 };
+    titleRow.getCell(1).alignment = { horizontal: 'right' };
+    currentRow += 1;
+
+    // Date generated
+    const dateRow = worksheet.getRow(currentRow);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('he-IL', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    dateRow.getCell(1).value = `תאריך יצירה: ${dateStr}`;
+    dateRow.getCell(1).font = { italic: true, size: 11, color: { argb: 'FF718096' } };
+    dateRow.getCell(1).alignment = { horizontal: 'right' };
+    currentRow += 2;
+
+    // Section 1: Income Table
+    const incomeHeaderRow = worksheet.getRow(currentRow);
+    incomeHeaderRow.getCell(1).value = 'הכנסות לפי קטגוריה';
+    incomeHeaderRow.getCell(1).font = { bold: true, size: 14 };
+    incomeHeaderRow.getCell(1).alignment = { horizontal: 'right' };
+    currentRow += 1;
+
+    // Income table headers
+    const incomeHeaders = ['קטגוריה', ...MONTHS_HE, 'סה"כ שנתי', 'כמה חסר', 'צפי שנתי'];
+    const incomeHeaderRowData = worksheet.getRow(currentRow);
+    incomeHeaders.forEach((header, index) => {
+      const cell = incomeHeaderRowData.getCell(index + 1);
+      cell.value = header;
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFEDF2F7' }
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    currentRow += 1;
+
+    // Income data rows
+    reportData.incomeExecution.byCategory.forEach((cat: any) => {
+      const dataRow = worksheet.getRow(currentRow);
+      dataRow.getCell(1).value = cat.categoryName;
+      dataRow.getCell(1).alignment = { horizontal: 'right' };
+      dataRow.getCell(1).border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      cat.monthlyActual.forEach((amount: number, index: number) => {
+        const cell = dataRow.getCell(index + 2);
+        cell.value = amount;
+        cell.numFmt = '#,##0';
+        cell.alignment = { horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // Annual actual
+      const annualCell = dataRow.getCell(14);
+      annualCell.value = cat.annualActual;
+      annualCell.numFmt = '#,##0';
+      annualCell.font = { bold: true };
+      annualCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF7FAFC' }
+      };
+      annualCell.alignment = { horizontal: 'center' };
+      annualCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      // Missing amount
+      const missingCell = dataRow.getCell(15);
+      missingCell.value = cat.missingAmount;
+      missingCell.numFmt = '#,##0';
+      missingCell.font = { bold: true, color: { argb: cat.missingAmount > 0 ? 'FFD32F2F' : 'FF388E3C' } };
+      missingCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF7FAFC' }
+      };
+      missingCell.alignment = { horizontal: 'center' };
+      missingCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      // Annual expected
+      const expectedCell = dataRow.getCell(16);
+      expectedCell.value = cat.annualExpected;
+      expectedCell.numFmt = '#,##0';
+      expectedCell.font = { bold: true };
+      expectedCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF7FAFC' }
+      };
+      expectedCell.alignment = { horizontal: 'center' };
+      expectedCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      currentRow += 1;
+    });
+
+    // Income total row
+    const incomeTotalRow = worksheet.getRow(currentRow);
+    incomeTotalRow.getCell(1).value = 'סה"כ הכנסות';
+    incomeTotalRow.getCell(1).font = { bold: true };
+    incomeTotalRow.getCell(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    incomeTotalRow.getCell(1).alignment = { horizontal: 'right' };
+    incomeTotalRow.getCell(1).border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    reportData.incomeExecution.totals.monthly.forEach((amount: number, index: number) => {
+      const cell = incomeTotalRow.getCell(index + 2);
+      cell.value = amount;
+      cell.numFmt = '#,##0';
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6FFFA' }
+      };
+      cell.alignment = { horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Total annual
+    const totalAnnualCell = incomeTotalRow.getCell(14);
+    totalAnnualCell.value = reportData.incomeExecution.totals.annual;
+    totalAnnualCell.numFmt = '#,##0';
+    totalAnnualCell.font = { bold: true };
+    totalAnnualCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalAnnualCell.alignment = { horizontal: 'center' };
+    totalAnnualCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    // Total missing
+    const totalMissing = reportData.incomeExecution.byCategory.reduce((sum: number, cat: any) => sum + cat.missingAmount, 0);
+    const totalMissingCell = incomeTotalRow.getCell(15);
+    totalMissingCell.value = totalMissing;
+    totalMissingCell.numFmt = '#,##0';
+    totalMissingCell.font = { bold: true, color: { argb: totalMissing > 0 ? 'FFD32F2F' : 'FF388E3C' } };
+    totalMissingCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalMissingCell.alignment = { horizontal: 'center' };
+    totalMissingCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    // Total expected
+    const totalExpected = reportData.incomeExecution.byCategory.reduce((sum: number, cat: any) => sum + cat.annualExpected, 0);
+    const totalExpectedCell = incomeTotalRow.getCell(16);
+    totalExpectedCell.value = totalExpected;
+    totalExpectedCell.numFmt = '#,##0';
+    totalExpectedCell.font = { bold: true };
+    totalExpectedCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalExpectedCell.alignment = { horizontal: 'center' };
+    totalExpectedCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    currentRow += 3;
+
+    // Section 2: Expense Table
+    const expenseHeaderRow = worksheet.getRow(currentRow);
+    expenseHeaderRow.getCell(1).value = 'הוצאות לפי תקציבים וסעיפים';
+    expenseHeaderRow.getCell(1).font = { bold: true, size: 14 };
+    expenseHeaderRow.getCell(1).alignment = { horizontal: 'right' };
+    currentRow += 1;
+
+    // Expense table headers
+    const expenseHeaders = ['תקציב', 'סעיף', ...MONTHS_HE, 'סה"כ שנתי', 'כמה נשאר', 'הקצאה שנתית'];
+    const expenseHeaderRowData = worksheet.getRow(currentRow);
+    expenseHeaders.forEach((header, index) => {
+      const cell = expenseHeaderRowData.getCell(index + 1);
+      cell.value = header;
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFEDF2F7' }
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    currentRow += 1;
+
+    // Expense data rows
+    reportData.expenseExecution.byBudget.forEach((budget: any) => {
+      budget.funds.forEach((fund: any, fundIndex: number) => {
+        const dataRow = worksheet.getRow(currentRow);
+
+        // Budget name (only for first fund)
+        if (fundIndex === 0) {
+          const budgetCell = dataRow.getCell(1);
+          budgetCell.value = budget.budgetName;
+          budgetCell.font = { bold: true };
+          budgetCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF7FAFC' }
+          };
+          budgetCell.alignment = { horizontal: 'right', vertical: 'top' };
+          budgetCell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        } else {
+          const budgetCell = dataRow.getCell(1);
+          budgetCell.value = '';
+          budgetCell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        }
+
+        // Fund name
+        dataRow.getCell(2).value = fund.fundName;
+        dataRow.getCell(2).alignment = { horizontal: 'right' };
+        dataRow.getCell(2).border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        // Monthly spent
+        fund.monthlySpent.forEach((amount: number, index: number) => {
+          const cell = dataRow.getCell(index + 3);
+          cell.value = amount;
+          cell.numFmt = '#,##0';
+          cell.alignment = { horizontal: 'center' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+
+        // Annual spent
+        const annualSpentCell = dataRow.getCell(15);
+        annualSpentCell.value = fund.annualSpent;
+        annualSpentCell.numFmt = '#,##0';
+        annualSpentCell.font = { bold: true };
+        annualSpentCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF7FAFC' }
+        };
+        annualSpentCell.alignment = { horizontal: 'center' };
+        annualSpentCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        // Remaining amount
+        const remainingCell = dataRow.getCell(16);
+        remainingCell.value = fund.remainingAmount;
+        remainingCell.numFmt = '#,##0';
+        remainingCell.font = { bold: true, color: { argb: fund.remainingAmount < 0 ? 'FFD32F2F' : 'FF388E3C' } };
+        remainingCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF7FAFC' }
+        };
+        remainingCell.alignment = { horizontal: 'center' };
+        remainingCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        // Allocated amount
+        const allocatedCell = dataRow.getCell(17);
+        allocatedCell.value = fund.allocatedAmount;
+        allocatedCell.numFmt = '#,##0';
+        allocatedCell.font = { bold: true };
+        allocatedCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF7FAFC' }
+        };
+        allocatedCell.alignment = { horizontal: 'center' };
+        allocatedCell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+
+        currentRow += 1;
+      });
+    });
+
+    // Expense total row
+    const expenseTotalRow = worksheet.getRow(currentRow);
+    expenseTotalRow.getCell(1).value = 'סה"כ הוצאות';
+    expenseTotalRow.getCell(1).font = { bold: true };
+    expenseTotalRow.getCell(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    expenseTotalRow.getCell(1).alignment = { horizontal: 'right' };
+    expenseTotalRow.getCell(1).border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    expenseTotalRow.getCell(2).value = '';
+    expenseTotalRow.getCell(2).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    expenseTotalRow.getCell(2).border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    reportData.expenseExecution.totals.monthly.forEach((amount: number, index: number) => {
+      const cell = expenseTotalRow.getCell(index + 3);
+      cell.value = amount;
+      cell.numFmt = '#,##0';
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6FFFA' }
+      };
+      cell.alignment = { horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Total annual expenses
+    const totalExpensesCell = expenseTotalRow.getCell(15);
+    totalExpensesCell.value = reportData.expenseExecution.totals.annual;
+    totalExpensesCell.numFmt = '#,##0';
+    totalExpensesCell.font = { bold: true };
+    totalExpensesCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalExpensesCell.alignment = { horizontal: 'center' };
+    totalExpensesCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    // Total remaining
+    const totalRemaining = reportData.expenseExecution.byBudget.reduce((sum: number, budget: any) =>
+      sum + budget.funds.reduce((fSum: number, fund: any) => fSum + fund.remainingAmount, 0), 0);
+    const totalRemainingCell = expenseTotalRow.getCell(16);
+    totalRemainingCell.value = totalRemaining;
+    totalRemainingCell.numFmt = '#,##0';
+    totalRemainingCell.font = { bold: true, color: { argb: totalRemaining < 0 ? 'FFD32F2F' : 'FF388E3C' } };
+    totalRemainingCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalRemainingCell.alignment = { horizontal: 'center' };
+    totalRemainingCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    // Total allocated
+    const totalAllocated = reportData.expenseExecution.byBudget.reduce((sum: number, budget: any) =>
+      sum + budget.funds.reduce((fSum: number, fund: any) => fSum + fund.allocatedAmount, 0), 0);
+    const totalAllocatedCell = expenseTotalRow.getCell(17);
+    totalAllocatedCell.value = totalAllocated;
+    totalAllocatedCell.numFmt = '#,##0';
+    totalAllocatedCell.font = { bold: true };
+    totalAllocatedCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6FFFA' }
+    };
+    totalAllocatedCell.alignment = { horizontal: 'center' };
+    totalAllocatedCell.border = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' }
+    };
+
+    currentRow += 3;
+
+    // Section 3: Monthly Balance
+    const balanceHeaderRow = worksheet.getRow(currentRow);
+    balanceHeaderRow.getCell(1).value = 'מאזן חודשי (הכנסות - הוצאות)';
+    balanceHeaderRow.getCell(1).font = { bold: true, size: 14 };
+    balanceHeaderRow.getCell(1).alignment = { horizontal: 'right' };
+    currentRow += 1;
+
+    // Balance table headers
+    const balanceHeaderRowData = worksheet.getRow(currentRow);
+    MONTHS_HE.forEach((month, index) => {
+      const cell = balanceHeaderRowData.getCell(index + 1);
+      cell.value = month;
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFEDF2F7' }
+      };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    currentRow += 1;
+
+    // Balance data
+    const balanceDataRow = worksheet.getRow(currentRow);
+    reportData.monthlyBalance.forEach((balance: number, index: number) => {
+      const cell = balanceDataRow.getCell(index + 1);
+      cell.value = balance;
+      cell.numFmt = '#,##0';
+      cell.font = { bold: true, color: { argb: balance >= 0 ? 'FF388E3C' : 'FFD32F2F' } };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: balance >= 0 ? 'FFE8F5E9' : 'FFFFEBEE' }
+      };
+      cell.alignment = { horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+    });
+
+    // Auto-fit columns
+    worksheet.columns.forEach((column: any) => {
+      let maxLength = 0;
+      column.eachCell?.({ includeEmpty: true }, (cell: any) => {
+        const columnLength = cell.value ? cell.value.toString().length : 10;
+        if (columnLength > maxLength) {
+          maxLength = columnLength;
+        }
+      });
+      column.width = maxLength < 10 ? 10 : maxLength + 2;
+    });
+
+    // Generate Excel file
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="detailed-annual-execution-${year}.xlsx"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Export detailed annual execution report to Excel error:', error);
+
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return res.status(403).json({ error: error.message });
+    }
+
+    res.status(500).json({ error: 'Failed to export report to Excel' });
+  }
 }
