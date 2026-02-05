@@ -16,6 +16,9 @@ router.get('/stats', paymentTransferController.getPaymentTransferStats);
 // Get all payment transfers (with filtering)
 router.get('/', paymentTransferController.getPaymentTransfers);
 
+// Generate payment transfers for users with recurring transfers
+router.post('/generate-recurring', paymentTransferController.generateRecurringTransfers);
+
 // Get single payment transfer details
 router.get('/:id', paymentTransferController.getPaymentTransferById);
 

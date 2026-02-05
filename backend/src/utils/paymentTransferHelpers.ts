@@ -3,6 +3,81 @@ import { JWTPayload } from '../types';
 import { PoolClient } from 'pg';
 
 /**
+ * Calculate the current applicable period for a recurring transfer based on frequency
+ * @param frequency - The frequency of the recurring transfer
+ * @returns Object with year and month for the current period
+ */
+export function getCurrentPeriod(frequency: 'monthly' | 'quarterly' | 'annual'): { year: number; month: number } {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-based
+
+  switch (frequency) {
+    case 'monthly':
+      return { year, month };
+    case 'quarterly':
+      // Return the starting month of the current quarter (1, 4, 7, 10)
+      const quarterStartMonth = Math.floor((month - 1) / 3) * 3 + 1;
+      return { year, month: quarterStartMonth };
+    case 'annual':
+      // Return January of current year
+      return { year, month: 1 };
+    default:
+      return { year, month };
+  }
+}
+
+/**
+ * Format period for display in Hebrew
+ * @param frequency - The frequency of the recurring transfer
+ * @param year - The period year
+ * @param month - The period month
+ * @returns Formatted string like "דצמבר 2025", "רבעון 4 2025", "שנת 2025"
+ */
+export function formatPeriodDisplay(
+  frequency: 'monthly' | 'quarterly' | 'annual',
+  year: number,
+  month: number
+): string {
+  const hebrewMonths = [
+    'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+    'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+  ];
+
+  switch (frequency) {
+    case 'monthly':
+      return `${hebrewMonths[month - 1]} ${year}`;
+    case 'quarterly':
+      const quarter = Math.floor((month - 1) / 3) + 1;
+      return `רבעון ${quarter} ${year}`;
+    case 'annual':
+      return `שנת ${year}`;
+    default:
+      return `${hebrewMonths[month - 1]} ${year}`;
+  }
+}
+
+/**
+ * Release recurring transfer applications when a payment transfer is deleted
+ * This allows the recurring transfers to be applied to a new payment transfer
+ * @param paymentTransferId - The payment transfer ID being deleted
+ * @param client - Optional database client (for use within transactions)
+ */
+export async function releaseRecurringApplications(
+  paymentTransferId: number,
+  client?: PoolClient
+): Promise<void> {
+  const db = client || pool;
+
+  await db.query(
+    `DELETE FROM recurring_transfer_applications WHERE payment_transfer_id = $1`,
+    [paymentTransferId]
+  );
+
+  console.log(`[releaseRecurringApplications] Released applications for transfer #${paymentTransferId}`);
+}
+
+/**
  * Helper function to determine if a fund is from circle or group budget
  * @param fundId - The fund ID to check
  * @param client - Optional database client (for use within transactions)
@@ -115,12 +190,13 @@ export async function getOrCreateOpenTransfer(
 /**
  * Helper function to recalculate and update payment transfer totals
  * Includes reimbursements (positive), charges (negative), and recurring transfers (positive)
+ * Now tracks which periods recurring transfers have been applied to prevent duplicates
  * @param transferId - The payment transfer ID to update
  * @param client - Optional database client (for use within transactions)
  */
 export async function updateTransferTotals(transferId: number, client?: PoolClient): Promise<void> {
   const db = client || pool;
-  
+
   // Get transfer details to find recipient and budget type
   const transferResult = await db.query(
     `SELECT recipient_user_id, budget_type, group_id
@@ -128,16 +204,16 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
     WHERE id = $1`,
     [transferId]
   );
-  
+
   if (transferResult.rows.length === 0) {
     throw new Error('Payment transfer not found');
   }
-  
+
   const { recipient_user_id, budget_type, group_id } = transferResult.rows[0];
-  
+
   // Get active recurring transfers for this recipient and budget type
   const recurringResult = await db.query(
-    `SELECT COALESCE(SUM(rt.amount), 0) as recurring_total
+    `SELECT rt.id, rt.amount, rt.frequency, rt.start_date, rt.end_date
     FROM recurring_transfers rt
     JOIN funds f ON rt.fund_id = f.id
     JOIN budgets b ON f.budget_id = b.id
@@ -150,15 +226,70 @@ export async function updateTransferTotals(transferId: number, client?: PoolClie
       )`,
     [recipient_user_id, budget_type, group_id]
   );
-  
-  const recurringTotal = parseFloat(recurringResult.rows[0].recurring_total) || 0;
-  
-  console.log(`[updateTransferTotals] Transfer #${transferId}: recipient=${recipient_user_id}, budget_type=${budget_type}, group_id=${group_id}, recurring_total=${recurringTotal}`);
-  
+
+  let recurringTotal = 0;
+  const newApplications: Array<{
+    recurringTransferId: number;
+    amount: number;
+    periodYear: number;
+    periodMonth: number;
+  }> = [];
+
+  for (const recurring of recurringResult.rows) {
+    const { year: periodYear, month: periodMonth } = getCurrentPeriod(recurring.frequency);
+
+    // Check if this recurring transfer's start date is before or in the current period
+    const startDate = new Date(recurring.start_date);
+    const periodStart = new Date(periodYear, periodMonth - 1, 1);
+    if (periodStart < new Date(startDate.getFullYear(), startDate.getMonth(), 1)) {
+      // Period is before start date, skip
+      continue;
+    }
+
+    // Check if already applied for this period (to ANY payment transfer)
+    const existingApplication = await db.query(
+      `SELECT id, payment_transfer_id
+       FROM recurring_transfer_applications
+       WHERE recurring_transfer_id = $1 AND period_year = $2 AND period_month = $3`,
+      [recurring.id, periodYear, periodMonth]
+    );
+
+    if (existingApplication.rows.length > 0) {
+      // If already applied to THIS transfer, include in total
+      if (existingApplication.rows[0].payment_transfer_id === transferId) {
+        recurringTotal += parseFloat(recurring.amount);
+      }
+      // If applied to a different transfer, skip (already paid/reserved for this period)
+      continue;
+    }
+
+    // Not yet applied for this period - add to pending applications
+    recurringTotal += parseFloat(recurring.amount);
+    newApplications.push({
+      recurringTransferId: recurring.id,
+      amount: recurring.amount,
+      periodYear,
+      periodMonth
+    });
+  }
+
+  // Create application records for new recurring transfers
+  for (const app of newApplications) {
+    await db.query(
+      `INSERT INTO recurring_transfer_applications
+       (recurring_transfer_id, payment_transfer_id, period_year, period_month, applied_amount)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (recurring_transfer_id, period_year, period_month) DO NOTHING`,
+      [app.recurringTransferId, transferId, app.periodYear, app.periodMonth, app.amount]
+    );
+  }
+
+  console.log(`[updateTransferTotals] Transfer #${transferId}: recipient=${recipient_user_id}, budget_type=${budget_type}, group_id=${group_id}, recurring_total=${recurringTotal}, new_applications=${newApplications.length}`);
+
   // Update transfer totals including recurring transfers
   await db.query(
     `UPDATE payment_transfers
-    SET 
+    SET
       total_amount = (
         SELECT COALESCE(SUM(amount), 0)
         FROM reimbursements
@@ -248,4 +379,39 @@ export async function associateChargeWithTransfer(
 
   // Update transfer totals (charges reduce the total)
   await updateTransferTotals(transferId, client);
+}
+
+/**
+ * Updates all pending payment transfers for a recipient when their recurring transfers change.
+ * Call this after creating, updating, or deleting a recurring transfer.
+ * @param recipientUserId - The user who receives the recurring transfer
+ * @param fundId - The fund ID of the recurring transfer (used to determine budget type)
+ * @param client - Optional database client (for use within transactions)
+ */
+export async function updatePaymentTransfersForRecurringChange(
+  recipientUserId: number,
+  fundId: number,
+  client?: PoolClient
+): Promise<void> {
+  const db = client || pool;
+
+  // Get budget type for the fund
+  const { budgetType, groupId } = await getBudgetTypeForFund(fundId, client);
+
+  // Find all pending payment transfers for this recipient and budget type
+  const pendingTransfers = await db.query(
+    `SELECT id FROM payment_transfers
+     WHERE recipient_user_id = $1
+       AND budget_type = $2
+       AND ($3::INTEGER IS NULL AND group_id IS NULL OR group_id = $3)
+       AND status = 'pending'`,
+    [recipientUserId, budgetType, groupId]
+  );
+
+  // Update totals for each pending transfer
+  for (const transfer of pendingTransfers.rows) {
+    await updateTransferTotals(transfer.id, client);
+  }
+
+  console.log(`[updatePaymentTransfersForRecurringChange] Updated ${pendingTransfers.rows.length} payment transfers for recipient=${recipientUserId}, budgetType=${budgetType}, groupId=${groupId}`);
 }

@@ -301,14 +301,16 @@ export const groupsAPI = {
 
 // Payment Transfers API
 export const paymentTransfersAPI = {
-  getAll: (params?: { status?: string; recipientUserId?: number; dateFrom?: string; dateTo?: string }) => 
+  getAll: (params?: { status?: string; recipientUserId?: number; dateFrom?: string; dateTo?: string }) =>
     api.get('/payment-transfers', { params }),
-  getById: (id: number) => 
+  getById: (id: number) =>
     api.get(`/payment-transfers/${id}`),
-  execute: (id: number) => 
+  execute: (id: number) =>
     api.post(`/payment-transfers/${id}/execute`),
-  getStats: () => 
+  getStats: () =>
     api.get('/payment-transfers/stats'),
+  generateRecurring: () =>
+    api.post('/payment-transfers/generate-recurring'),
 };
 
 // Monthly Allocations API

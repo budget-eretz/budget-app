@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { RecurringTransfer } from '../types';
+import { updatePaymentTransfersForRecurringChange } from '../utils/paymentTransferHelpers';
 
 // Helper function to convert snake_case to camelCase
 const toCamelCase = (row: any) => ({
@@ -262,6 +263,13 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [result.rows[0].id]);
 
+    // Update any existing pending payment transfers for this recipient
+    try {
+      await updatePaymentTransfersForRecurringChange(recipientUserId, fundId);
+    } catch (error) {
+      console.error('Warning: Failed to update payment transfers after creating recurring transfer:', error);
+    }
+
     res.status(201).json(toCamelCase(detailsResult.rows[0]));
   } catch (error) {
     console.error('Error creating recurring transfer:', error);
@@ -383,6 +391,18 @@ export const updateRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [id]);
 
+    // If amount or status changed, update pending payment transfers
+    if (amount !== undefined || status !== undefined) {
+      try {
+        await updatePaymentTransfersForRecurringChange(
+          transfer.recipient_user_id,
+          transfer.fund_id
+        );
+      } catch (error) {
+        console.error('Warning: Failed to update payment transfers after updating recurring transfer:', error);
+      }
+    }
+
     res.json(toCamelCase(detailsResult.rows[0]));
   } catch (error) {
     console.error('Error updating recurring transfer:', error);
@@ -426,6 +446,16 @@ export const deleteRecurringTransfer = async (req: Request, res: Response) => {
     }
 
     await pool.query('DELETE FROM recurring_transfers WHERE id = $1', [id]);
+
+    // Update any pending payment transfers for this recipient
+    try {
+      await updatePaymentTransfersForRecurringChange(
+        transfer.recipient_user_id,
+        transfer.fund_id
+      );
+    } catch (error) {
+      console.error('Warning: Failed to update payment transfers after deleting recurring transfer:', error);
+    }
 
     res.json({ message: 'העברה קבועה נמחקה בהצלחה' });
   } catch (error) {

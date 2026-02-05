@@ -385,6 +385,22 @@ export interface RecurringTransfer {
   created_by_name?: string;
 }
 
+// Recurring transfer application - tracks which periods have been applied
+export interface RecurringTransferApplication {
+  id: number;
+  recurring_transfer_id: number;
+  payment_transfer_id: number;
+  period_year: number;
+  period_month: number;
+  applied_amount: number;
+  created_at: Date;
+
+  // Joined fields
+  recurring_description?: string;
+  recurring_frequency?: 'monthly' | 'quarterly' | 'annual';
+  period_display?: string;  // Formatted display like "דצמבר 2025"
+}
+
 // Apartment interfaces
 export interface Apartment {
   id: number;

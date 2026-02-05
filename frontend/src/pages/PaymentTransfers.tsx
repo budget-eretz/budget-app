@@ -10,7 +10,7 @@ import RecurringTransferTable from '../components/RecurringTransferTable';
 import DirectExpenseFormModal from '../components/DirectExpenseFormModal';
 import DirectExpenseTable from '../components/DirectExpenseTable';
 import Modal from '../components/Modal';
-import api, { recurringTransfersAPI, directExpensesAPI } from '../services/api';
+import api, { recurringTransfersAPI, directExpensesAPI, paymentTransfersAPI } from '../services/api';
 
 export default function PaymentTransfers() {
   const [activeTab, setActiveTab] = useState<'pending' | 'executed' | 'recurring' | 'direct'>('pending');
@@ -34,6 +34,9 @@ export default function PaymentTransfers() {
   const [showDirectExpenseForm, setShowDirectExpenseForm] = useState(false);
   const [directExpenses, setDirectExpenses] = useState<DirectExpense[]>([]);
   const [editingDirectExpense, setEditingDirectExpense] = useState<DirectExpense | undefined>(undefined);
+
+  // Generate recurring state
+  const [generatingRecurring, setGeneratingRecurring] = useState(false);
 
   // Filters
   const [recipientFilter, setRecipientFilter] = useState('');
@@ -259,6 +262,25 @@ export default function PaymentTransfers() {
     }
   };
 
+  // Generate payment transfers for users with recurring transfers
+  const handleGenerateRecurring = async () => {
+    setGeneratingRecurring(true);
+    try {
+      const response = await paymentTransfersAPI.generateRecurring();
+      if (response.data.count > 0) {
+        showToast(`נוצרו/עודכנו ${response.data.count} העברות קבועות`, 'success');
+        await loadData();
+      } else {
+        showToast('אין העברות קבועות חדשות לייצור', 'info');
+      }
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה ביצירת העברות קבועות', 'error');
+      console.error('Error generating recurring transfers:', error);
+    } finally {
+      setGeneratingRecurring(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.loading}>
@@ -381,6 +403,19 @@ export default function PaymentTransfers() {
                 </Button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Generate Recurring Button - only show in pending tab */}
+        {activeTab === 'pending' && (
+          <div style={{ marginBottom: '20px' }}>
+            <Button
+              onClick={handleGenerateRecurring}
+              variant="secondary"
+              disabled={generatingRecurring}
+            >
+              {generatingRecurring ? 'מרענן...' : 'רענן העברות קבועות'}
+            </Button>
           </div>
         )}
 

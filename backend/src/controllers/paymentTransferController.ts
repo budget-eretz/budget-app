@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { canAccessBudgetType } from '../utils/paymentTransferHelpers';
+import { canAccessBudgetType, updateTransferTotals } from '../utils/paymentTransferHelpers';
 import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats } from '../types';
 
 /**
@@ -276,10 +276,10 @@ export async function executePaymentTransfer(req: Request, res: Response) {
       return res.status(400).json({ error: 'העברה כבר בוצעה' });
     }
 
-    // Check if transfer has reimbursements
-    if (transfer.reimbursement_count === 0) {
+    // Check if transfer has items OR recurring transfers (total_amount > 0 means recurring transfers exist)
+    if (transfer.reimbursement_count === 0 && parseFloat(transfer.total_amount) === 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'אין החזרים בהעברה זו' });
+      return res.status(400).json({ error: 'אין פריטים או העברות קבועות בהעברה זו' });
     }
 
     // Check access control
@@ -512,5 +512,117 @@ export async function getPaymentTransferStats(req: Request, res: Response) {
   } catch (error) {
     console.error('Error fetching payment transfer stats:', error);
     res.status(500).json({ error: 'שגיאה בטעינת סטטיסטיקות העברות' });
+  }
+}
+
+/**
+ * Generate payment transfers for all users with active recurring transfers
+ * who don't have a pending payment transfer for the current period yet
+ */
+export async function generateRecurringTransfers(req: Request, res: Response) {
+  const client = await pool.connect();
+
+  try {
+    const user = req.user!;
+
+    // Only treasurers can generate
+    if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
+      return res.status(403).json({ error: 'רק גזברים יכולים לייצר העברות' });
+    }
+
+    await client.query('BEGIN');
+
+    // Find all users with active recurring transfers that haven't been applied for the current period
+    let query = `
+      SELECT DISTINCT
+        rt.recipient_user_id,
+        rt.frequency,
+        CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
+        b.group_id
+      FROM recurring_transfers rt
+      JOIN funds f ON rt.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      WHERE rt.status = 'active'
+        AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
+        AND NOT EXISTS (
+          SELECT 1 FROM recurring_transfer_applications rta
+          WHERE rta.recurring_transfer_id = rt.id
+            AND rta.period_year = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
+            AND rta.period_month = CASE
+              WHEN rt.frequency = 'monthly' THEN EXTRACT(MONTH FROM CURRENT_DATE)::INTEGER
+              WHEN rt.frequency = 'quarterly' THEN (FLOOR((EXTRACT(MONTH FROM CURRENT_DATE) - 1) / 3) * 3 + 1)::INTEGER
+              WHEN rt.frequency = 'annual' THEN 1
+            END
+        )
+    `;
+
+    const params: any[] = [];
+
+    // Apply access control
+    if (!user.isCircleTreasurer) {
+      query += ` AND b.group_id = ANY($1)`;
+      params.push(user.groupIds);
+    } else if (user.isCircleTreasurer && !user.isGroupTreasurer) {
+      query += ` AND b.group_id IS NULL`;
+    }
+
+    const usersResult = await client.query(query, params);
+
+    const created: number[] = [];
+
+    // Group by recipient + budget_type + group_id to avoid duplicates
+    const userGroups = new Map<string, typeof usersResult.rows[0]>();
+    for (const row of usersResult.rows) {
+      const key = `${row.recipient_user_id}-${row.budget_type}-${row.group_id}`;
+      if (!userGroups.has(key)) {
+        userGroups.set(key, row);
+      }
+    }
+
+    for (const row of userGroups.values()) {
+      // Check if there's already a pending transfer for this user
+      const existingTransfer = await client.query(
+        `SELECT id FROM payment_transfers
+         WHERE recipient_user_id = $1
+           AND budget_type = $2
+           AND ($3::INTEGER IS NULL AND group_id IS NULL OR group_id = $3)
+           AND status = 'pending'`,
+        [row.recipient_user_id, row.budget_type, row.group_id]
+      );
+
+      let transferId: number;
+
+      if (existingTransfer.rows.length > 0) {
+        transferId = existingTransfer.rows[0].id;
+      } else {
+        // Create new payment transfer
+        const createResult = await client.query(
+          `INSERT INTO payment_transfers (
+            recipient_user_id, budget_type, group_id, status, total_amount, reimbursement_count
+          ) VALUES ($1, $2, $3, 'pending', 0, 0)
+          RETURNING id`,
+          [row.recipient_user_id, row.budget_type, row.group_id]
+        );
+        transferId = createResult.rows[0].id;
+      }
+
+      // Update totals (will include recurring transfers and create application records)
+      await updateTransferTotals(transferId, client);
+      created.push(transferId);
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: `נוצרו/עודכנו ${created.length} העברות`,
+      count: created.length,
+      transferIds: created
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error generating recurring transfers:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת העברות קבועות' });
+  } finally {
+    client.release();
   }
 }
