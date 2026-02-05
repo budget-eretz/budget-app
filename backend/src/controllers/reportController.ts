@@ -942,11 +942,172 @@ export async function getCategoryIncomeDetails(req: Request, res: Response) {
     res.json({ incomes: incomeDetails });
   } catch (error) {
     console.error('Get category income details error:', error);
-    
+
     if (error instanceof Error && error.message.includes('Access denied')) {
       return res.status(403).json({ error: error.message });
     }
-    
+
     res.status(500).json({ error: 'Failed to get category income details' });
   }
+}
+
+// Detailed Annual Execution Report
+export async function getDetailedAnnualExecutionReport(req: Request, res: Response) {
+  try {
+    const { year } = req.params;
+    const user = req.user!;
+
+    const yearNum = parseInt(year);
+    if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+      return res.status(400).json({ error: 'Invalid year parameter' });
+    }
+
+    const reportService = new ReportService();
+
+    // Create access control from user
+    const accessControl = await reportService.createAccessControl({
+      id: user.userId,
+      is_circle_treasurer: user.isCircleTreasurer,
+      is_group_treasurer: user.isGroupTreasurer
+    });
+
+    const reportData = await reportService.calculateDetailedAnnualExecution(
+      yearNum,
+      accessControl
+    );
+
+    res.json(reportData);
+  } catch (error) {
+    console.error('Get detailed annual execution report error:', error);
+
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return res.status(403).json({ error: error.message });
+    }
+
+    res.status(500).json({ error: 'Failed to generate detailed annual execution report' });
+  }
+}
+
+// Export Detailed Annual Execution Report to CSV
+export async function exportDetailedAnnualExecutionReport(req: Request, res: Response) {
+  try {
+    const { year } = req.params;
+    const user = req.user!;
+
+    const yearNum = parseInt(year);
+    if (isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+      return res.status(400).json({ error: 'Invalid year parameter' });
+    }
+
+    const reportService = new ReportService();
+
+    // Create access control from user
+    const accessControl = await reportService.createAccessControl({
+      id: user.userId,
+      is_circle_treasurer: user.isCircleTreasurer,
+      is_group_treasurer: user.isGroupTreasurer
+    });
+
+    const reportData = await reportService.calculateDetailedAnnualExecution(
+      yearNum,
+      accessControl
+    );
+
+    // Format for CSV
+    const csvData = formatDetailedAnnualExecutionForExport(reportData);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="detailed-annual-execution-${year}.csv"`);
+    res.write('\uFEFF'); // BOM for Hebrew support
+    res.write(csvData);
+    res.end();
+  } catch (error) {
+    console.error('Export detailed annual execution report error:', error);
+
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return res.status(403).json({ error: error.message });
+    }
+
+    res.status(500).json({ error: 'Failed to export report' });
+  }
+}
+
+// Helper function to format detailed annual execution report for CSV export
+function formatDetailedAnnualExecutionForExport(data: any): string {
+  const lines: string[] = [];
+  const MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+                     'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
+  // Section 1: Income Table
+  lines.push('דוח ביצוע שנתי מפורט');
+  lines.push(`שנה: ${data.year}`);
+  lines.push('');
+  lines.push('הכנסות לפי קטגוריה');
+
+  const incomeHeader = ['קטגוריה', ...MONTHS_HE, 'סה"כ שנתי', 'כמה חסר', 'צפי שנתי'].join(',');
+  lines.push(incomeHeader);
+
+  data.incomeExecution.byCategory.forEach((cat: any) => {
+    const row = [
+      `"${cat.categoryName}"`,
+      ...cat.monthlyActual.map((a: number) => a.toFixed(2)),
+      cat.annualActual.toFixed(2),
+      cat.missingAmount.toFixed(2),
+      cat.annualExpected.toFixed(2)
+    ].join(',');
+    lines.push(row);
+  });
+
+  // Total row
+  const totalRow = [
+    'סה"כ',
+    ...data.incomeExecution.totals.monthly.map((m: number) => m.toFixed(2)),
+    data.incomeExecution.totals.annual.toFixed(2),
+    '', ''
+  ].join(',');
+  lines.push(totalRow);
+  lines.push('');
+  lines.push('================================================================================');
+  lines.push('');
+
+  // Section 2: Expenses/Budget Table
+  lines.push('הוצאות לפי תקציבים וסעיפים');
+  const expenseHeader = ['תקציב', 'סעיף', ...MONTHS_HE, 'סה"כ שנתי', 'כמה נשאר', 'הקצאה שנתית'].join(',');
+  lines.push(expenseHeader);
+
+  data.expenseExecution.byBudget.forEach((budget: any) => {
+    budget.funds.forEach((fund: any, index: number) => {
+      const row = [
+        index === 0 ? `"${budget.budgetName}"` : '',
+        `"${fund.fundName}"`,
+        ...fund.monthlySpent.map((s: number) => s.toFixed(2)),
+        fund.annualSpent.toFixed(2),
+        fund.remainingAmount.toFixed(2),
+        fund.allocatedAmount.toFixed(2)
+      ].join(',');
+      lines.push(row);
+    });
+  });
+
+  // Total row
+  const expenseTotalRow = [
+    'סה"כ', '',
+    ...data.expenseExecution.totals.monthly.map((m: number) => m.toFixed(2)),
+    data.expenseExecution.totals.annual.toFixed(2),
+    '', ''
+  ].join(',');
+  lines.push(expenseTotalRow);
+  lines.push('');
+  lines.push('================================================================================');
+  lines.push('');
+
+  // Section 3: Monthly Balance
+  lines.push('יתרה חודשית (הכנסות - הוצאות)');
+  const balanceRow = [
+    '',
+    ...data.monthlyBalance.map((b: number) => b.toFixed(2))
+  ].join(',');
+  lines.push(balanceRow);
+
+  return lines.join('\n');
 }

@@ -256,6 +256,12 @@ export const reportsAPI = {
   // Category income details for collapsible rows
   getCategoryIncomeDetails: (categoryId: number, year: number, month: number) =>
     api.get(`/reports/category-income-details/${categoryId}/${year}/${month}`),
+
+  // Detailed Annual Execution Report
+  getDetailedAnnualExecutionReport: (year: number) =>
+    api.get(`/reports/detailed-annual-execution/${year}`),
+  exportDetailedAnnualExecutionReport: (year: number) =>
+    api.get(`/reports/export/detailed-annual-execution/${year}`, { responseType: 'blob' }),
 };
 
 // Users API

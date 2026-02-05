@@ -146,6 +146,53 @@ export interface User {
   is_group_treasurer: boolean;
 }
 
+// Detailed Annual Execution Report interfaces
+export interface DetailedAnnualExecutionData {
+  year: number;
+  incomeExecution: {
+    byCategory: IncomeCategoryExecution[];
+    totals: MonthlyTotals;
+  };
+  expenseExecution: {
+    byBudget: BudgetExpenseExecution[];
+    totals: MonthlyTotals;
+  };
+  monthlyBalance: number[]; // 12 months
+}
+
+export interface IncomeCategoryExecution {
+  categoryId: number;
+  categoryName: string;
+  categoryColor?: string;
+  monthlyActual: number[];    // [jan, feb, ..., dec]
+  monthlyExpected: number[];  // [jan, feb, ..., dec]
+  annualActual: number;
+  annualExpected: number;
+  missingAmount: number;      // "כמה חסר"
+}
+
+export interface BudgetExpenseExecution {
+  budgetId: number;
+  budgetName: string;
+  budgetType: 'circle' | 'group';
+  groupName?: string;
+  funds: FundExpenseExecution[];
+}
+
+export interface FundExpenseExecution {
+  fundId: number;
+  fundName: string;
+  allocatedAmount: number;
+  monthlySpent: number[];     // [jan, feb, ..., dec]
+  annualSpent: number;
+  remainingAmount: number;    // "כמה נשאר"
+}
+
+export interface MonthlyTotals {
+  monthly: number[];          // [jan, feb, ..., dec]
+  annual: number;
+}
+
 export class ReportService {
   private validationService: ReportValidationService;
 
@@ -1297,5 +1344,309 @@ export class ReportService {
    */
   getValidationService(): ReportValidationService {
     return this.validationService;
+  }
+
+  /**
+   * Calculate detailed annual execution report
+   * Shows income by category and expenses by budget/fund with monthly breakdown
+   */
+  async calculateDetailedAnnualExecution(
+    year: number,
+    accessControl: AccessControl
+  ): Promise<DetailedAnnualExecutionData> {
+    // Validate treasurer access
+    if (!accessControl.isCircleTreasurer && !accessControl.isGroupTreasurer) {
+      throw new Error('Access denied: Treasurer role required');
+    }
+
+    // Validate year
+    if (year < 2000 || year > 2100 || !Number.isInteger(year)) {
+      throw new Error('Invalid year parameter');
+    }
+
+    // Query 1: Actual income by category
+    const incomeQuery = `
+      SELECT
+        ic.id as category_id,
+        ic.name as category_name,
+        ic.color as category_color,
+        EXTRACT(MONTH FROM i.income_date)::integer as month,
+        SUM(i.amount) as actual_amount
+      FROM incomes i
+      JOIN income_category_assignments ica ON i.id = ica.income_id
+      JOIN income_categories ic ON ica.category_id = ic.id
+      WHERE EXTRACT(YEAR FROM i.income_date) = $1
+        AND i.status = 'approved'
+      GROUP BY ic.id, ic.name, ic.color, month
+      ORDER BY ic.name, month
+    `;
+
+    // Query 2: Expected income by category
+    const expectedIncomeQuery = `
+      SELECT
+        ic.id as category_id,
+        ic.name as category_name,
+        ei.month,
+        SUM(ei.amount) as expected_amount
+      FROM expected_incomes ei
+      JOIN expected_income_category_assignments eica ON ei.id = eica.expected_income_id
+      JOIN income_categories ic ON eica.category_id = ic.id
+      WHERE ei.year = $1
+      GROUP BY ic.id, ic.name, ei.month
+      ORDER BY ic.name, ei.month
+    `;
+
+    // Query 3: Expenses by fund (combining 3 sources)
+    const expenseQuery = `
+      SELECT
+        b.id as budget_id,
+        b.name as budget_name,
+        CASE WHEN b.group_id IS NULL THEN 'circle' ELSE 'group' END as budget_type,
+        g.name as group_name,
+        f.id as fund_id,
+        f.name as fund_name,
+        f.allocated_amount,
+        EXTRACT(MONTH FROM expense_date)::integer as month,
+        SUM(amount) as spent_amount
+      FROM (
+        -- Reimbursements (approved/paid)
+        SELECT r.fund_id, r.expense_date, r.amount
+        FROM reimbursements r
+        WHERE r.status IN ('approved', 'paid')
+          AND EXTRACT(YEAR FROM r.expense_date) = $1
+
+        UNION ALL
+
+        -- Direct Expenses
+        SELECT de.fund_id, de.expense_date, de.amount
+        FROM direct_expenses de
+        WHERE EXTRACT(YEAR FROM de.expense_date) = $1
+
+        UNION ALL
+
+        -- Recurring Transfer Applications
+        SELECT
+          rt.fund_id,
+          make_date(rta.period_year, rta.period_month, 1) as expense_date,
+          rta.applied_amount as amount
+        FROM recurring_transfer_applications rta
+        JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+        WHERE rta.period_year = $1
+      ) expenses
+      JOIN funds f ON expenses.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      LEFT JOIN groups g ON b.group_id = g.id
+      WHERE b.is_active = true
+      GROUP BY b.id, b.name, budget_type, g.name, f.id, f.name, f.allocated_amount, month
+      ORDER BY b.name, f.name, month
+    `;
+
+    // Execute queries
+    const [incomeResult, expectedIncomeResult, expenseResult] = await Promise.all([
+      pool.query(incomeQuery, [year]),
+      pool.query(expectedIncomeQuery, [year]),
+      pool.query(expenseQuery, [year])
+    ]);
+
+    // Transform income data to monthly arrays
+    const incomeByCategory = this.transformIncomeToMonthlyArrays(
+      incomeResult.rows,
+      expectedIncomeResult.rows
+    );
+
+    // Transform expense data to hierarchical structure
+    const expenseByBudget = this.transformExpensesToHierarchy(
+      expenseResult.rows
+    );
+
+    // Apply access control filtering
+    const filteredExpenses = accessControl.isCircleTreasurer
+      ? expenseByBudget
+      : expenseByBudget.filter(budget =>
+          budget.budgetType === 'circle' ||
+          (budget.groupName && accessControl.groupIds.some(gid => budget.groupName?.includes(String(gid))))
+        );
+
+    // Calculate totals
+    const incomeTotals = this.calculateIncomeTotals(incomeByCategory);
+    const expenseTotals = this.calculateExpenseTotals(filteredExpenses);
+
+    // Calculate monthly balance
+    const monthlyBalance = this.calculateMonthlyBalance(
+      incomeTotals.monthly,
+      expenseTotals.monthly
+    );
+
+    return {
+      year,
+      incomeExecution: {
+        byCategory: incomeByCategory,
+        totals: incomeTotals
+      },
+      expenseExecution: {
+        byBudget: filteredExpenses,
+        totals: expenseTotals
+      },
+      monthlyBalance
+    };
+  }
+
+  /**
+   * Transform income rows to monthly arrays
+   */
+  private transformIncomeToMonthlyArrays(
+    actualRows: any[],
+    expectedRows: any[]
+  ): IncomeCategoryExecution[] {
+    const categoryMap = new Map<number, IncomeCategoryExecution>();
+
+    // Process actual income
+    actualRows.forEach(row => {
+      if (!categoryMap.has(row.category_id)) {
+        categoryMap.set(row.category_id, {
+          categoryId: row.category_id,
+          categoryName: row.category_name,
+          categoryColor: row.category_color,
+          monthlyActual: new Array(12).fill(0),
+          monthlyExpected: new Array(12).fill(0),
+          annualActual: 0,
+          annualExpected: 0,
+          missingAmount: 0
+        });
+      }
+
+      const category = categoryMap.get(row.category_id)!;
+      const monthIndex = row.month - 1; // 0-based index
+      category.monthlyActual[monthIndex] = parseFloat(row.actual_amount) || 0;
+    });
+
+    // Process expected income
+    expectedRows.forEach(row => {
+      if (!categoryMap.has(row.category_id)) {
+        categoryMap.set(row.category_id, {
+          categoryId: row.category_id,
+          categoryName: row.category_name,
+          categoryColor: null,
+          monthlyActual: new Array(12).fill(0),
+          monthlyExpected: new Array(12).fill(0),
+          annualActual: 0,
+          annualExpected: 0,
+          missingAmount: 0
+        });
+      }
+
+      const category = categoryMap.get(row.category_id)!;
+      const monthIndex = row.month - 1;
+      category.monthlyExpected[monthIndex] = parseFloat(row.expected_amount) || 0;
+    });
+
+    // Calculate totals for each category
+    categoryMap.forEach(category => {
+      category.annualActual = category.monthlyActual.reduce((sum, amount) => sum + amount, 0);
+      category.annualExpected = category.monthlyExpected.reduce((sum, amount) => sum + amount, 0);
+      category.missingAmount = category.annualExpected - category.annualActual;
+    });
+
+    return Array.from(categoryMap.values()).sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName)
+    );
+  }
+
+  /**
+   * Transform expense rows to hierarchical budget/fund structure
+   */
+  private transformExpensesToHierarchy(rows: any[]): BudgetExpenseExecution[] {
+    const budgetMap = new Map<number, BudgetExpenseExecution>();
+
+    rows.forEach(row => {
+      // Create budget if not exists
+      if (!budgetMap.has(row.budget_id)) {
+        budgetMap.set(row.budget_id, {
+          budgetId: row.budget_id,
+          budgetName: row.budget_name,
+          budgetType: row.budget_type,
+          groupName: row.group_name,
+          funds: []
+        });
+      }
+
+      const budget = budgetMap.get(row.budget_id)!;
+
+      // Find or create fund
+      let fund = budget.funds.find(f => f.fundId === row.fund_id);
+      if (!fund) {
+        fund = {
+          fundId: row.fund_id,
+          fundName: row.fund_name,
+          allocatedAmount: parseFloat(row.allocated_amount) || 0,
+          monthlySpent: new Array(12).fill(0),
+          annualSpent: 0,
+          remainingAmount: 0
+        };
+        budget.funds.push(fund);
+      }
+
+      // Add monthly spent amount
+      const monthIndex = row.month - 1;
+      fund.monthlySpent[monthIndex] = parseFloat(row.spent_amount) || 0;
+    });
+
+    // Calculate totals for each fund
+    budgetMap.forEach(budget => {
+      budget.funds.forEach(fund => {
+        fund.annualSpent = fund.monthlySpent.reduce((sum, amount) => sum + amount, 0);
+        fund.remainingAmount = fund.allocatedAmount - fund.annualSpent;
+      });
+
+      // Sort funds by name
+      budget.funds.sort((a, b) => a.fundName.localeCompare(b.fundName));
+    });
+
+    return Array.from(budgetMap.values()).sort((a, b) =>
+      a.budgetName.localeCompare(b.budgetName)
+    );
+  }
+
+  /**
+   * Calculate income totals across all categories
+   */
+  private calculateIncomeTotals(categories: IncomeCategoryExecution[]): MonthlyTotals {
+    const monthly = new Array(12).fill(0);
+
+    categories.forEach(category => {
+      category.monthlyActual.forEach((amount, index) => {
+        monthly[index] += amount;
+      });
+    });
+
+    const annual = monthly.reduce((sum, amount) => sum + amount, 0);
+
+    return { monthly, annual };
+  }
+
+  /**
+   * Calculate expense totals across all budgets
+   */
+  private calculateExpenseTotals(budgets: BudgetExpenseExecution[]): MonthlyTotals {
+    const monthly = new Array(12).fill(0);
+
+    budgets.forEach(budget => {
+      budget.funds.forEach(fund => {
+        fund.monthlySpent.forEach((amount, index) => {
+          monthly[index] += amount;
+        });
+      });
+    });
+
+    const annual = monthly.reduce((sum, amount) => sum + amount, 0);
+
+    return { monthly, annual };
+  }
+
+  /**
+   * Calculate monthly balance (income - expenses)
+   */
+  private calculateMonthlyBalance(income: number[], expenses: number[]): number[] {
+    return income.map((incomeAmount, index) => incomeAmount - expenses[index]);
   }
 }

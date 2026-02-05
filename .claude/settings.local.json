@@ -4,7 +4,8 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker-compose:*)",
       "Bash(bash:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

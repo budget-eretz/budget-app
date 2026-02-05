@@ -658,3 +658,50 @@ export interface ApartmentMonthlyExpense {
   month: number;
   total_amount: number;
 }
+
+// Detailed Annual Execution Report interfaces
+export interface DetailedAnnualExecutionData {
+  year: number;
+  incomeExecution: {
+    byCategory: IncomeCategoryExecution[];
+    totals: MonthlyTotals;
+  };
+  expenseExecution: {
+    byBudget: BudgetExpenseExecution[];
+    totals: MonthlyTotals;
+  };
+  monthlyBalance: number[]; // 12 months
+}
+
+export interface IncomeCategoryExecution {
+  categoryId: number;
+  categoryName: string;
+  categoryColor?: string;
+  monthlyActual: number[];    // [jan, feb, ..., dec]
+  monthlyExpected: number[];  // [jan, feb, ..., dec]
+  annualActual: number;
+  annualExpected: number;
+  missingAmount: number;      // "כמה חסר"
+}
+
+export interface BudgetExpenseExecution {
+  budgetId: number;
+  budgetName: string;
+  budgetType: 'circle' | 'group';
+  groupName?: string;
+  funds: FundExpenseExecution[];
+}
+
+export interface FundExpenseExecution {
+  fundId: number;
+  fundName: string;
+  allocatedAmount: number;
+  monthlySpent: number[];     // [jan, feb, ..., dec]
+  annualSpent: number;
+  remainingAmount: number;    // "כמה נשאר"
+}
+
+export interface MonthlyTotals {
+  monthly: number[];          // [jan, feb, ..., dec]
+  annual: number;
+}

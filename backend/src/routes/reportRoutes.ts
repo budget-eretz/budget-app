@@ -27,6 +27,10 @@ router.get('/export/expense-execution/:year/:month', requireTreasurer, reportCon
 router.get('/export/income-execution/:year', requireTreasurer, reportController.exportIncomeExecutionReport);
 router.get('/export/income-execution/:year/:month', requireTreasurer, reportController.exportIncomeExecutionReport);
 
+// Detailed annual execution report endpoints
+router.get('/detailed-annual-execution/:year', requireTreasurer, reportController.getDetailedAnnualExecutionReport);
+router.get('/export/detailed-annual-execution/:year', requireTreasurer, reportController.exportDetailedAnnualExecutionReport);
+
 // Data validation endpoints
 router.post('/validate/consistency', requireTreasurer, reportController.validateReportsConsistency);
 router.get('/validate/data-sources/:year', requireTreasurer, reportController.validateDataSources);
