@@ -11,6 +11,8 @@ interface BudgetFormProps {
     total_amount: number;
     fiscal_year?: number;
     group_id?: number;
+    budget_type?: 'general' | 'treasurers';
+    is_active?: boolean;
   };
   onSubmit: (data: BudgetFormData) => Promise<void>;
   onCancel: () => void;
@@ -23,6 +25,7 @@ export interface BudgetFormData {
   fiscalYear?: number;
   groupId?: number;
   isActive?: boolean;
+  budgetType?: 'general' | 'treasurers';
 }
 
 interface Group {
@@ -42,6 +45,7 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
     fiscalYear: budget?.fiscal_year || new Date().getFullYear(),
     groupId: budget?.group_id || undefined,
     isActive: budget ? (budget as any).is_active !== false : true, // Default to true for new budgets
+    budgetType: budget ? (budget as any).budget_type || 'general' : 'general',
   });
 
   useEffect(() => {
@@ -80,6 +84,11 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
       newErrors.fiscalYear = 'שנת תקציב לא תקינה';
     }
 
+    // Validate treasurers budget must be circle-level
+    if (formData.budgetType === 'treasurers' && formData.groupId) {
+      newErrors.budgetType = 'תקציב גזברים חייב להיות תקציב מעגלי (ללא קבוצה)';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -99,7 +108,13 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
   };
 
   const handleChange = (field: keyof BudgetFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // If changing groupId to a non-empty value, reset budgetType to 'general'
+    if (field === 'groupId' && value) {
+      setFormData(prev => ({ ...prev, [field]: value, budgetType: 'general' }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+
     // Clear error for this field when user starts typing
     if (errors[field]) {
       setErrors(prev => {
@@ -199,6 +214,34 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
               <small style={{ color: '#718096', fontSize: '13px' }}>
                 השאר ריק עבור תקציב מעגלי, או בחר קבוצה עבור תקציב קבוצתי
               </small>
+            </div>
+          )}
+
+          {/* Budget Type field - only for circle treasurer and circle budgets */}
+          {user?.isCircleTreasurer && !formData.groupId && (
+            <div style={styles.field}>
+              <label style={styles.label}>סוג תקציב</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input
+                    type="checkbox"
+                    id="isTreasurersBudget"
+                    checked={formData.budgetType === 'treasurers'}
+                    onChange={(e) => handleChange('budgetType', e.target.checked ? 'treasurers' : 'general')}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="isTreasurersBudget" style={{ fontSize: '14px', color: '#2d3748', cursor: 'pointer' }}>
+                    👥 תקציב גזברים
+                  </label>
+                </div>
+                <small style={{ color: '#718096', fontSize: '13px' }}>
+                  {formData.budgetType === 'treasurers'
+                    ? '⚠️ רק גזברי מעגל יוכלו לרשום הוצאות והחזרים בתקציב זה'
+                    : 'תקציב רגיל - כל החברים יכולים לרשום הוצאות'}
+                </small>
+              </div>
+              {errors.budgetType && <span style={styles.errorText}>{errors.budgetType}</span>}
             </div>
           )}
 

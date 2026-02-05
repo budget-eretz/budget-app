@@ -131,7 +131,7 @@ export async function createReimbursement(req: Request, res: Response) {
 
     // Check if budget is active
     const budgetCheck = await pool.query(
-      `SELECT b.is_active 
+      `SELECT b.is_active, b.budget_type
        FROM budgets b
        JOIN funds f ON f.budget_id = b.id
        WHERE f.id = $1`,
@@ -144,6 +144,14 @@ export async function createReimbursement(req: Request, res: Response) {
 
     if (!budgetCheck.rows[0].is_active) {
       return res.status(400).json({ error: 'לא ניתן להגיש החזר לתקציב לא פעיל' });
+    }
+
+    // TREASURERS BUDGET VALIDATION: Only circle treasurers can create reimbursements in treasurers budgets
+    const budgetType = budgetCheck.rows[0].budget_type;
+    if (budgetType === 'treasurers' && !user.isCircleTreasurer) {
+      return res.status(403).json({
+        error: 'רק גזבר מעגלי יכול ליצור החזרים בתקציב גזברים'
+      });
     }
 
     // Default recipient to submitter if not provided

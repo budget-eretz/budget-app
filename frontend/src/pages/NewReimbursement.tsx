@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI } from '../services/api';
+import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI, authAPI } from '../services/api';
 import { BudgetWithFunds, BasicUser } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
@@ -115,12 +115,23 @@ export default function NewReimbursement() {
 
   const loadData = async () => {
     try {
-      const [fundsResponse, usersResponse] = await Promise.all([
+      const [fundsResponse, usersResponse, meResponse] = await Promise.all([
         fundsAPI.getAccessible(),
         usersAPI.getBasic(),
+        authAPI.getMe(),
       ]);
-      
-      setBudgets(fundsResponse.data.budgets || []);
+
+      const currentUser = meResponse.data;
+      let accessibleBudgets = fundsResponse.data.budgets || [];
+
+      // FILTER OUT TREASURERS BUDGETS for non-circle-treasurers
+      if (!currentUser.isCircleTreasurer) {
+        accessibleBudgets = accessibleBudgets.filter(
+          (budget: BudgetWithFunds) => budget.budgetType !== 'treasurers'
+        );
+      }
+
+      setBudgets(accessibleBudgets);
       setUsers(usersResponse.data || []);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת הנתונים', 'error');

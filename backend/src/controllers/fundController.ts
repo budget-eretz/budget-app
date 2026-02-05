@@ -118,7 +118,7 @@ export async function createFund(req: Request, res: Response) {
 
     // Check if user has permission for this budget
     const budget = await pool.query(
-      'SELECT group_id FROM budgets WHERE id = $1',
+      'SELECT group_id, budget_type FROM budgets WHERE id = $1',
       [budgetId]
     );
 
@@ -127,6 +127,14 @@ export async function createFund(req: Request, res: Response) {
     }
 
     const budgetGroupId = budget.rows[0].group_id;
+    const budgetType = budget.rows[0].budget_type;
+
+    // TREASURERS BUDGET VALIDATION: Only circle treasurers can create funds in treasurers budgets
+    if (budgetType === 'treasurers' && !user.isCircleTreasurer) {
+      return res.status(403).json({
+        error: 'רק גזבר מעגלי יכול ליצור סעיפים בתקציב גזברים'
+      });
+    }
 
     // Permission check
     if (budgetGroupId === null && !user.isCircleTreasurer) {
@@ -223,7 +231,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
 
     // Query all funds with their budget information (only active budgets)
     const fundsResult = await pool.query(`
-      SELECT 
+      SELECT
         f.id,
         f.budget_id,
         f.name,
@@ -234,6 +242,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
         b.name as budget_name,
         b.group_id,
         b.is_active,
+        b.budget_type,
         g.name as group_name,
         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
          WHERE fund_id = f.id AND status IN ('pending', 'under_review', 'approved', 'paid')) +
@@ -248,9 +257,19 @@ export async function getAccessibleFunds(req: Request, res: Response) {
       ORDER BY b.group_id NULLS FIRST, b.name, f.name
     `);
 
+    // Check if user is circle treasurer
+    const isCircleTreas = user.isCircleTreasurer;
+
     // Filter funds based on user's access using validateFundAccess
     const accessibleFunds = [];
     for (const fund of fundsResult.rows) {
+      // FILTER OUT TREASURERS BUDGETS for non-circle treasurers
+      if (fund.budget_type === 'treasurers') {
+        if (!isCircleTreas) {
+          continue; // Skip treasurers budget funds
+        }
+      }
+
       const hasAccess = await validateFundAccess(user.userId, fund.id);
       if (hasAccess) {
         // Calculate available amount
@@ -273,6 +292,7 @@ export async function getAccessibleFunds(req: Request, res: Response) {
           id: fund.budget_id,
           name: fund.budget_name,
           type: fund.group_id ? 'group' : 'circle',
+          budgetType: fund.budget_type,
           groupName: fund.group_name || undefined,
           funds: []
         });

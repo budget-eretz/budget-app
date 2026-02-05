@@ -106,7 +106,7 @@ export async function getBudgetById(req: Request, res: Response) {
 
 export async function createBudget(req: Request, res: Response) {
   try {
-    const { name, totalAmount, groupId, fiscalYear, isActive } = req.body;
+    const { name, totalAmount, groupId, fiscalYear, isActive, budgetType } = req.body;
     const user = req.user!;
 
     // Validate permissions
@@ -118,11 +118,27 @@ export async function createBudget(req: Request, res: Response) {
       return res.status(403).json({ error: 'Only circle treasurer can create circle budgets' });
     }
 
+    // TREASURERS BUDGET VALIDATION
+    if (budgetType === 'treasurers') {
+      if (!user.isCircleTreasurer) {
+        return res.status(403).json({
+          error: 'רק גזבר מעגלי יכול ליצור תקציב גזברים'
+        });
+      }
+      if (groupId) {
+        return res.status(400).json({
+          error: 'תקציב גזברים חייב להיות תקציב מעגלי (ללא קבוצה)'
+        });
+      }
+    }
+
+    const finalBudgetType = budgetType || 'general';  // Default to 'general'
+
     const result = await pool.query(
-      `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, is_active, budget_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, totalAmount, groupId || null, fiscalYear || null, user.userId, isActive !== undefined ? isActive : true]
+      [name, totalAmount, groupId || null, fiscalYear || null, user.userId, isActive !== undefined ? isActive : true, finalBudgetType]
     );
 
     res.status(201).json(result.rows[0]);
@@ -135,12 +151,12 @@ export async function createBudget(req: Request, res: Response) {
 export async function updateBudget(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { name, totalAmount, fiscalYear, isActive } = req.body;
+    const { name, totalAmount, fiscalYear, isActive, budgetType } = req.body;
     const user = req.user!;
 
     // Check if user has access to this budget
     const hasAccess = await canAccessBudget(user.userId, parseInt(id));
-    
+
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this budget' });
     }
@@ -159,7 +175,7 @@ export async function updateBudget(req: Request, res: Response) {
     const isCircleTreas = await isCircleTreasurer(user.userId);
 
     // Check permissions for updating specific fields
-    // Only circle treasurer can update circle budgets' name, totalAmount, fiscalYear
+    // Only circle treasurer can update circle budgets' name, totalAmount, fiscalYear, budgetType
     // Group treasurers can only update is_active for their group budgets
     if (budgetGroupId === null && !isCircleTreas) {
       // Circle budget - only circle treasurer can update
@@ -169,9 +185,23 @@ export async function updateBudget(req: Request, res: Response) {
     // For group budgets, group treasurers can update is_active only
     if (budgetGroupId !== null && !isCircleTreas) {
       // Group treasurer updating group budget
-      if (name !== undefined || totalAmount !== undefined || fiscalYear !== undefined) {
+      if (name !== undefined || totalAmount !== undefined || fiscalYear !== undefined || budgetType !== undefined) {
         return res.status(403).json({ error: 'Group treasurers can only update is_active status' });
       }
+    }
+
+    // TREASURERS BUDGET VALIDATION: Can't change to treasurers if it's a group budget
+    if (budgetType === 'treasurers' && budgetGroupId !== null) {
+      return res.status(400).json({
+        error: 'תקציב גזברים חייב להיות תקציב מעגלי (ללא קבוצה)'
+      });
+    }
+
+    // Only circle treasurer can change budget_type
+    if (budgetType !== undefined && !isCircleTreas) {
+      return res.status(403).json({
+        error: 'רק גזבר מעגלי יכול לשנות סוג תקציב'
+      });
     }
 
     const result = await pool.query(
@@ -180,10 +210,11 @@ export async function updateBudget(req: Request, res: Response) {
            total_amount = COALESCE($2, total_amount),
            fiscal_year = COALESCE($3, fiscal_year),
            is_active = COALESCE($4, is_active),
+           budget_type = COALESCE($5, budget_type),
            updated_at = NOW()
-       WHERE id = $5
+       WHERE id = $6
        RETURNING *`,
-      [name, totalAmount, fiscalYear, isActive, id]
+      [name, totalAmount, fiscalYear, isActive, budgetType, id]
     );
 
     if (result.rows.length === 0) {

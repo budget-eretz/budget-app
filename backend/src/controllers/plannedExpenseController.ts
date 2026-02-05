@@ -51,6 +51,28 @@ export async function createPlannedExpense(req: Request, res: Response) {
       return res.status(400).json({ error: 'תאריך מתוכנן הוא שדה חובה' });
     }
 
+    // VALIDATION: Check if fund belongs to treasurers budget
+    const fundCheck = await pool.query(
+      `SELECT f.id, f.budget_id, b.budget_type, b.group_id
+       FROM funds f
+       JOIN budgets b ON f.budget_id = b.id
+       WHERE f.id = $1`,
+      [fundId]
+    );
+
+    if (fundCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    const fund = fundCheck.rows[0];
+
+    // TREASURERS BUDGET VALIDATION: Only circle treasurers can create planned expenses in treasurers budgets
+    if (fund.budget_type === 'treasurers' && !user.isCircleTreasurer) {
+      return res.status(403).json({
+        error: 'רק גזבר מעגלי יכול ליצור תכנונים בתקציב גזברים'
+      });
+    }
+
     const result = await pool.query(
       `INSERT INTO planned_expenses (fund_id, user_id, amount, description, planned_date)
        VALUES ($1, $2, $3, $4, $5)

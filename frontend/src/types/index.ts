@@ -38,6 +38,7 @@ export interface Budget {
   created_at: string;
   total_income?: number;
   is_active: boolean;
+  budget_type?: 'general' | 'treasurers';
 }
 
 export interface Fund {
@@ -65,6 +66,7 @@ export interface BudgetWithFunds {
   id: number;
   name: string;
   type: 'circle' | 'group';
+  budgetType?: 'general' | 'treasurers';
   groupName?: string;
   funds: FundWithBudget[];
 }

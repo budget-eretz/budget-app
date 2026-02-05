@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI } from '../services/api';
+import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI, authAPI } from '../services/api';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -9,6 +9,7 @@ interface Budget {
   id: number;
   name: string;
   type: 'circle' | 'group';
+  budgetType?: 'general' | 'treasurers';
   groupName?: string;
   funds: {
     id: number;
@@ -109,8 +110,22 @@ export default function NewPlannedExpense() {
 
   const loadData = async () => {
     try {
-      const fundsResponse = await fundsAPI.getAccessible();
-      setBudgets(fundsResponse.data.budgets || []);
+      const [fundsResponse, meResponse] = await Promise.all([
+        fundsAPI.getAccessible(),
+        authAPI.getMe(),
+      ]);
+
+      const currentUser = meResponse.data;
+      let accessibleBudgets = fundsResponse.data.budgets || [];
+
+      // FILTER OUT TREASURERS BUDGETS for non-circle treasurers
+      if (!currentUser.isCircleTreasurer) {
+        accessibleBudgets = accessibleBudgets.filter(
+          (budget: Budget) => budget.budgetType !== 'treasurers'
+        );
+      }
+
+      setBudgets(accessibleBudgets);
 
       // If in edit mode, load the planned expense data
       if (isEditMode && id) {

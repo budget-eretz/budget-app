@@ -299,6 +299,7 @@ export default function BudgetDetail() {
         totalAmount: data.totalAmount,
         fiscalYear: data.fiscalYear,
         isActive: data.isActive,
+        budgetType: data.budgetType,
       });
       showToast('התקציב עודכן בהצלחה', 'success');
       setShowEditBudgetModal(false);
