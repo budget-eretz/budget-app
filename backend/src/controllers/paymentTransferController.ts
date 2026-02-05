@@ -677,14 +677,23 @@ export async function deleteRecurringApplication(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה למחוק העברה קבועה זו' });
     }
 
+    // Get the application amount before deleting
+    const appliedAmount = parseFloat(application.applied_amount);
+
     // Delete the application
     await client.query(
       'DELETE FROM recurring_transfer_applications WHERE id = $1',
       [applicationId]
     );
 
-    // Recalculate the payment transfer totals
-    await updateTransferTotals(parseInt(transferId), client);
+    // Update the payment transfer total by subtracting the deleted amount
+    // Don't use updateTransferTotals because it would re-create the application
+    await client.query(
+      `UPDATE payment_transfers
+       SET total_amount = total_amount - $1
+       WHERE id = $2`,
+      [appliedAmount, transferId]
+    );
 
     await client.query('COMMIT');
 

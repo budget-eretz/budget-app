@@ -297,8 +297,8 @@ export default function PaymentTransfers() {
       }
       await loadData();
     } catch (error: any) {
-      showToast(error.response?.data?.error || 'שגיאה בהסרת העברה קבועה', 'error');
       console.error('Error deleting recurring application:', error);
+      showToast(error.response?.data?.error || 'שגיאה בהסרת העברה קבועה', 'error');
     }
   };
 

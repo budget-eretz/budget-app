@@ -151,6 +151,7 @@ export default function PaymentTransferDetailsModal({
                       {transfer.status === 'pending' && onDeleteRecurringApplication && recurring.application_id && (
                         <td style={styles.tableCell}>
                           <button
+                            type="button"
                             onClick={() => onDeleteRecurringApplication(transfer.id, recurring.application_id!)}
                             style={styles.deleteButton}
                             title="הסר העברה קבועה זו מההעברה"
