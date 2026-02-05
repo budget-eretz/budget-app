@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apartmentsAPI } from '../../services/api';
-import { ApartmentExpenseSummary, ApartmentExpenseDetail } from '../../types';
+import { ApartmentMonthlyExpense } from '../../types';
 import { useToast } from '../Toast';
 
 interface ApartmentExpenseReportProps {
@@ -9,245 +9,170 @@ interface ApartmentExpenseReportProps {
   setIsLoading: (loading: boolean) => void;
 }
 
+interface PivotRow {
+  apartmentId: number;
+  apartmentName: string;
+  budgetId: number;
+  budgetName: string;
+  fundId: number;
+  fundName: string;
+  months: { [month: number]: number }; // month (1-12) -> total_amount
+  total: number;
+}
+
+const MONTH_NAMES = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+];
+
 export default function ApartmentExpenseReport({ year, isLoading, setIsLoading }: ApartmentExpenseReportProps) {
-  const [summaries, setSummaries] = useState<ApartmentExpenseSummary[]>([]);
-  const [unassignedSummary, setUnassignedSummary] = useState<ApartmentExpenseSummary | null>(null);
-  const [selectedApartmentId, setSelectedApartmentId] = useState<number | null>(null);
-  const [apartmentDetails, setApartmentDetails] = useState<ApartmentExpenseDetail[]>([]);
-  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [pivotData, setPivotData] = useState<PivotRow[]>([]);
   const { showToast } = useToast();
 
-  // Filter by year - start and end dates
-  const startDate = `${year}-01-01`;
-  const endDate = `${year}-12-31`;
-  const [filterApartmentId, setFilterApartmentId] = useState<number | undefined>();
-
   useEffect(() => {
-    loadSummaries();
-  }, [year, filterApartmentId]);
+    loadMonthlyExpenses();
+  }, [year]);
 
-  const loadSummaries = async () => {
+  const loadMonthlyExpenses = async () => {
     setIsLoading(true);
     try {
-      const params: any = {
-        startDate,
-        endDate,
-      };
-      if (filterApartmentId) params.apartmentId = filterApartmentId;
+      const response = await apartmentsAPI.getMonthlyExpenses(year);
+      const rawData: ApartmentMonthlyExpense[] = response.data;
 
-      const response = await apartmentsAPI.getExpenseSummary(params);
-      const data = response.data;
+      // Pivot the data
+      const pivotMap = new Map<string, PivotRow>();
 
-      // Separate assigned apartments from unassigned
-      const assigned = data.filter((s: ApartmentExpenseSummary) => s.apartmentId !== null);
-      const unassigned = data.find((s: ApartmentExpenseSummary) => s.apartmentId === null);
+      rawData.forEach((item) => {
+        const key = `${item.apartment_id}-${item.budget_id}-${item.fund_id}`;
 
-      setSummaries(assigned);
-      setUnassignedSummary(unassigned || null);
+        if (!pivotMap.has(key)) {
+          pivotMap.set(key, {
+            apartmentId: item.apartment_id,
+            apartmentName: item.apartment_name,
+            budgetId: item.budget_id,
+            budgetName: item.budget_name,
+            fundId: item.fund_id,
+            fundName: item.fund_name,
+            months: {},
+            total: 0,
+          });
+        }
+
+        const row = pivotMap.get(key)!;
+        row.months[item.month] = (row.months[item.month] || 0) + item.total_amount;
+        row.total += item.total_amount;
+      });
+
+      const pivotArray = Array.from(pivotMap.values());
+
+      // Sort by apartment name, then budget name, then fund name
+      pivotArray.sort((a, b) => {
+        if (a.apartmentName !== b.apartmentName) {
+          return a.apartmentName.localeCompare(b.apartmentName, 'he');
+        }
+        if (a.budgetName !== b.budgetName) {
+          return a.budgetName.localeCompare(b.budgetName, 'he');
+        }
+        return a.fundName.localeCompare(b.fundName, 'he');
+      });
+
+      setPivotData(pivotArray);
     } catch (error: any) {
-      console.error('Failed to load apartment expense summaries:', error);
-      showToast(error.response?.data?.error || 'שגיאה בטעינת דוח הוצאות דירות', 'error');
+      console.error('Failed to load apartment monthly expenses:', error);
+      showToast(error.response?.data?.error || 'שגיאה בטעינת דוח הוצאות חודשי', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadApartmentDetails = async (apartmentId: number) => {
-    setDetailsLoading(true);
-    setSelectedApartmentId(apartmentId);
-    try {
-      const params = {
-        startDate,
-        endDate,
-      };
+  const formatCurrency = (amount: number | undefined) => {
+    if (!amount) return '-';
+    return new Intl.NumberFormat('he-IL', {
+      style: 'currency',
+      currency: 'ILS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
-      const response = await apartmentsAPI.getExpenseDetails(apartmentId, params);
-      setApartmentDetails(response.data);
-    } catch (error: any) {
-      console.error('Failed to load apartment expense details:', error);
-      showToast(error.response?.data?.error || 'שגיאה בטעינת פרטי הוצאות', 'error');
-    } finally {
-      setDetailsLoading(false);
+  // Calculate column totals
+  const columnTotals = {
+    months: {} as { [month: number]: number },
+    total: 0,
+  };
+
+  pivotData.forEach((row) => {
+    for (let month = 1; month <= 12; month++) {
+      if (row.months[month]) {
+        columnTotals.months[month] = (columnTotals.months[month] || 0) + row.months[month];
+      }
     }
-  };
-
-  const closeModal = () => {
-    setSelectedApartmentId(null);
-    setApartmentDetails([]);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL');
-  };
-
-  const getExpenseTypeLabel = (type: string) => {
-    switch (type) {
-      case 'reimbursement': return 'החזר';
-      case 'planned_expense': return 'תכנון';
-      case 'direct_expense': return 'הוצאה ישירה';
-      default: return type;
-    }
-  };
-
-  const selectedSummary = summaries.find(s => s.apartmentId === selectedApartmentId);
+    columnTotals.total += row.total;
+  });
 
   return (
     <div style={styles.reportContent}>
       <div style={styles.header}>
         <h2 style={styles.reportTitle}>דוח הוצאות לפי דירות - {year}</h2>
+        <p style={styles.reportDescription}>
+          הדוח מציג סכום החזרים והוצאות ישירות לפי דירה, תקציב וסעיף עבור כל חודש בשנה
+        </p>
       </div>
 
-      {/* Filter */}
-      <div style={styles.filters}>
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>דירה ספציפית</label>
-          <select
-            value={filterApartmentId || ''}
-            onChange={(e) => setFilterApartmentId(e.target.value ? Number(e.target.value) : undefined)}
-            style={styles.select}
-          >
-            <option value="">כל הדירות</option>
-            {summaries.map(s => (
-              <option key={s.apartmentId} value={s.apartmentId}>
-                {s.apartmentName}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {isLoading ? (
+        <div style={styles.loading}>טוען נתונים...</div>
+      ) : pivotData.length === 0 ? (
+        <div style={styles.noData}>אין נתונים להצגה עבור שנת {year}</div>
+      ) : (
+        <div style={styles.tableWrapper}>
+          <div style={styles.tableContainer}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.headerRow}>
+                  <th style={{ ...styles.stickyHeader, ...styles.firstColumn }}>דירה</th>
+                  <th style={styles.stickyHeader}>תקציב</th>
+                  <th style={styles.stickyHeader}>סעיף</th>
+                  {MONTH_NAMES.map((monthName, index) => (
+                    <th key={index + 1} style={styles.monthHeader}>
+                      {monthName}
+                    </th>
+                  ))}
+                  <th style={{ ...styles.stickyHeader, ...styles.totalColumn }}>סה"כ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pivotData.map((row, index) => (
+                  <tr key={`${row.apartmentId}-${row.budgetId}-${row.fundId}`} style={styles.dataRow}>
+                    <td style={{ ...styles.cell, ...styles.firstColumn }}>{row.apartmentName}</td>
+                    <td style={styles.cell}>{row.budgetName}</td>
+                    <td style={styles.cell}>{row.fundName}</td>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                      <td key={month} style={styles.monthCell}>
+                        {formatCurrency(row.months[month])}
+                      </td>
+                    ))}
+                    <td style={{ ...styles.cell, ...styles.totalCell }}>
+                      {formatCurrency(row.total)}
+                    </td>
+                  </tr>
+                ))}
 
-      {/* Summary Table */}
-      <div style={styles.tableContainer}>
-        <h3 style={styles.sectionTitle}>סיכום הוצאות לפי דירות</h3>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.tableHeaderRow}>
-              <th style={styles.tableHeader}>שם דירה</th>
-              <th style={styles.tableHeader}>דיירים</th>
-              <th style={styles.tableHeader}>החזרים ממתינים</th>
-              <th style={styles.tableHeader}>החזרים מאושרים</th>
-              <th style={styles.tableHeader}>החזרים ששולמו</th>
-              <th style={styles.tableHeader}>תכנונים</th>
-              <th style={styles.tableHeader}>הוצאות ישירות</th>
-              <th style={styles.tableHeader}>סה"כ</th>
-              <th style={styles.tableHeader}>פעולות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summaries.length === 0 && (
-              <tr>
-                <td colSpan={9} style={styles.emptyCell}>אין נתונים להצגה</td>
-              </tr>
-            )}
-            {summaries.map((summary) => (
-              <tr key={summary.apartmentId} style={styles.tableRow}>
-                <td style={styles.tableCell}>
-                  <strong>{summary.apartmentName}</strong>
-                </td>
-                <td style={styles.tableCell}>{summary.residentCount} דיירים</td>
-                <td style={styles.tableCell}>{formatCurrency(summary.totalReimbursementsPending)}</td>
-                <td style={styles.tableCell}>{formatCurrency(summary.totalReimbursementsApproved)}</td>
-                <td style={styles.tableCell}>{formatCurrency(summary.totalReimbursementsPaid)}</td>
-                <td style={styles.tableCell}>{formatCurrency(summary.totalPlanned)}</td>
-                <td style={styles.tableCell}>{formatCurrency(summary.totalDirectExpenses)}</td>
-                <td style={{ ...styles.tableCell, fontWeight: 'bold' }}>
-                  {formatCurrency(summary.grandTotal)}
-                </td>
-                <td style={styles.tableCell}>
-                  <button
-                    onClick={() => loadApartmentDetails(summary.apartmentId)}
-                    style={styles.detailsButton}
-                  >
-                    פרטים
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Unassigned Expenses Table */}
-      {unassignedSummary && unassignedSummary.grandTotal > 0 && (
-        <div style={styles.tableContainer}>
-          <h3 style={styles.sectionTitle}>הוצאות ללא דירה</h3>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.tableHeader}>החזרים ממתינים</th>
-                <th style={styles.tableHeader}>החזרים מאושרים</th>
-                <th style={styles.tableHeader}>החזרים ששולמו</th>
-                <th style={styles.tableHeader}>תכנונים</th>
-                <th style={styles.tableHeader}>הוצאות ישירות</th>
-                <th style={styles.tableHeader}>סה"כ</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={styles.tableRow}>
-                <td style={styles.tableCell}>{formatCurrency(unassignedSummary.totalReimbursementsPending)}</td>
-                <td style={styles.tableCell}>{formatCurrency(unassignedSummary.totalReimbursementsApproved)}</td>
-                <td style={styles.tableCell}>{formatCurrency(unassignedSummary.totalReimbursementsPaid)}</td>
-                <td style={styles.tableCell}>{formatCurrency(unassignedSummary.totalPlanned)}</td>
-                <td style={styles.tableCell}>{formatCurrency(unassignedSummary.totalDirectExpenses)}</td>
-                <td style={{ ...styles.tableCell, fontWeight: 'bold' }}>
-                  {formatCurrency(unassignedSummary.grandTotal)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Details Modal */}
-      {selectedApartmentId && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>
-                פירוט הוצאות - {selectedSummary?.apartmentName}
-              </h2>
-              <button onClick={closeModal} style={styles.closeButton}>×</button>
-            </div>
-
-            {detailsLoading ? (
-              <div style={styles.modalLoading}>טוען פרטים...</div>
-            ) : (
-              <div style={styles.modalContent}>
-                {apartmentDetails.length === 0 ? (
-                  <p style={styles.noData}>אין הוצאות להצגה בשנה זו</p>
-                ) : (
-                  <table style={styles.detailsTable}>
-                    <thead>
-                      <tr style={styles.tableHeaderRow}>
-                        <th style={styles.detailsTableHeader}>תאריך</th>
-                        <th style={styles.detailsTableHeader}>סוג</th>
-                        <th style={styles.detailsTableHeader}>סכום</th>
-                        <th style={styles.detailsTableHeader}>תיאור</th>
-                        <th style={styles.detailsTableHeader}>משתמש</th>
-                        <th style={styles.detailsTableHeader}>סטטוס</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {apartmentDetails.map((detail, index) => (
-                        <tr key={`${detail.type}-${detail.id}`} style={styles.detailsRow}>
-                          <td style={styles.detailsCell}>{formatDate(detail.expenseDate)}</td>
-                          <td style={styles.detailsCell}>{getExpenseTypeLabel(detail.type)}</td>
-                          <td style={styles.detailsCell}>{formatCurrency(detail.amount)}</td>
-                          <td style={styles.detailsCell}>{detail.description}</td>
-                          <td style={styles.detailsCell}>{detail.userName || '-'}</td>
-                          <td style={styles.detailsCell}>{detail.status || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
+                {/* Totals Row */}
+                <tr style={styles.totalsRow}>
+                  <td colSpan={3} style={{ ...styles.cell, ...styles.totalLabel }}>
+                    <strong>סה"כ</strong>
+                  </td>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
+                    <td key={month} style={styles.totalMonthCell}>
+                      <strong>{formatCurrency(columnTotals.months[month])}</strong>
+                    </td>
+                  ))}
+                  <td style={{ ...styles.cell, ...styles.grandTotalCell }}>
+                    <strong>{formatCurrency(columnTotals.total)}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -260,178 +185,122 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
   },
   header: {
-    marginBottom: '16px',
+    marginBottom: '24px',
   },
   reportTitle: {
     fontSize: '20px',
     fontWeight: 'bold',
     color: '#2d3748',
     margin: 0,
+    marginBottom: '8px',
   },
-  filters: {
-    display: 'flex',
-    gap: '16px',
-    marginBottom: '24px',
-    padding: '16px',
+  reportDescription: {
+    fontSize: '14px',
+    color: '#718096',
+    margin: 0,
+  },
+  loading: {
+    padding: '40px',
+    textAlign: 'center',
+    color: '#718096',
+    fontSize: '16px',
+  },
+  noData: {
+    padding: '40px',
+    textAlign: 'center',
+    color: '#718096',
+    fontSize: '16px',
     backgroundColor: '#f7fafc',
     borderRadius: '8px',
   },
-  filterGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  filterLabel: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#4a5568',
-  },
-  select: {
-    padding: '8px 12px',
-    fontSize: '14px',
-    border: '1px solid #e2e8f0',
-    borderRadius: '6px',
-    backgroundColor: 'white',
-    minWidth: '150px',
-    cursor: 'pointer',
+  tableWrapper: {
+    width: '100%',
+    overflowX: 'auto',
   },
   tableContainer: {
-    marginBottom: '24px',
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#2d3748',
-    marginBottom: '12px',
+    minWidth: '1400px', // Ensure horizontal scroll for wide table
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
     backgroundColor: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
+    border: '1px solid #e2e8f0',
+    fontSize: '13px',
   },
-  tableHeaderRow: {
-    backgroundColor: '#f7fafc',
-  },
-  tableHeader: {
-    padding: '12px',
-    textAlign: 'right',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#4a5568',
-    borderBottom: '2px solid #e2e8f0',
-  },
-  tableRow: {
-    borderBottom: '1px solid #e2e8f0',
-  },
-  tableCell: {
-    padding: '12px',
-    fontSize: '14px',
-    color: '#2d3748',
-    textAlign: 'right',
-  },
-  emptyCell: {
-    padding: '24px',
-    textAlign: 'center',
-    color: '#718096',
-    fontSize: '14px',
-  },
-  detailsButton: {
-    padding: '6px 12px',
-    backgroundColor: '#667eea',
+  headerRow: {
+    backgroundColor: '#4a5568',
     color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
   },
-  modalOverlay: {
-    position: 'fixed',
+  stickyHeader: {
+    padding: '12px 8px',
+    textAlign: 'right',
+    fontWeight: '600',
+    borderBottom: '2px solid #2d3748',
+    borderLeft: '1px solid #718096',
+    position: 'sticky',
     top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
+    backgroundColor: '#4a5568',
+    color: 'white',
+    zIndex: 10,
   },
-  modal: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    maxWidth: '1000px',
-    width: '90%',
-    maxHeight: '80vh',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+  firstColumn: {
+    minWidth: '120px',
   },
-  modalHeader: {
-    padding: '20px 24px',
-    borderBottom: '1px solid #e2e8f0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#2d3748',
-    margin: 0,
-  },
-  closeButton: {
-    background: 'transparent',
-    border: 'none',
-    fontSize: '32px',
-    color: '#718096',
-    cursor: 'pointer',
-    padding: 0,
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    lineHeight: 1,
-  },
-  modalContent: {
-    padding: '24px',
-    overflowY: 'auto',
-    flex: 1,
-  },
-  modalLoading: {
-    padding: '40px',
+  monthHeader: {
+    padding: '12px 8px',
     textAlign: 'center',
-    color: '#718096',
-  },
-  noData: {
-    textAlign: 'center',
-    color: '#718096',
-    padding: '40px',
-  },
-  detailsTable: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  detailsTableHeader: {
-    padding: '10px',
-    textAlign: 'right',
-    fontSize: '13px',
     fontWeight: '600',
-    color: '#4a5568',
-    borderBottom: '2px solid #e2e8f0',
-    backgroundColor: '#f7fafc',
+    borderBottom: '2px solid #2d3748',
+    borderLeft: '1px solid #718096',
+    minWidth: '90px',
   },
-  detailsRow: {
+  totalColumn: {
+    minWidth: '100px',
+    backgroundColor: '#2d3748',
+  },
+  dataRow: {
     borderBottom: '1px solid #e2e8f0',
   },
-  detailsCell: {
-    padding: '10px',
-    fontSize: '13px',
-    color: '#2d3748',
+  cell: {
+    padding: '10px 8px',
     textAlign: 'right',
+    color: '#2d3748',
+    borderLeft: '1px solid #e2e8f0',
+  },
+  monthCell: {
+    padding: '10px 8px',
+    textAlign: 'center',
+    color: '#2d3748',
+    borderLeft: '1px solid #e2e8f0',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+  },
+  totalCell: {
+    fontWeight: 'bold',
+    backgroundColor: '#f7fafc',
+    fontFamily: 'monospace',
+  },
+  totalsRow: {
+    backgroundColor: '#edf2f7',
+    borderTop: '2px solid #4a5568',
+  },
+  totalLabel: {
+    textAlign: 'center',
+    fontSize: '14px',
+  },
+  totalMonthCell: {
+    padding: '10px 8px',
+    textAlign: 'center',
+    color: '#2d3748',
+    borderLeft: '1px solid #cbd5e0',
+    fontFamily: 'monospace',
+    fontSize: '13px',
+  },
+  grandTotalCell: {
+    fontWeight: 'bold',
+    backgroundColor: '#e2e8f0',
+    fontSize: '14px',
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
 };

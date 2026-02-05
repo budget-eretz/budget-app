@@ -387,6 +387,8 @@ export const apartmentsAPI = {
     api.get('/apartments/expense-summary', { params }),
   getExpenseDetails: (id: number, params?: { startDate?: string; endDate?: string }) =>
     api.get(`/apartments/${id}/expenses`, { params }),
+  getMonthlyExpenses: (year: number) =>
+    api.get('/apartments/monthly-expenses', { params: { year } }),
 };
 
 export default api;

@@ -640,3 +640,14 @@ export interface ApartmentExpenseDetail {
   receiptUrl?: string;
   createdAt: string;
 }
+
+export interface ApartmentMonthlyExpense {
+  apartment_id: number;
+  apartment_name: string;
+  budget_id: number;
+  budget_name: string;
+  fund_id: number;
+  fund_name: string;
+  month: number;
+  total_amount: number;
+}

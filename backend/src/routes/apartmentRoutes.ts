@@ -8,7 +8,8 @@ import {
   deleteApartment,
   assignResidents,
   getApartmentExpenseSummary,
-  getApartmentExpenseDetails
+  getApartmentExpenseDetails,
+  getApartmentMonthlyExpenses
 } from '../controllers/apartmentController';
 
 const router = express.Router();
@@ -21,6 +22,9 @@ router.get('/', getAllApartments);
 
 // Get apartment expense summary (report)
 router.get('/expense-summary', getApartmentExpenseSummary);
+
+// Get monthly expenses by apartment and fund (pivot table report)
+router.get('/monthly-expenses', getApartmentMonthlyExpenses);
 
 // Get apartment by ID with residents
 router.get('/:id', getApartmentById);

@@ -465,6 +465,96 @@ export const getApartmentExpenseSummary = async (req: Request, res: Response) =>
 };
 
 /**
+ * Get monthly expense breakdown by apartment and fund
+ * Returns: apartment | budget | fund | monthly totals (reimbursements + direct expenses only)
+ * Access: Circle Treasurer (all), Group Treasurer (read-only), Regular members (their apartments only)
+ */
+export const getApartmentMonthlyExpenses = async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const isCircleTreasurer = req.user!.isCircleTreasurer;
+  const isGroupTreasurer = req.user!.isGroupTreasurer;
+  const { year } = req.query;
+
+  if (!year) {
+    return res.status(400).json({ error: 'Year parameter is required' });
+  }
+
+  try {
+    // Access control for regular members
+    let apartmentFilter = '';
+    if (!isCircleTreasurer && !isGroupTreasurer) {
+      apartmentFilter = `
+        AND a.id IN (
+          SELECT apartment_id FROM user_apartments WHERE user_id = ${userId}
+        )
+      `;
+    }
+
+    const query = `
+      WITH monthly_expenses AS (
+        -- Reimbursements
+        SELECT
+          r.apartment_id,
+          a.name as apartment_name,
+          f.budget_id,
+          b.name as budget_name,
+          r.fund_id,
+          f.name as fund_name,
+          EXTRACT(MONTH FROM r.expense_date) as month,
+          SUM(r.amount) as amount
+        FROM reimbursements r
+        JOIN apartments a ON r.apartment_id = a.id
+        JOIN funds f ON r.fund_id = f.id
+        JOIN budgets b ON f.budget_id = b.id
+        WHERE r.apartment_id IS NOT NULL
+          AND EXTRACT(YEAR FROM r.expense_date) = $1
+          ${apartmentFilter}
+        GROUP BY r.apartment_id, a.name, f.budget_id, b.name, r.fund_id, f.name, EXTRACT(MONTH FROM r.expense_date)
+
+        UNION ALL
+
+        -- Direct Expenses
+        SELECT
+          de.apartment_id,
+          a.name as apartment_name,
+          f.budget_id,
+          b.name as budget_name,
+          de.fund_id,
+          f.name as fund_name,
+          EXTRACT(MONTH FROM de.expense_date) as month,
+          SUM(de.amount) as amount
+        FROM direct_expenses de
+        JOIN apartments a ON de.apartment_id = a.id
+        JOIN funds f ON de.fund_id = f.id
+        JOIN budgets b ON f.budget_id = b.id
+        WHERE de.apartment_id IS NOT NULL
+          AND EXTRACT(YEAR FROM de.expense_date) = $1
+          ${apartmentFilter}
+        GROUP BY de.apartment_id, a.name, f.budget_id, b.name, de.fund_id, f.name, EXTRACT(MONTH FROM de.expense_date)
+      )
+      SELECT
+        apartment_id,
+        apartment_name,
+        budget_id,
+        budget_name,
+        fund_id,
+        fund_name,
+        month,
+        SUM(amount) as total_amount
+      FROM monthly_expenses
+      GROUP BY apartment_id, apartment_name, budget_id, budget_name, fund_id, fund_name, month
+      ORDER BY apartment_name, budget_name, fund_name, month
+    `;
+
+    const result = await pool.query(query, [year]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching apartment monthly expenses:', error);
+    res.status(500).json({ error: 'Failed to fetch apartment monthly expenses' });
+  }
+};
+
+/**
  * Get detailed expenses for a specific apartment
  * Access: Circle Treasurer (all), Group Treasurer (read-only), Regular members (their apartments only)
  */
