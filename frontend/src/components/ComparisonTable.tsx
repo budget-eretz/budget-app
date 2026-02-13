@@ -221,7 +221,12 @@ export default function ComparisonTable({ comparisons }: ComparisonTableProps) {
       sortable: true,
       filterable: true,
       render: (comparison: IncomeComparison) => (
-        <span style={styles.sourceName}>{comparison.source_name || '-'}</span>
+        <div>
+          <span style={styles.sourceName}>{comparison.source_name || '-'}</span>
+          {comparison.user_name && (
+            <div style={styles.userName}>{comparison.user_name}</div>
+          )}
+        </div>
       ),
     },
     {
@@ -550,6 +555,12 @@ const styles: Record<string, React.CSSProperties> = {
   sourceName: {
     fontWeight: '600',
     color: '#2d3748',
+  },
+  userName: {
+    fontSize: '12px',
+    color: '#718096',
+    fontWeight: '400',
+    marginTop: '2px',
   },
   amount: {
     fontWeight: '600',

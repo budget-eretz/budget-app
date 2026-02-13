@@ -549,29 +549,60 @@ export async function getMonthlyComparison(req: Request, res: Response) {
       return res.status(400).json({ error: 'שנה או חודש לא תקינים' });
     }
 
-    // Get all expected incomes for the month
+    // Get all expected incomes for the month (exclude parent annual records to avoid double counting)
     const expectedResult = await pool.query(
-      `SELECT ei.source_name, ei.user_id, SUM(ei.amount) as expected_amount
+      `SELECT ei.source_name, ei.user_id, u.full_name as user_name, SUM(ei.amount) as expected_amount
        FROM expected_incomes ei
+       LEFT JOIN users u ON ei.user_id = u.id
        WHERE ei.year = $1 AND ei.month = $2
-       GROUP BY ei.source_name, ei.user_id`,
+         AND ei.parent_annual_id IS NOT NULL
+       GROUP BY ei.source_name, ei.user_id, u.full_name`,
       [yearNum, monthNum]
     );
 
-    // Get all actual incomes for the month
+    // Also include manual entries (which have no parent) - these are standalone monthly records
+    const manualExpectedResult = await pool.query(
+      `SELECT ei.source_name, ei.user_id, u.full_name as user_name, SUM(ei.amount) as expected_amount
+       FROM expected_incomes ei
+       LEFT JOIN users u ON ei.user_id = u.id
+       WHERE ei.year = $1 AND ei.month = $2
+         AND ei.parent_annual_id IS NULL
+         AND ei.is_manual = true
+       GROUP BY ei.source_name, ei.user_id, u.full_name`,
+      [yearNum, monthNum]
+    );
+
+    // Merge both expected results
+    const allExpected = [...expectedResult.rows, ...manualExpectedResult.rows];
+
+    // Get all actual confirmed incomes for the month (only confirmed count)
     const actualResult = await pool.query(
-      `SELECT i.source, i.user_id, SUM(i.amount) as actual_amount
+      `SELECT i.source, i.user_id, u.full_name as user_name, SUM(i.amount) as actual_amount
        FROM incomes i
-       WHERE EXTRACT(YEAR FROM i.income_date) = $1 
+       LEFT JOIN users u ON i.user_id = u.id
+       WHERE EXTRACT(YEAR FROM i.income_date) = $1
          AND EXTRACT(MONTH FROM i.income_date) = $2
-       GROUP BY i.source, i.user_id`,
+         AND i.status = 'confirmed'
+       GROUP BY i.source, i.user_id, u.full_name`,
       [yearNum, monthNum]
     );
 
-    // Create a map of actual incomes by source_name
-    const actualMap = new Map<string, number>();
+    // Create a map of actual incomes keyed by source_name + user_id composite key
+    const makeKey = (source: string, userId: number | null) => `${source}::${userId ?? 'null'}`;
+    const actualMap = new Map<string, { source: string; amount: number; user_id: number | null; user_name: string | null }>();
     for (const row of actualResult.rows) {
-      actualMap.set(row.source, parseFloat(row.actual_amount));
+      const key = makeKey(row.source, row.user_id);
+      const existing = actualMap.get(key);
+      if (existing) {
+        existing.amount += parseFloat(row.actual_amount);
+      } else {
+        actualMap.set(key, {
+          source: row.source,
+          amount: parseFloat(row.actual_amount),
+          user_id: row.user_id,
+          user_name: row.user_name
+        });
+      }
     }
 
     // Build comparison array
@@ -579,10 +610,12 @@ export async function getMonthlyComparison(req: Request, res: Response) {
     let totalExpected = 0;
     let totalActual = 0;
 
-    // Process expected incomes
-    for (const expected of expectedResult.rows) {
+    // Process expected incomes - match by source_name + user_id
+    for (const expected of allExpected) {
       const expectedAmount = parseFloat(expected.expected_amount);
-      const actualAmount = actualMap.get(expected.source_name) || 0;
+      const key = makeKey(expected.source_name, expected.user_id);
+      const actualEntry = actualMap.get(key);
+      const actualAmount = actualEntry?.amount || 0;
       const difference = actualAmount - expectedAmount;
       const percentage = expectedAmount > 0 ? (actualAmount / expectedAmount) * 100 : 0;
 
@@ -612,6 +645,7 @@ export async function getMonthlyComparison(req: Request, res: Response) {
       comparisons.push({
         source_name: expected.source_name,
         user_id: expected.user_id,
+        user_name: expected.user_name || actualEntry?.user_name || null,
         expected_amount: expectedAmount,
         actual_amount: actualAmount,
         difference,
@@ -624,34 +658,44 @@ export async function getMonthlyComparison(req: Request, res: Response) {
       totalActual += actualAmount;
 
       // Remove from actualMap so we can track incomes without expectations
-      actualMap.delete(expected.source_name);
+      actualMap.delete(key);
     }
 
     // Add any actual incomes that don't have expected incomes
-    for (const [source, actualAmount] of actualMap.entries()) {
+    for (const [, actualEntry] of actualMap.entries()) {
+      const actualAmount = actualEntry.amount;
       const difference = actualAmount;
-      
+
       // Get categories for this source from actual incomes
+      const categoryParams: any[] = [actualEntry.source, yearNum, monthNum];
+      let categoryUserFilter = '';
+      if (actualEntry.user_id) {
+        categoryUserFilter = 'AND i.user_id = $4';
+        categoryParams.push(actualEntry.user_id);
+      }
       const categoriesResult = await pool.query(
         `SELECT DISTINCT ic.id, ic.name, ic.description, ic.color
          FROM income_categories ic
          JOIN income_category_assignments ica ON ic.id = ica.category_id
          JOIN incomes i ON ica.income_id = i.id
-         WHERE i.source = $1 
-           AND EXTRACT(YEAR FROM i.income_date) = $2 
+         WHERE i.source = $1
+           AND EXTRACT(YEAR FROM i.income_date) = $2
            AND EXTRACT(MONTH FROM i.income_date) = $3
+           AND i.status = 'confirmed'
+           ${categoryUserFilter}
          ORDER BY ic.name`,
-        [source, yearNum, monthNum]
+        categoryParams
       );
 
       comparisons.push({
-        source_name: source,
-        user_id: null,
+        source_name: actualEntry.source,
+        user_id: actualEntry.user_id,
+        user_name: actualEntry.user_name,
         expected_amount: 0,
         actual_amount: actualAmount,
         difference,
         percentage: 0,
-        status: 'exceeded',
+        status: 'exceeded' as const,
         categories: categoriesResult.rows
       });
 

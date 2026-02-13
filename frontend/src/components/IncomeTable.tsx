@@ -7,6 +7,7 @@ interface IncomeTableProps {
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
   onConfirm?: (id: number) => void;
+  onReject?: (id: number) => void;
   canEdit?: boolean;
   canConfirm?: boolean;
 }
@@ -35,6 +36,7 @@ export default function IncomeTable({
   onEdit,
   onDelete,
   onConfirm,
+  onReject,
   canEdit = false,
   canConfirm = false,
 }: IncomeTableProps) {
@@ -289,8 +291,9 @@ export default function IncomeTable({
         const statusConfig = {
           pending: { label: 'ממתין לאישור', color: '#f59e0b', bgColor: '#fef3c7' },
           confirmed: { label: 'אושר', color: '#10b981', bgColor: '#d1fae5' },
+          rejected: { label: 'נדחה', color: '#ef4444', bgColor: '#fee2e2' },
         };
-        const config = statusConfig[income.status];
+        const config = statusConfig[income.status] || statusConfig.pending;
         return (
           <span style={{
             padding: '4px 12px',
@@ -308,7 +311,7 @@ export default function IncomeTable({
   ];
 
   // Add actions column if canEdit is true
-  if (canEdit && (onEdit || onDelete || (canConfirm && onConfirm))) {
+  if (canEdit && (onEdit || onDelete || (canConfirm && (onConfirm || onReject)))) {
     columns.push({
       key: 'actions',
       label: 'פעולות',
@@ -316,19 +319,35 @@ export default function IncomeTable({
       filterable: false,
       render: (income: Income) => (
         <div style={styles.actionsCell}>
-          {canConfirm && income.status === 'pending' && onConfirm && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onConfirm(income.id);
-              }}
-              style={styles.confirmButton}
-              title="אשר הכנסה"
-            >
-              ✓ אשר
-            </button>
+          {canConfirm && income.status === 'pending' && (
+            <>
+              {onConfirm && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConfirm(income.id);
+                  }}
+                  style={styles.confirmButton}
+                  title="אשר הכנסה"
+                >
+                  ✓ אשר
+                </button>
+              )}
+              {onReject && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReject(income.id);
+                  }}
+                  style={styles.rejectButton}
+                  title="דחה הכנסה"
+                >
+                  ✗ דחה
+                </button>
+              )}
+            </>
           )}
-          {onEdit && (
+          {income.status === 'pending' && onEdit && (
             <button
               onClick={() => onEdit(income.id)}
               style={styles.actionBtn}
@@ -679,6 +698,17 @@ const styles: Record<string, React.CSSProperties> = {
   confirmButton: {
     padding: '6px 12px',
     background: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  rejectButton: {
+    padding: '6px 12px',
+    background: '#ef4444',
     color: 'white',
     border: 'none',
     borderRadius: '6px',

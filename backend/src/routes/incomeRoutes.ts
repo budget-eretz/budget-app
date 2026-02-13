@@ -18,7 +18,8 @@ router.patch('/:id', requireTreasurer, incomeController.updateIncome);
 router.post('/:id/categories', requireTreasurer, incomeController.assignCategories);
 router.delete('/:id', incomeController.deleteIncome);
 
-// Confirm income (circle treasurer only)
+// Confirm/Reject income (circle treasurer only)
 router.post('/:id/confirm', requireCircleTreasurer, incomeController.confirmIncome);
+router.post('/:id/reject', requireCircleTreasurer, incomeController.rejectIncome);
 
 export default router;

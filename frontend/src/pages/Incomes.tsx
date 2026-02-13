@@ -45,7 +45,7 @@ export default function Incomes() {
     endDate: '',
     source: '',
     categoryId: null as number | null,
-    status: '' as '' | 'pending' | 'confirmed',
+    status: '' as '' | 'pending' | 'confirmed' | 'rejected',
   });
   
   // Debounced filter values for performance
@@ -146,6 +146,19 @@ export default function Incomes() {
     }
   };
 
+  const handleRejectIncome = async (id: number) => {
+    const notes = prompt('הזן הערות לדחייה (אופציונלי):');
+    if (notes === null) return; // User cancelled
+
+    try {
+      await incomesAPI.reject(id, notes || undefined);
+      showToast('ההכנסה נדחתה', 'success');
+      await refreshIncomes();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בדחיית הכנסה', 'error');
+    }
+  };
+
   // Helper functions
   const isCircleTreasurer = user?.isCircleTreasurer || false;
 
@@ -163,7 +176,10 @@ export default function Incomes() {
         if (!hasCategory) return false;
       }
       if (debouncedComparisonFilters.source) {
-        if (!comp.source_name.toLowerCase().includes(debouncedComparisonFilters.source.toLowerCase())) {
+        const searchTerm = debouncedComparisonFilters.source.toLowerCase();
+        const matchesSource = comp.source_name.toLowerCase().includes(searchTerm);
+        const matchesUser = comp.user_name?.toLowerCase().includes(searchTerm) || false;
+        if (!matchesSource && !matchesUser) {
           return false;
         }
       }
@@ -430,13 +446,14 @@ export default function Incomes() {
                   value={actualFilters.status}
                   onChange={(e) => setActualFilters({
                     ...actualFilters,
-                    status: e.target.value as '' | 'pending' | 'confirmed'
+                    status: e.target.value as '' | 'pending' | 'confirmed' | 'rejected'
                   })}
                   style={styles.filterSelect}
                 >
                   <option value="">הכל</option>
                   <option value="pending">ממתין לאישור</option>
                   <option value="confirmed">אושר</option>
+                  <option value="rejected">נדחה</option>
                 </select>
               </div>
 
@@ -507,6 +524,7 @@ export default function Incomes() {
                 }
               }}
               onConfirm={handleConfirmIncome}
+              onReject={handleRejectIncome}
               canEdit={true}
               canConfirm={isCircleTreasurer}
             />
@@ -825,7 +843,6 @@ export default function Incomes() {
                 description: data.description,
                 incomeDate: data.income_date,
                 categoryIds: data.categoryIds,
-                status: data.status,
               };
 
               if (editingIncome) {
@@ -834,7 +851,6 @@ export default function Incomes() {
                   source: data.source,
                   description: data.description,
                   incomeDate: data.income_date,
-                  status: data.status,
                 });
                 if (data.categoryIds.length > 0) {
                   await incomesAPI.assignCategories(editingIncome.id, data.categoryIds);

@@ -102,7 +102,7 @@ export async function getIncomes(req: Request, res: Response) {
 export async function createIncome(req: Request, res: Response) {
   const client = await pool.connect();
   try {
-    const { amount, source, description, incomeDate, categoryIds, status: requestedStatus } = req.body;
+    const { amount, source, description, incomeDate, categoryIds } = req.body;
     const user = req.user!;
 
     await client.query('BEGIN');
@@ -127,8 +127,8 @@ export async function createIncome(req: Request, res: Response) {
       incomeBudgetId = incomeBudgetResult.rows[0].id;
     }
 
-    // Determine status: default is pending for all users (can be overridden by requestedStatus)
-    const status = requestedStatus || 'pending';
+    // All new incomes start as pending - only circle treasurer can confirm
+    const status = 'pending';
 
     // Insert income with the income budget and status
     const result = await client.query(
@@ -143,22 +143,14 @@ export async function createIncome(req: Request, res: Response) {
         description || null,
         incomeDate,
         status,
-        status === 'confirmed' ? user.userId : null,
-        status === 'confirmed' ? new Date() : null
+        null,
+        null
       ]
     );
 
     const income = result.rows[0];
 
-    // Update income budget total amount only if status is confirmed
-    if (status === 'confirmed') {
-      await client.query(
-        `UPDATE budgets
-         SET total_amount = total_amount + $1, updated_at = NOW()
-         WHERE id = $2`,
-        [amount, incomeBudgetId]
-      );
-    }
+    // Income does not affect budget until confirmed by circle treasurer
 
     // Assign categories if provided
     if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
@@ -199,7 +191,7 @@ export async function updateIncome(req: Request, res: Response) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { amount, description, incomeDate, source, status: requestedStatus } = req.body;
+    const { amount, description, incomeDate, source } = req.body;
     const user = req.user!;
 
     await client.query('BEGIN');
@@ -215,31 +207,26 @@ export async function updateIncome(req: Request, res: Response) {
       return res.status(404).json({ error: 'הכנסה לא נמצאה' });
     }
 
-    // Users can update their own incomes, treasurers can update any income
-    const isOwner = existing.rows[0].user_id === user.userId;
-    const isTreasurer = user.isCircleTreasurer || user.isGroupTreasurer;
+    const currentStatus = existing.rows[0].status;
 
-    if (!isOwner && !isTreasurer) {
+    // Only pending incomes can be updated (once confirmed/rejected, no more edits)
+    if (currentStatus !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'לא ניתן לעדכן הכנסה שכבר אושרה או נדחתה' });
+    }
+
+    // Users can update their own pending incomes
+    const isOwner = existing.rows[0].user_id === user.userId;
+
+    if (!isOwner) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'אין לך הרשאה לעדכן הכנסה זו' });
     }
 
     const oldAmount = parseFloat(existing.rows[0].amount);
     const budgetId = existing.rows[0].budget_id;
-    const currentStatus = existing.rows[0].status;
 
-    // Handle status changes - only circle treasurers can change status
-    if (requestedStatus && requestedStatus !== currentStatus) {
-      if (!user.isCircleTreasurer) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({ error: 'רק גזבר מעגלי יכול לשנות סטטוס הכנסה' });
-      }
-    }
-
-    // Determine the final amount (new or old)
-    const finalAmount = amount !== undefined ? parseFloat(amount) : oldAmount;
-
-    // Update income (including status if provided)
+    // Update income fields (status cannot be changed here - only via confirm/reject)
     const updateFields: string[] = [];
     const updateValues: any[] = [];
     let paramIndex = 1;
@@ -264,20 +251,10 @@ export async function updateIncome(req: Request, res: Response) {
       updateValues.push(source);
       paramIndex++;
     }
-    if (requestedStatus !== undefined) {
-      updateFields.push(`status = $${paramIndex}`);
-      updateValues.push(requestedStatus);
-      paramIndex++;
 
-      if (requestedStatus === 'confirmed') {
-        updateFields.push(`confirmed_by = $${paramIndex}`);
-        updateValues.push(user.userId);
-        paramIndex++;
-        updateFields.push(`confirmed_at = NOW()`);
-      } else {
-        updateFields.push(`confirmed_by = NULL`);
-        updateFields.push(`confirmed_at = NULL`);
-      }
+    if (updateFields.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'אין שדות לעדכון' });
     }
 
     updateValues.push(id);
@@ -291,36 +268,7 @@ export async function updateIncome(req: Request, res: Response) {
 
     const income = result.rows[0];
 
-    // Update budget based on status and amount changes
-    if (requestedStatus && requestedStatus !== currentStatus) {
-      // Status changed
-      if (requestedStatus === 'confirmed' && currentStatus === 'pending') {
-        // pending → confirmed: add final amount to budget
-        await client.query(
-          `UPDATE budgets
-           SET total_amount = total_amount + $1, updated_at = NOW()
-           WHERE id = $2`,
-          [finalAmount, budgetId]
-        );
-      } else if (requestedStatus === 'pending' && currentStatus === 'confirmed') {
-        // confirmed → pending: remove old amount from budget
-        await client.query(
-          `UPDATE budgets
-           SET total_amount = total_amount - $1, updated_at = NOW()
-           WHERE id = $2`,
-          [oldAmount, budgetId]
-        );
-      }
-    } else if (amount && amount !== oldAmount && currentStatus === 'confirmed') {
-      // Status didn't change, but amount changed and income is confirmed
-      const amountDiff = finalAmount - oldAmount;
-      await client.query(
-        `UPDATE budgets
-         SET total_amount = total_amount + $1, updated_at = NOW()
-         WHERE id = $2`,
-        [amountDiff, budgetId]
-      );
-    }
+    // No budget changes needed - pending incomes don't affect budget
 
     await client.query('COMMIT');
 
@@ -493,7 +441,7 @@ export async function confirmIncome(req: Request, res: Response) {
 
     if (existing.rows[0].status !== 'pending') {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'הכנסה כבר אושרה' });
+      return res.status(400).json({ error: 'הכנסה כבר אושרה או נדחתה' });
     }
 
     const amount = parseFloat(existing.rows[0].amount);
@@ -548,6 +496,82 @@ export async function confirmIncome(req: Request, res: Response) {
     await client.query('ROLLBACK');
     console.error('Confirm income error:', error);
     res.status(500).json({ error: 'אישור הכנסה נכשל' });
+  } finally {
+    client.release();
+  }
+}
+
+export async function rejectIncome(req: Request, res: Response) {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const user = req.user!;
+
+    // Only circle treasurers can reject
+    if (!user.isCircleTreasurer) {
+      return res.status(403).json({ error: 'רק גזבר מעגלי יכול לדחות הכנסות' });
+    }
+
+    await client.query('BEGIN');
+
+    // Check income exists and is pending
+    const existing = await client.query(
+      'SELECT id, status FROM incomes WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'הכנסה לא נמצאה' });
+    }
+
+    if (existing.rows[0].status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'הכנסה כבר אושרה או נדחתה' });
+    }
+
+    // Update income status to rejected
+    await client.query(
+      `UPDATE incomes
+       SET status = 'rejected',
+           confirmed_by = $1,
+           confirmed_at = NOW(),
+           notes = $3
+       WHERE id = $2`,
+      [user.userId, id, notes || null]
+    );
+
+    await client.query('COMMIT');
+
+    // Fetch full income data
+    const fullIncome = await pool.query(
+      `SELECT i.*, u.full_name as user_name, b.name as budget_name,
+              c.full_name as confirmed_by_name
+       FROM incomes i
+       JOIN users u ON i.user_id = u.id
+       JOIN budgets b ON i.budget_id = b.id
+       LEFT JOIN users c ON i.confirmed_by = c.id
+       WHERE i.id = $1`,
+      [id]
+    );
+
+    // Fetch categories for the income
+    const categoriesResult = await pool.query(
+      `SELECT ic.id, ic.name, ic.description, ic.color
+       FROM income_categories ic
+       JOIN income_category_assignments ica ON ic.id = ica.category_id
+       WHERE ica.income_id = $1
+       ORDER BY ic.name`,
+      [id]
+    );
+    fullIncome.rows[0].categories = categoriesResult.rows;
+
+    res.json(fullIncome.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Reject income error:', error);
+    res.status(500).json({ error: 'דחיית הכנסה נכשלה' });
   } finally {
     client.release();
   }

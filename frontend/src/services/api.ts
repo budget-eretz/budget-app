@@ -113,7 +113,7 @@ export const incomesAPI = {
     categoryId?: number;
     year?: number;
     month?: number;
-    status?: 'pending' | 'confirmed';
+    status?: 'pending' | 'confirmed' | 'rejected';
   }) => api.get('/incomes', { params }),
   getById: (id: number) => api.get(`/incomes/${id}`),
   create: (data: {
@@ -122,7 +122,6 @@ export const incomesAPI = {
     description?: string;
     incomeDate: string;
     categoryIds?: number[];
-    status?: 'pending' | 'confirmed';
   }) => api.post('/incomes', data),
   update: (id: number, data: Partial<{
     amount: number;
@@ -134,6 +133,7 @@ export const incomesAPI = {
   assignCategories: (id: number, categoryIds: number[]) =>
     api.post(`/incomes/${id}/categories`, { categoryIds }),
   confirm: (id: number) => api.post(`/incomes/${id}/confirm`),
+  reject: (id: number, notes?: string) => api.post(`/incomes/${id}/reject`, { notes }),
 };
 
 // Income Categories API

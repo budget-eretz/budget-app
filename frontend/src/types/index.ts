@@ -162,7 +162,7 @@ export interface PaymentSummary {
   approvedCount: number;
 }
 
-export type IncomeStatus = 'pending' | 'confirmed';
+export type IncomeStatus = 'pending' | 'confirmed' | 'rejected';
 
 export interface Income {
   id: number;
@@ -178,6 +178,7 @@ export interface Income {
   confirmed_by?: number;
   confirmed_by_name?: string;
   confirmed_at?: string;
+  notes?: string;
   created_at: string;
   categories?: IncomeCategory[];
 }
@@ -215,6 +216,7 @@ export interface ExpectedIncome {
 export interface IncomeComparison {
   source_name: string;
   user_id?: number;
+  user_name?: string | null;
   expected_amount: number;
   actual_amount: number;
   difference: number;
