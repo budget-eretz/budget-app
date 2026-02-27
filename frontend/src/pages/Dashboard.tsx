@@ -32,6 +32,11 @@ export default function Dashboard() {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
+  // Collapse state for tables
+  const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
+  const [isMyReimbursementsCollapsed, setIsMyReimbursementsCollapsed] = useState(false);
+  const [isPlannedCollapsed, setIsPlannedCollapsed] = useState(false);
+
   // Fund search state
   const [fundSearchQuery, setFundSearchQuery] = useState('');
   const [accessibleBudgets, setAccessibleBudgets] = useState<BudgetWithFunds[]>([]);
@@ -357,176 +362,202 @@ export default function Dashboard() {
         {/* Pending Reimbursements (for treasurers) */}
         {dashboard.pendingReimbursements && dashboard.pendingReimbursements.length > 0 && (
           <section style={styles.section}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={styles.sectionTitle}>בקשות החזר ממתינות ({dashboard.pendingReimbursements.length})</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isPendingCollapsed ? '0' : '20px' }}>
+              <button
+                onClick={() => setIsPendingCollapsed(p => !p)}
+                style={styles.collapsibleHeader}
+              >
+                <span style={styles.collapseIcon}>{isPendingCollapsed ? '▶' : '▼'}</span>
+                <h2 style={styles.sectionTitle}>בקשות החזר ממתינות ({dashboard.pendingReimbursements.length})</h2>
+              </button>
               <Button variant="primary" size="sm" onClick={() => navigate('/payments')}>
                 אשר החזרים
               </Button>
             </div>
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>מגיש</th>
-                    <th style={styles.th}>סעיף</th>
-                    <th style={styles.th}>תיאור</th>
-                    <th style={styles.th}>סכום</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.pendingReimbursements.map(reimb => (
-                    <tr key={reimb.id} style={styles.tableRow}>
-                      <td style={styles.td}>
-                        <strong>{reimb.user_name}</strong>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={{ fontSize: '13px', color: '#718096' }}>{reimb.fund_name}</span>
-                      </td>
-                      <td style={styles.td}>{reimb.description}</td>
-                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+            {!isPendingCollapsed && (
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>מגיש</th>
+                      <th style={styles.th}>סעיף</th>
+                      <th style={styles.th}>תיאור</th>
+                      <th style={styles.th}>סכום</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {dashboard.pendingReimbursements.map(reimb => (
+                      <tr key={reimb.id} style={styles.tableRow}>
+                        <td style={styles.td}>
+                          <strong>{reimb.user_name}</strong>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ fontSize: '13px', color: '#718096' }}>{reimb.fund_name}</span>
+                        </td>
+                        <td style={styles.td}>{reimb.description}</td>
+                        <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
         {/* My Recent Reimbursements */}
         <section style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={styles.sectionTitle}>ההחזרים שלי</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMyReimbursementsCollapsed ? '0' : '20px' }}>
+            <button
+              onClick={() => setIsMyReimbursementsCollapsed(p => !p)}
+              style={styles.collapsibleHeader}
+            >
+              <span style={styles.collapseIcon}>{isMyReimbursementsCollapsed ? '▶' : '▼'}</span>
+              <h2 style={styles.sectionTitle}>ההחזרים שלי</h2>
+            </button>
             <Button variant="primary" size="sm" onClick={() => navigate('/reimbursements/new')}>
               + הגש בקשת החזר
             </Button>
           </div>
-          {dashboard.myReimbursements.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p>לא הגשת עדיין בקשות החזר</p>
-              <Button variant="primary" onClick={() => navigate('/reimbursements/new')}>
-                הגש בקשה ראשונה
-              </Button>
-            </div>
-          ) : (
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>סעיף</th>
-                    <th style={styles.th}>תיאור</th>
-                    <th style={styles.th}>סכום</th>
-                    <th style={styles.th}>סטטוס</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.myReimbursements.slice(0, 5).map(reimb => (
-                    <tr key={reimb.id} style={styles.tableRow}>
-                      <td style={styles.td}>{reimb.fund_name}</td>
-                      <td style={styles.td}>{reimb.description}</td>
-                      <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
-                      <td style={styles.td}>
-                        <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
-                      </td>
+          {!isMyReimbursementsCollapsed && (
+            dashboard.myReimbursements.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p>לא הגשת עדיין בקשות החזר</p>
+                <Button variant="primary" onClick={() => navigate('/reimbursements/new')}>
+                  הגש בקשה ראשונה
+                </Button>
+              </div>
+            ) : (
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>סעיף</th>
+                      <th style={styles.th}>תיאור</th>
+                      <th style={styles.th}>סכום</th>
+                      <th style={styles.th}>סטטוס</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {dashboard.myReimbursements.slice(0, 5).map(reimb => (
+                      <tr key={reimb.id} style={styles.tableRow}>
+                        <td style={styles.td}>{reimb.fund_name}</td>
+                        <td style={styles.td}>{reimb.description}</td>
+                        <td style={styles.td}>{formatCurrency(reimb.amount)}</td>
+                        <td style={styles.td}>
+                          <span style={getStatusStyle(reimb.status)}>{getStatusText(reimb.status)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </section>
 
         {/* My Planned Expenses - Current Month */}
         <section style={styles.section}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isPlannedCollapsed ? '0' : '20px', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: 0 }}>
-              <h2 style={{ ...styles.sectionTitle, marginBottom: 0 }}>
-                התכנונים שלי - {selectedMonthLabel} ({selectedMonthExpenses.length})
-              </h2>
-              <div style={styles.monthControls}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleMonthChange(-1)}
-                  style={styles.monthNavButton}
-                >
-                  החודש הקודם
-                </Button>
-                <span style={styles.monthLabel}>{selectedMonthLabel}</span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleMonthChange(1)}
-                  style={styles.monthNavButton}
-                >
-                  החודש הבא
-                </Button>
-                {!isCurrentMonthSelected && (
+              <button
+                onClick={() => setIsPlannedCollapsed(p => !p)}
+                style={styles.collapsibleHeader}
+              >
+                <span style={styles.collapseIcon}>{isPlannedCollapsed ? '▶' : '▼'}</span>
+                <h2 style={{ ...styles.sectionTitle, marginBottom: 0 }}>
+                  התכנונים שלי - {selectedMonthLabel} ({selectedMonthExpenses.length})
+                </h2>
+              </button>
+              {!isPlannedCollapsed && (
+                <div style={styles.monthControls}>
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={resetToCurrentMonth}
-                    style={{ ...styles.monthNavButton, background: '#e2e8f0', color: '#2d3748' }}
+                    onClick={() => handleMonthChange(-1)}
+                    style={styles.monthNavButton}
                   >
-                    חזרה לחודש הנוכחי
+                    החודש הקודם
                   </Button>
-                )}
-              </div>
+                  <span style={styles.monthLabel}>{selectedMonthLabel}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleMonthChange(1)}
+                    style={styles.monthNavButton}
+                  >
+                    החודש הבא
+                  </Button>
+                  {!isCurrentMonthSelected && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={resetToCurrentMonth}
+                      style={{ ...styles.monthNavButton, background: '#e2e8f0', color: '#2d3748' }}
+                    >
+                      חזרה לחודש הנוכחי
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             <Button variant="primary" size="sm" onClick={() => navigate('/planned-expenses/new')}>
               + תכנון חדש
             </Button>
           </div>
-          {selectedMonthExpenses.length === 0 ? (
-            <div style={styles.emptyState}>
-              <p>אין לך תכנונים לחודש {selectedMonthLabel}</p>
-              <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
-                צור תכנון חדש
-              </Button>
-            </div>
-          ) : (
-            <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>סעיף</th>
-                    <th style={styles.th}>תיאור</th>
-                    <th style={styles.th}>סכום</th>
-                    <th style={styles.th}>תאריך מתוכנן</th>
-                    <th style={styles.th}>פעולות</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedMonthExpenses.map(expense => (
-                    <tr key={expense.id} style={styles.tableRow}>
-                      <td style={styles.td}>{expense.fund_name}</td>
-                      <td style={styles.td}>{expense.description}</td>
-                      <td style={styles.td}>{formatCurrency(expense.amount)}</td>
-                      <td style={styles.td}>
-                        {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
-                      </td>
-                      <td style={styles.td}>
-                        <div style={styles.actionButtons}>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
-                          >
-                            ערוך
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDeletePlannedExpense(expense.id)}
-                          >
-                            מחק
-                          </Button>
-                        </div>
-                      </td>
+          {!isPlannedCollapsed && (
+            selectedMonthExpenses.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p>אין לך תכנונים לחודש {selectedMonthLabel}</p>
+                <Button variant="primary" onClick={() => navigate('/planned-expenses/new')}>
+                  צור תכנון חדש
+                </Button>
+              </div>
+            ) : (
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>סעיף</th>
+                      <th style={styles.th}>תיאור</th>
+                      <th style={styles.th}>סכום</th>
+                      <th style={styles.th}>תאריך מתוכנן</th>
+                      <th style={styles.th}>פעולות</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {selectedMonthExpenses.map(expense => (
+                      <tr key={expense.id} style={styles.tableRow}>
+                        <td style={styles.td}>{expense.fund_name}</td>
+                        <td style={styles.td}>{expense.description}</td>
+                        <td style={styles.td}>{formatCurrency(expense.amount)}</td>
+                        <td style={styles.td}>
+                          {expense.planned_date ? new Date(expense.planned_date).toLocaleDateString('he-IL') : 'ללא תאריך'}
+                        </td>
+                        <td style={styles.td}>
+                          <div style={styles.actionButtons}>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => navigate(`/planned-expenses/${expense.id}/edit`)}
+                            >
+                              ערוך
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeletePlannedExpense(expense.id)}
+                            >
+                              מחק
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </section>
       </div>
@@ -683,6 +714,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
   monthNavButton: {
     minWidth: 'auto',
+  },
+  collapsibleHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '0',
+    textAlign: 'right' as const,
+  },
+  collapseIcon: {
+    fontSize: '14px',
+    color: '#718096',
+    flexShrink: 0,
   },
 };
 
