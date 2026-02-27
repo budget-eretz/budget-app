@@ -18,6 +18,8 @@ export default function Budgets() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [groupBudgetsExpanded, setGroupBudgetsExpanded] = useState(true);
+  const [circleBudgetsExpanded, setCircleBudgetsExpanded] = useState(true);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -194,14 +196,84 @@ export default function Budgets() {
             )}
           </div>
         ) : (
-          <div className="budgets-grid" style={styles.grid}>
-            {budgets.map(budget => (
-              <BudgetCard
-                key={budget.id}
-                budget={budget}
-                onClick={() => handleBudgetClick(budget.id)}
-              />
-            ))}
+          <div>
+            {/* Group Budgets Section */}
+            {budgets.filter(b => b.group_id != null).length > 0 && (
+              <div style={styles.collapsibleSection}>
+                <button
+                  onClick={() => setGroupBudgetsExpanded(!groupBudgetsExpanded)}
+                  style={styles.collapsibleHeader}
+                  className="collapsible-header"
+                >
+                  <div style={styles.collapsibleHeaderContent}>
+                    <span style={styles.collapsibleArrow}>
+                      {groupBudgetsExpanded ? '▼' : '◀'}
+                    </span>
+                    <h2 style={styles.collapsibleTitle}>תקציבי קבוצות</h2>
+                    <span style={styles.collapsibleCount}>
+                      ({budgets.filter(b => b.group_id != null).length})
+                    </span>
+                  </div>
+                </button>
+                <div
+                  style={{
+                    ...styles.collapsibleBody,
+                    maxHeight: groupBudgetsExpanded ? '4000px' : '0',
+                    opacity: groupBudgetsExpanded ? 1 : 0,
+                    marginTop: groupBudgetsExpanded ? '16px' : '0',
+                  }}
+                >
+                  <div className="budgets-grid" style={styles.grid}>
+                    {budgets.filter(b => b.group_id != null).map(budget => (
+                      <BudgetCard
+                        key={budget.id}
+                        budget={budget}
+                        onClick={() => handleBudgetClick(budget.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Circle Budgets Section */}
+            {budgets.filter(b => b.group_id == null).length > 0 && (
+              <div style={styles.collapsibleSection}>
+                <button
+                  onClick={() => setCircleBudgetsExpanded(!circleBudgetsExpanded)}
+                  style={styles.collapsibleHeader}
+                  className="collapsible-header"
+                >
+                  <div style={styles.collapsibleHeaderContent}>
+                    <span style={styles.collapsibleArrow}>
+                      {circleBudgetsExpanded ? '▼' : '◀'}
+                    </span>
+                    <h2 style={styles.collapsibleTitle}>תקציבי מעגל</h2>
+                    <span style={styles.collapsibleCount}>
+                      ({budgets.filter(b => b.group_id == null).length})
+                    </span>
+                  </div>
+                </button>
+                <div
+                  style={{
+                    ...styles.collapsibleBody,
+                    maxHeight: circleBudgetsExpanded ? '4000px' : '0',
+                    opacity: circleBudgetsExpanded ? 1 : 0,
+                    marginTop: circleBudgetsExpanded ? '16px' : '0',
+                  }}
+                >
+                  <div className="budgets-grid" style={styles.grid}>
+                    {budgets.filter(b => b.group_id == null).map(budget => (
+                      <BudgetCard
+                        key={budget.id}
+                        budget={budget}
+                        onClick={() => handleBudgetClick(budget.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -252,6 +324,10 @@ styleSheet.textContent = `
     .budgets-title {
       font-size: 24px !important;
     }
+  }
+  .collapsible-header:hover {
+    background-color: #f7fafc !important;
+    border-color: #cbd5e0 !important;
   }
   @media (min-width: 769px) and (max-width: 1024px) {
     .budgets-grid {
@@ -317,5 +393,47 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '18px',
     color: '#718096',
     margin: 0,
+  },
+  collapsibleSection: {
+    marginBottom: '24px',
+  },
+  collapsibleHeader: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '16px 20px',
+    background: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  },
+  collapsibleHeaderContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  collapsibleArrow: {
+    fontSize: '14px',
+    color: '#667eea',
+    transition: 'transform 0.2s',
+    width: '20px',
+    textAlign: 'center' as const,
+  },
+  collapsibleTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#2d3748',
+    margin: 0,
+  },
+  collapsibleCount: {
+    fontSize: '14px',
+    color: '#718096',
+    fontWeight: 600,
+  },
+  collapsibleBody: {
+    overflow: 'hidden',
+    transition: 'max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease',
   },
 };
