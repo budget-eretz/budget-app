@@ -13,7 +13,10 @@
       "mcp__plugin_playwright_playwright__browser_click",
       "mcp__plugin_playwright_playwright__browser_snapshot",
       "mcp__plugin_playwright_playwright__browser_evaluate",
-      "mcp__plugin_playwright_playwright__browser_run_code"
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(npx --yes typescript -- --noEmit)"
     ],
     "deny": [],
     "ask": []

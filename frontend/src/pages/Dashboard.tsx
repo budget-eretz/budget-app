@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { reportsAPI, plannedExpensesAPI, fundsAPI } from '../services/api';
-import { Dashboard as DashboardType, Fund, BudgetWithFunds, FundWithBudget } from '../types';
+import { reportsAPI, plannedExpensesAPI, fundsAPI, monthlyAllocationsAPI } from '../services/api';
+import { Dashboard as DashboardType, BudgetWithFunds, FundWithBudget } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -37,9 +37,13 @@ export default function Dashboard() {
   const [accessibleBudgets, setAccessibleBudgets] = useState<BudgetWithFunds[]>([]);
   const [selectedFund, setSelectedFund] = useState<FundWithBudget | null>(null);
   const [selectedFundBudgetName, setSelectedFundBudgetName] = useState('');
-  const [selectedFundDetails, setSelectedFundDetails] = useState<Fund | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [fundSearchLoading, setFundSearchLoading] = useState(false);
+  const [fundMonthYear, setFundMonthYear] = useState(() => {
+    const now = new Date();
+    return { month: now.getMonth() + 1, year: now.getFullYear() };
+  });
+  const [fundMonthlyData, setFundMonthlyData] = useState<any>(null);
   const fundSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,36 +82,48 @@ export default function Dashboard() {
     }
   };
 
-  const handleFundSelect = async (fund: FundWithBudget, budgetName: string) => {
-    setSelectedFund(fund);
-    setSelectedFundBudgetName(budgetName);
-    setFundSearchQuery(fund.name);
-    setShowDropdown(false);
+  const loadFundMonthlyData = async (fundId: number, year: number, month: number) => {
     setFundSearchLoading(true);
     try {
-      const response = await fundsAPI.getById(fund.id);
-      setSelectedFundDetails(response.data);
-    } catch (error) {
-      console.error('Failed to load fund details:', error);
-      setSelectedFundDetails({
-        id: fund.id,
-        budget_id: 0,
-        name: fund.name,
-        allocated_amount: fund.allocated_amount,
-        available_amount: fund.available_amount,
-        spent_amount: 0,
-        planned_amount: 0,
-        description: fund.description,
-        created_at: fund.created_at,
+      const response = await monthlyAllocationsAPI.getMonthlyStatus(fundId, year, month);
+      const data = response.data;
+      setFundMonthlyData({
+        allocated: data.allocated,
+        spent: data.actual.spent,
+        planned: data.planning.planned,
+        remaining: data.actual.remaining,
+        allocationType: data.allocation_type,
       });
+    } catch (error) {
+      console.error('Failed to load monthly fund status:', error);
+      setFundMonthlyData(null);
     } finally {
       setFundSearchLoading(false);
     }
   };
 
+  const handleFundSelect = async (fund: FundWithBudget, budgetName: string) => {
+    setSelectedFund(fund);
+    setSelectedFundBudgetName(budgetName);
+    setFundSearchQuery(fund.name);
+    setShowDropdown(false);
+    const now = new Date();
+    const monthYear = { month: now.getMonth() + 1, year: now.getFullYear() };
+    setFundMonthYear(monthYear);
+    await loadFundMonthlyData(fund.id, monthYear.year, monthYear.month);
+  };
+
+  const handleFundMonthChange = async (offset: number) => {
+    if (!selectedFund) return;
+    const nextDate = new Date(fundMonthYear.year, fundMonthYear.month - 1 + offset, 1);
+    const newMonthYear = { month: nextDate.getMonth() + 1, year: nextDate.getFullYear() };
+    setFundMonthYear(newMonthYear);
+    await loadFundMonthlyData(selectedFund.id, newMonthYear.year, newMonthYear.month);
+  };
+
   const clearFundSelection = () => {
     setSelectedFund(null);
-    setSelectedFundDetails(null);
+    setFundMonthlyData(null);
     setFundSearchQuery('');
     setSelectedFundBudgetName('');
   };
@@ -198,7 +214,7 @@ export default function Dashboard() {
                   setShowDropdown(true);
                   if (selectedFund && e.target.value !== selectedFund.name) {
                     setSelectedFund(null);
-                    setSelectedFundDetails(null);
+                    setFundMonthlyData(null);
                   }
                 }}
                 onFocus={() => {
@@ -247,46 +263,58 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Selected Fund Status */}
+            {/* Selected Fund Status - Monthly */}
             {selectedFund && (
               <div style={fundSearchStyles.fundStatus}>
                 {fundSearchLoading ? (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>טוען נתונים...</div>
-                ) : selectedFundDetails ? (
+                ) : fundMonthlyData ? (
                   <>
                     <div style={fundSearchStyles.fundHeader}>
-                      <h3 style={fundSearchStyles.fundName}>{selectedFundDetails.name}</h3>
+                      <h3 style={fundSearchStyles.fundName}>{selectedFund.name}</h3>
                       <span style={fundSearchStyles.fundBudgetLabel}>{selectedFundBudgetName}</span>
+                    </div>
+                    {/* Month navigation */}
+                    <div style={fundSearchStyles.monthNav}>
+                      <button onClick={() => handleFundMonthChange(-1)} style={fundSearchStyles.monthNavBtn}>
+                        הקודם
+                      </button>
+                      <span style={fundSearchStyles.monthNavLabel}>
+                        {getHebrewMonth(fundMonthYear.month)} {fundMonthYear.year}
+                      </span>
+                      <button onClick={() => handleFundMonthChange(1)} style={fundSearchStyles.monthNavBtn}>
+                        הבא
+                      </button>
                     </div>
                     <div style={fundSearchStyles.amountsGrid}>
                       <div style={fundSearchStyles.amountBox}>
-                        <span style={fundSearchStyles.amountLabel}>מוקצה</span>
+                        <span style={fundSearchStyles.amountLabel}>מוקצה לחודש</span>
                         <span style={fundSearchStyles.amountValue}>
-                          {formatCurrency(selectedFundDetails.allocated_amount)}
+                          {formatCurrency(fundMonthlyData.allocated)}
                         </span>
                       </div>
                       <div style={fundSearchStyles.amountBox}>
                         <span style={fundSearchStyles.amountLabel}>הוצא</span>
                         <span style={{ ...fundSearchStyles.amountValue, color: '#e53e3e' }}>
-                          {formatCurrency(selectedFundDetails.spent_amount || 0)}
+                          {formatCurrency(fundMonthlyData.spent)}
                         </span>
                       </div>
                       <div style={fundSearchStyles.amountBox}>
                         <span style={fundSearchStyles.amountLabel}>מתוכנן</span>
                         <span style={{ ...fundSearchStyles.amountValue, color: '#dd6b20' }}>
-                          {formatCurrency(selectedFundDetails.planned_amount || 0)}
+                          {formatCurrency(fundMonthlyData.planned)}
                         </span>
                       </div>
                       <div style={{ ...fundSearchStyles.amountBox, borderTop: '2px solid #e2e8f0', paddingTop: '12px' }}>
-                        <span style={fundSearchStyles.amountLabel}>זמין</span>
+                        <span style={fundSearchStyles.amountLabel}>נותר</span>
                         <span style={{ ...fundSearchStyles.amountValue, color: '#38a169', fontSize: '20px' }}>
-                          {formatCurrency(selectedFundDetails.available_amount || 0)}
+                          {formatCurrency(fundMonthlyData.remaining)}
                         </span>
                       </div>
                     </div>
                     {(() => {
-                      const allocated = Number(selectedFundDetails.allocated_amount || 0);
-                      const spent = Number(selectedFundDetails.spent_amount || 0);
+                      const allocated = Number(fundMonthlyData.allocated || 0);
+                      const spent = Number(fundMonthlyData.spent || 0);
                       const usagePercent = allocated > 0 ? (spent / allocated) * 100 : 0;
                       const progressColor = usagePercent > 90 ? '#e53e3e' : usagePercent > 75 ? '#dd6b20' : '#38a169';
                       return (
@@ -297,15 +325,30 @@ export default function Dashboard() {
                       );
                     })()}
                     <div style={fundSearchStyles.quickActions}>
-                      <Button variant="primary" size="sm" onClick={() => navigate(`/reimbursements/new?fundId=${selectedFundDetails.id}`)}>
+                      <Button variant="primary" size="sm" onClick={() => navigate(`/reimbursements/new?fundId=${selectedFund.id}`)}>
                         הגש החזר
                       </Button>
-                      <Button variant="secondary" size="sm" onClick={() => navigate(`/funds/${selectedFundDetails.id}/monthly`)}>
+                      <Button variant="secondary" size="sm" onClick={() => navigate(`/funds/${selectedFund.id}/monthly`)}>
                         פרטים
                       </Button>
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#718096' }}>
+                    אין הקצאה חודשית לסעיף זה ב{getHebrewMonth(fundMonthYear.month)} {fundMonthYear.year}
+                    <div style={fundSearchStyles.monthNav}>
+                      <button onClick={() => handleFundMonthChange(-1)} style={fundSearchStyles.monthNavBtn}>
+                        הקודם
+                      </button>
+                      <span style={fundSearchStyles.monthNavLabel}>
+                        {getHebrewMonth(fundMonthYear.month)} {fundMonthYear.year}
+                      </span>
+                      <button onClick={() => handleFundMonthChange(1)} style={fundSearchStyles.monthNavBtn}>
+                        הבא
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -767,5 +810,29 @@ const fundSearchStyles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '8px',
     justifyContent: 'flex-start',
+  },
+  monthNav: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '16px',
+  },
+  monthNavBtn: {
+    background: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    padding: '6px 14px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    color: '#4a5568',
+    transition: 'all 0.15s',
+  },
+  monthNavLabel: {
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#2d3748',
+    minWidth: '120px',
+    textAlign: 'center' as const,
   },
 };
