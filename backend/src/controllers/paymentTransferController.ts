@@ -822,7 +822,7 @@ export async function deletePaymentTransfer(req: Request, res: Response) {
       return res.status(403).json({ error: 'אין לך הרשאה למחוק העברה זו' });
     }
 
-    // Reset reimbursements to pending (matches returnToPending pattern)
+    // Reset all reimbursements linked to this transfer back to pending
     await client.query(
       `UPDATE reimbursements
        SET status = 'pending',
@@ -833,11 +833,11 @@ export async function deletePaymentTransfer(req: Request, res: Response) {
            reviewed_by = NULL,
            reviewed_at = NULL,
            updated_at = NOW()
-       WHERE payment_transfer_id = $1 AND status = 'approved'`,
+       WHERE payment_transfer_id = $1`,
       [id]
     );
 
-    // Reset charges to pending
+    // Reset all charges linked to this transfer back to pending
     await client.query(
       `UPDATE charges
        SET status = 'pending',
@@ -848,7 +848,7 @@ export async function deletePaymentTransfer(req: Request, res: Response) {
            reviewed_by = NULL,
            reviewed_at = NULL,
            updated_at = NOW()
-       WHERE payment_transfer_id = $1 AND status = 'approved'`,
+       WHERE payment_transfer_id = $1`,
       [id]
     );
 
