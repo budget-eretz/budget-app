@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { canAccessBudgetType, updateTransferTotals, formatPeriodDisplay } from '../utils/paymentTransferHelpers';
+import { canAccessBudgetType, updateTransferTotals, formatPeriodDisplay, releaseRecurringApplications } from '../utils/paymentTransferHelpers';
 import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats } from '../types';
 
 /**
@@ -775,6 +775,99 @@ export async function deleteRecurringApplication(req: Request, res: Response) {
     await client.query('ROLLBACK');
     console.error('Error deleting recurring application:', error);
     res.status(500).json({ error: 'שגיאה במחיקת העברה קבועה' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete a pending payment transfer
+ * Reverts all associated reimbursements and charges back to pending status
+ * and releases recurring transfer applications so they can be re-generated
+ */
+export async function deletePaymentTransfer(req: Request, res: Response) {
+  const client = await pool.connect();
+
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+
+    await client.query('BEGIN');
+
+    // Get transfer with row lock
+    const transferResult = await client.query(
+      `SELECT pt.id, pt.recipient_user_id, pt.budget_type, pt.group_id, pt.status
+       FROM payment_transfers pt
+       WHERE pt.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (transferResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'העברה לא נמצאה' });
+    }
+
+    const transfer = transferResult.rows[0];
+
+    if (transfer.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'לא ניתן למחוק העברה שכבר בוצעה' });
+    }
+
+    // Check access control
+    const hasAccess = await canAccessBudgetType(user, transfer.budget_type, transfer.group_id);
+    if (!hasAccess) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'אין לך הרשאה למחוק העברה זו' });
+    }
+
+    // Reset reimbursements to pending (matches returnToPending pattern)
+    await client.query(
+      `UPDATE reimbursements
+       SET status = 'pending',
+           under_review_by = NULL,
+           under_review_at = NULL,
+           review_notes = NULL,
+           payment_transfer_id = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
+           updated_at = NOW()
+       WHERE payment_transfer_id = $1 AND status = 'approved'`,
+      [id]
+    );
+
+    // Reset charges to pending
+    await client.query(
+      `UPDATE charges
+       SET status = 'pending',
+           under_review_by = NULL,
+           under_review_at = NULL,
+           review_notes = NULL,
+           payment_transfer_id = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
+           updated_at = NOW()
+       WHERE payment_transfer_id = $1 AND status = 'approved'`,
+      [id]
+    );
+
+    // Release recurring transfer applications so they can be re-generated
+    await releaseRecurringApplications(parseInt(id), client);
+
+    // Delete the payment transfer
+    await client.query('DELETE FROM payment_transfers WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'ההעברה נמחקה בהצלחה',
+      transferId: id
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting payment transfer:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת העברה' });
   } finally {
     client.release();
   }

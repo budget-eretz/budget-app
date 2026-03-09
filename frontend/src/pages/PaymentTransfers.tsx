@@ -22,6 +22,8 @@ export default function PaymentTransfers() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
   const [transferToExecute, setTransferToExecute] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transferToDelete, setTransferToDelete] = useState<number | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Recurring transfers state
@@ -95,6 +97,39 @@ export default function PaymentTransfers() {
   const handleExecuteClick = (transferId: number) => {
     setTransferToExecute(transferId);
     setShowExecuteConfirm(true);
+  };
+
+  const handleDeleteClick = (transferId: number) => {
+    setTransferToDelete(transferId);
+    setShowDeleteConfirm(true);
+  };
+
+  const getDeleteTransferRecipientName = () => {
+    if (!transferToDelete) return '';
+    const transfer = pendingTransfers.find(t => t.id === transferToDelete);
+    return transfer?.recipientName || '';
+  };
+
+  const getDeleteTransferAmount = () => {
+    if (!transferToDelete) return 0;
+    const transfer = pendingTransfers.find(t => t.id === transferToDelete);
+    return transfer ? Math.abs(parseFloat(transfer.totalAmount.toString())) : 0;
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!transferToDelete) return;
+
+    try {
+      await paymentTransfersAPI.deleteTransfer(transferToDelete);
+      showToast('ההעברה נמחקה בהצלחה. ההחזרים והחיובים חזרו לסטטוס ממתין.', 'success');
+      setShowDeleteConfirm(false);
+      setTransferToDelete(null);
+      setShowDetailsModal(false);
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה במחיקת העברה', 'error');
+      console.error('Error deleting transfer:', error);
+    }
   };
 
   // Check if the transfer has negative amount (more charges than reimbursements)
@@ -498,7 +533,9 @@ export default function PaymentTransfers() {
             transfers={filteredTransfers}
             onTransferClick={handleTransferClick}
             onExecute={handleExecuteClick}
+            onDelete={handleDeleteClick}
             showExecuteAction={activeTab === 'pending'}
+            showDeleteAction={activeTab === 'pending'}
           />
         )}
 
@@ -560,6 +597,42 @@ export default function PaymentTransfers() {
                 onClick={() => {
                   setShowExecuteConfirm(false);
                   setTransferToExecute(null);
+                }}
+                variant="secondary"
+              >
+                ביטול
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteConfirm}
+          onClose={() => {
+            setShowDeleteConfirm(false);
+            setTransferToDelete(null);
+          }}
+          title="אישור מחיקת העברה"
+        >
+          <div style={styles.confirmContent}>
+            <p style={styles.confirmText}>
+              האם אתה בטוח שברצונך למחוק את ההעברה ל-<strong>{getDeleteTransferRecipientName()}</strong> בסך <strong>{formatCurrency(getDeleteTransferAmount())}</strong>?
+            </p>
+            <p style={styles.confirmSubtext}>
+              כל ההחזרים והחיובים המשויכים יחזרו לסטטוס "ממתין לאישור". העברות קבועות שטרם בוצעו יחושבו מחדש בהעברה הבאה.
+            </p>
+            <div style={styles.confirmActions}>
+              <Button
+                onClick={handleDeleteConfirm}
+                variant="danger"
+              >
+                מחק העברה
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setTransferToDelete(null);
                 }}
                 variant="secondary"
               >

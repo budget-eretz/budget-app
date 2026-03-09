@@ -13,5 +13,6 @@
       "runtimeArgs": ["run", "dev", "--workspace=backend"],
       "port": 4567
     }
-  ]
+  ],
+  "autoVerify": false
 }

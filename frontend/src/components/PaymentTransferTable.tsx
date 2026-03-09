@@ -6,7 +6,9 @@ interface PaymentTransferTableProps {
   transfers: PaymentTransfer[];
   onTransferClick: (transfer: PaymentTransfer) => void;
   onExecute?: (transferId: number) => void;
+  onDelete?: (transferId: number) => void;
   showExecuteAction: boolean;
+  showDeleteAction?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -27,7 +29,9 @@ export default function PaymentTransferTable({
   transfers,
   onTransferClick,
   onExecute,
+  onDelete,
   showExecuteAction,
+  showDeleteAction,
 }: PaymentTransferTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const { tableClassName, headerCellRef } = useStickyTableHeader();
@@ -217,6 +221,20 @@ export default function PaymentTransferTable({
               ✓
             </button>
           )}
+          {showDeleteAction && transfer.status === 'pending' && onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(transfer.id);
+              }}
+              style={styles.deleteBtn}
+              className="action-btn delete-btn"
+              title="מחק העברה"
+              aria-label="מחק העברה"
+            >
+              ✕
+            </button>
+          )}
         </div>
       ),
     },
@@ -298,6 +316,9 @@ tableHoverStyle.textContent = `
   }
   .execute-btn:hover {
     background: #38a169 !important;
+  }
+  .delete-btn:hover {
+    background: #e53e3e !important;
   }
   .details-btn:hover {
     background: #718096 !important;
@@ -416,6 +437,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     transition: 'all 0.2s',
     background: '#48bb78',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtn: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#fc8181',
     color: 'white',
     minWidth: '32px',
     minHeight: '32px',

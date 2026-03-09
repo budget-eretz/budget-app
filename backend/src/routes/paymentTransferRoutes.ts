@@ -25,6 +25,9 @@ router.get('/:id', paymentTransferController.getPaymentTransferById);
 // Execute payment transfer
 router.post('/:id/execute', paymentTransferController.executePaymentTransfer);
 
+// Delete pending payment transfer
+router.delete('/:id', paymentTransferController.deletePaymentTransfer);
+
 // Delete a recurring transfer application from a payment transfer
 router.delete('/:transferId/recurring-application/:applicationId', paymentTransferController.deleteRecurringApplication);
 
