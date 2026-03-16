@@ -45,20 +45,21 @@ async function apiGet(path: string): Promise<any> {
   return res.json();
 }
 
-async function apiPost(path: string, body: any): Promise<any> {
+async function apiRequest(method: string, path: string, body?: any): Promise<any> {
   const jwt = await ensureAuth();
   const res = await fetch(`${API_URL}${path}`, {
-    method: "POST",
+    method,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
     },
-    body: JSON.stringify(body),
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`API error (${res.status}): ${err}`);
   }
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -103,7 +104,7 @@ server.tool(
       .describe("URL of receipt image (optional)"),
   },
   async ({ fundId, amount, description, expenseDate, receiptUrl }) => {
-    const result = await apiPost("/reimbursements", {
+    const result = await apiRequest("POST", "/reimbursements", {
       fundId,
       amount,
       description,
@@ -156,6 +157,60 @@ server.tool(
 
     return {
       content: [{ type: "text" as const, text: formatted.join("\n") }],
+    };
+  }
+);
+
+// Tool: update_reimbursement
+server.tool(
+  "update_reimbursement",
+  "Update a pending/under_review reimbursement. Use list_my_reimbursements first to find the ID. Only works on reimbursements that haven't been approved yet.",
+  {
+    id: z.number().describe("Reimbursement ID to update"),
+    fundId: z.number().optional().describe("New fund ID"),
+    amount: z.number().positive().optional().describe("New amount in ILS"),
+    description: z.string().optional().describe("New description"),
+    expenseDate: z.string().optional().describe("New date in YYYY-MM-DD format"),
+    receiptUrl: z.string().optional().describe("New receipt URL"),
+  },
+  async ({ id, ...updates }) => {
+    const body: any = {};
+    if (updates.fundId !== undefined) body.fundId = updates.fundId;
+    if (updates.amount !== undefined) body.amount = updates.amount;
+    if (updates.description !== undefined) body.description = updates.description;
+    if (updates.expenseDate !== undefined) body.expenseDate = updates.expenseDate;
+    if (updates.receiptUrl !== undefined) body.receiptUrl = updates.receiptUrl;
+
+    const result = await apiRequest("PATCH", `/reimbursements/${id}`, body);
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Reimbursement #${id} updated successfully!\nAmount: ₪${result.amount}\nDescription: ${result.description}\nStatus: ${result.status}`,
+        },
+      ],
+    };
+  }
+);
+
+// Tool: delete_reimbursement
+server.tool(
+  "delete_reimbursement",
+  "Delete a pending/under_review reimbursement. Use list_my_reimbursements first to find the ID. Only works on reimbursements that haven't been approved yet.",
+  {
+    id: z.number().describe("Reimbursement ID to delete"),
+  },
+  async ({ id }) => {
+    await apiRequest("DELETE", `/reimbursements/${id}`);
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Reimbursement #${id} deleted successfully.`,
+        },
+      ],
     };
   }
 );
