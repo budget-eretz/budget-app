@@ -1,0 +1,13 @@
+{
+  "name": "budget-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "tsx": "^4.19.4"
+  }
+}
