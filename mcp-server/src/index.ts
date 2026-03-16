@@ -74,7 +74,7 @@ server.tool(
   "Get all funds accessible to the user with their balances. Use this to find the right fund before submitting a reimbursement.",
   {},
   async () => {
-    const funds = await apiGet("/funds");
+    const funds = await apiGet("/funds/accessible");
 
     const formatted = funds.map(
       (f: any) =>
