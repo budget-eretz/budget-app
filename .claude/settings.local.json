@@ -16,9 +16,15 @@
       "mcp__plugin_playwright_playwright__browser_run_code",
       "Bash(npx tsc --noEmit --pretty)",
       "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
-      "Bash(npx --yes typescript -- --noEmit)"
+      "Bash(npx --yes typescript -- --noEmit)",
+      "mcp__budget__list_my_funds",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "budget"
+  ]
 }
