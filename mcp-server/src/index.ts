@@ -81,7 +81,7 @@ server.tool(
     for (const budget of budgets) {
       for (const fund of budget.funds || []) {
         lines.push(
-          `[${fund.id}] ${fund.name} (budget: ${budget.name}) — allocated: ₪${fund.allocated_amount}, spent: ₪${fund.spent_amount}, planned: ₪${fund.planned_amount}, available: ₪${fund.available_amount}`
+          `[${fund.id}] ${fund.name} (budget: ${budget.name}) — allocated: ₪${fund.allocated_amount}, available: ₪${fund.available_amount}`
         );
       }
     }
