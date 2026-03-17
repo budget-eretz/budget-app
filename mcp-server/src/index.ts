@@ -74,12 +74,18 @@ server.tool(
   "Get all funds accessible to the user with their balances. Use this to find the right fund before submitting a reimbursement.",
   {},
   async () => {
-    const funds = await apiGet("/funds/accessible");
+    const data = await apiGet("/funds/accessible");
+    const budgets = data.budgets || [];
 
-    const formatted = funds.map(
-      (f: any) =>
-        `[${f.id}] ${f.name} (budget: ${f.budget_name || f.budget_id}) — allocated: ₪${f.allocated_amount}, spent: ₪${f.spent_amount}, planned: ₪${f.planned_amount}, available: ₪${f.available_amount}`
-    );
+    const lines: string[] = [];
+    for (const budget of budgets) {
+      for (const fund of budget.funds || []) {
+        lines.push(
+          `[${fund.id}] ${fund.name} (budget: ${budget.name}) — allocated: ₪${fund.allocated_amount}, spent: ₪${fund.spent_amount}, planned: ₪${fund.planned_amount}, available: ₪${fund.available_amount}`
+        );
+      }
+    }
+    const formatted = lines;
 
     return {
       content: [{ type: "text" as const, text: formatted.join("\n") }],
