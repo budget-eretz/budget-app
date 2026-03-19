@@ -225,8 +225,8 @@ export async function getPaymentTransferById(req: Request, res: Response) {
       period_display: formatPeriodDisplay(item.frequency, item.period_year, item.period_month)
     }));
 
-    // Combine reimbursements, charges, and recurring transfers
-    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows, ...recurringWithPeriod]
+    // Combine reimbursements and charges (recurring transfers are separate)
+    const allItems = [...reimbursementsResult.rows, ...chargesResult.rows]
       .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime());
 
     const transferDetails: PaymentTransferDetails = {
