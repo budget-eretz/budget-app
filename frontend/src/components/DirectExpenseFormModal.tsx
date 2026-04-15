@@ -4,6 +4,7 @@ import Button from './Button';
 import { fundsAPI, directExpensesAPI } from '../services/api';
 import { BudgetWithFunds, DirectExpense } from '../types';
 import { useToast } from './Toast';
+import { useAuth } from '../context/AuthContext';
 
 interface DirectExpenseFormModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const DirectExpenseFormModal: React.FC<DirectExpenseFormModalProps> = ({
   const [receiptUrl, setReceiptUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isOpen) {
@@ -50,7 +52,14 @@ const DirectExpenseFormModal: React.FC<DirectExpenseFormModalProps> = ({
   const fetchAccessibleFunds = async () => {
     try {
       const response = await fundsAPI.getAccessible();
-      setBudgets(response.data.budgets);
+      let allBudgets: BudgetWithFunds[] = response.data.budgets;
+
+      // Filter: group treasurers can only create direct expenses on their group funds
+      if (!user?.isCircleTreasurer) {
+        allBudgets = allBudgets.filter((b: BudgetWithFunds) => b.type === 'group');
+      }
+
+      setBudgets(allBudgets);
     } catch (error) {
       console.error('Error fetching funds:', error);
       showToast('שגיאה בטעינת סעיפים', 'error');

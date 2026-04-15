@@ -24,14 +24,12 @@ export const createDirectExpense = async (req: Request, res: Response) => {
     const fund = fundResult.rows[0];
     const isCircleBudget = fund.group_id === null;
 
-    // Check permissions
-    if (isCircleBudget) {
-      if (!req.user!.isCircleTreasurer) {
-        return res.status(403).json({ error: 'Only circle treasurer can create direct expenses for circle funds' });
-      }
-    } else {
-      if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(fund.group_id)) {
-        return res.status(403).json({ error: 'Only group treasurer can create direct expenses for their group funds' });
+    // Check permissions - circle treasurer has full access
+    if (!req.user!.isCircleTreasurer) {
+      if (isCircleBudget) {
+        return res.status(403).json({ error: 'רק גזבר מעגלי יכול ליצור הוצאה ישירה בסעיף מעגלי' });
+      } else if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(fund.group_id)) {
+        return res.status(403).json({ error: 'רק גזבר קבוצתי יכול ליצור הוצאה ישירה בסעיפי הקבוצה שלו' });
       }
     }
 
@@ -75,14 +73,12 @@ export const updateDirectExpense = async (req: Request, res: Response) => {
     const expense = expenseResult.rows[0];
     const isCircleBudget = expense.group_id === null;
 
-    // Check permissions
-    if (isCircleBudget) {
-      if (!req.user!.isCircleTreasurer) {
-        return res.status(403).json({ error: 'Only circle treasurer can update direct expenses for circle funds' });
-      }
-    } else {
-      if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(expense.group_id)) {
-        return res.status(403).json({ error: 'Only group treasurer can update direct expenses for their group funds' });
+    // Check permissions - circle treasurer has full access
+    if (!req.user!.isCircleTreasurer) {
+      if (isCircleBudget) {
+        return res.status(403).json({ error: 'רק גזבר מעגלי יכול לעדכן הוצאה ישירה בסעיף מעגלי' });
+      } else if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(expense.group_id)) {
+        return res.status(403).json({ error: 'רק גזבר קבוצתי יכול לעדכן הוצאה ישירה בסעיפי הקבוצה שלו' });
       }
     }
 
@@ -157,14 +153,12 @@ export const deleteDirectExpense = async (req: Request, res: Response) => {
     const expense = expenseResult.rows[0];
     const isCircleBudget = expense.group_id === null;
 
-    // Check permissions
-    if (isCircleBudget) {
-      if (!req.user!.isCircleTreasurer) {
-        return res.status(403).json({ error: 'Only circle treasurer can delete direct expenses for circle funds' });
-      }
-    } else {
-      if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(expense.group_id)) {
-        return res.status(403).json({ error: 'Only group treasurer can delete direct expenses for their group funds' });
+    // Check permissions - circle treasurer has full access
+    if (!req.user!.isCircleTreasurer) {
+      if (isCircleBudget) {
+        return res.status(403).json({ error: 'רק גזבר מעגלי יכול למחוק הוצאה ישירה בסעיף מעגלי' });
+      } else if (!req.user!.isGroupTreasurer || !req.user!.groupIds.includes(expense.group_id)) {
+        return res.status(403).json({ error: 'רק גזבר קבוצתי יכול למחוק הוצאה ישירה בסעיפי הקבוצה שלו' });
       }
     }
 

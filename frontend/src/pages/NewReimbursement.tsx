@@ -236,7 +236,7 @@ export default function NewReimbursement() {
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>{isEditMode ? 'עריכת בקשת החזר' : 'הגשת בקשת החזר'}</h1>
         </div>
-        <div style={styles.formCard}>
+        <div className="form-card" style={styles.formCard}>
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>
@@ -417,6 +417,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
     background: '#f7fafc',
+    overflowX: 'hidden',
   },
   pageHeader: {
     gridColumn: '1 / -1',
@@ -463,6 +464,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '6px',
     outline: 'none',
     transition: 'border-color 0.2s',
+    width: '100%',
   },
   select: {
     padding: '10px 12px',
@@ -472,6 +474,7 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     transition: 'border-color 0.2s',
     background: 'white',
+    width: '100%',
   },
   textarea: {
     padding: '10px 12px',
@@ -482,6 +485,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'border-color 0.2s',
     resize: 'vertical',
     fontFamily: 'inherit',
+    width: '100%',
   },
   actions: {
     display: 'flex',

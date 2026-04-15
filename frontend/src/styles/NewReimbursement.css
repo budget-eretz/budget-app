@@ -132,7 +132,16 @@
 @media (max-width: 768px) {
   .reimbursement-content {
     grid-template-columns: 1fr !important;
-    padding: 20px !important;
+    padding: 16px !important;
+    gap: 20px !important;
+  }
+
+  .reimbursement-content > * {
+    min-width: 0 !important;
+  }
+
+  .reimbursement-content .form-card {
+    padding: 16px !important;
   }
 
   .reimbursement-sidebar {

@@ -131,7 +131,10 @@ export function ToastContainer({ messages, onClose }: ToastContainerProps) {
 }
 
 // Hook for managing toasts
+// Uses global ToastProvider context when available, falls back to local state
 export function useToast() {
+  const context = useContext(ToastContext);
+
   const [messages, setMessages] = useState<ToastMessage[]>([]);
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
@@ -152,6 +155,9 @@ export function useToast() {
     addToast({ type, title: message, message: '' });
   };
 
+  // If within ToastProvider, use global context so toasts render in the global container
+  if (context) return context;
+
   return {
     messages,
     addToast,
@@ -171,6 +177,7 @@ export function useToast() {
 
 // Toast Context
 interface ToastContextType {
+  messages: ToastMessage[];
   addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   removeToast: (id: string) => void;
   clearAll: () => void;
