@@ -6,6 +6,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
+import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 
 interface MoveResult {
   dryRun: boolean;
@@ -135,6 +136,30 @@ export default function TransferMovements() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetBudgetId]);
 
+  const budgetSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'תקציבים',
+    options: budgets.map((b) => ({
+      value: b.id.toString(),
+      label: `${b.name}${b.fiscal_year ? ` (${b.fiscal_year})` : ''}${b.group_name ? ` - ${b.group_name}` : ''}`,
+    })),
+  }], [budgets]);
+
+  const sourceFundGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'סעיפים',
+    options: sourceFunds.map((f) => ({
+      value: f.id.toString(),
+      label: f.name,
+    })),
+  }], [sourceFunds]);
+
+  const targetFundGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'סעיפים',
+    options: targetFunds.map((f) => ({
+      value: f.id.toString(),
+      label: f.name,
+    })),
+  }], [targetFunds]);
+
   const canRun = useMemo(() => {
     return (
       !!sourceFundId &&
@@ -230,67 +255,43 @@ export default function TransferMovements() {
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>הגדר מקור</h3>
             <label style={styles.label}>תקציב מקור</label>
-            <select
-              style={styles.select}
-              value={sourceBudgetId || ''}
-              onChange={(e) => setSourceBudgetId(e.target.value ? parseInt(e.target.value) : undefined)}
+            <SearchableSelect
+              value={sourceBudgetId?.toString() || ''}
+              onChange={(val) => setSourceBudgetId(val ? parseInt(val) : undefined)}
+              groups={budgetSelectGroups}
+              placeholder="בחר תקציב"
               disabled={loading || running}
-            >
-              <option value="">בחר תקציב</option>
-              {budgets.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.fiscal_year ? `(${b.fiscal_year})` : ''} {b.group_name ? `- ${b.group_name}` : ''}
-                </option>
-              ))}
-            </select>
+            />
 
-            <label style={styles.label}>סעיף מקור</label>
-            <select
-              style={styles.select}
-              value={sourceFundId || ''}
-              onChange={(e) => setSourceFundId(e.target.value ? parseInt(e.target.value) : undefined)}
+            <label style={{ ...styles.label, marginTop: '12px' }}>סעיף מקור</label>
+            <SearchableSelect
+              value={sourceFundId?.toString() || ''}
+              onChange={(val) => setSourceFundId(val ? parseInt(val) : undefined)}
+              groups={sourceFundGroups}
+              placeholder="בחר סעיף"
               disabled={!sourceBudgetId || running}
-            >
-              <option value="">בחר סעיף</option>
-              {sourceFunds.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name} (תקציב #{f.budget_id})
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>הגדר יעד</h3>
             <label style={styles.label}>תקציב יעד</label>
-            <select
-              style={styles.select}
-              value={targetBudgetId || ''}
-              onChange={(e) => setTargetBudgetId(e.target.value ? parseInt(e.target.value) : undefined)}
+            <SearchableSelect
+              value={targetBudgetId?.toString() || ''}
+              onChange={(val) => setTargetBudgetId(val ? parseInt(val) : undefined)}
+              groups={budgetSelectGroups}
+              placeholder="בחר תקציב"
               disabled={loading || running}
-            >
-              <option value="">בחר תקציב</option>
-              {budgets.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.fiscal_year ? `(${b.fiscal_year})` : ''} {b.group_name ? `- ${b.group_name}` : ''}
-                </option>
-              ))}
-            </select>
+            />
 
-            <label style={styles.label}>סעיף יעד</label>
-            <select
-              style={styles.select}
-              value={targetFundId || ''}
-              onChange={(e) => setTargetFundId(e.target.value ? parseInt(e.target.value) : undefined)}
+            <label style={{ ...styles.label, marginTop: '12px' }}>סעיף יעד</label>
+            <SearchableSelect
+              value={targetFundId?.toString() || ''}
+              onChange={(val) => setTargetFundId(val ? parseInt(val) : undefined)}
+              groups={targetFundGroups}
+              placeholder="בחר סעיף"
               disabled={!targetBudgetId || running}
-            >
-              <option value="">בחר סעיף</option>
-              {targetFunds.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name} (תקציב #{f.budget_id})
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div style={styles.card}>

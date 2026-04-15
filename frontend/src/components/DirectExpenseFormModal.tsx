@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import Button from './Button';
 import { fundsAPI, directExpensesAPI } from '../services/api';
 import { BudgetWithFunds, DirectExpense } from '../types';
 import { useToast } from './Toast';
 import { useAuth } from '../context/AuthContext';
+import SearchableSelect, { SearchableSelectGroup } from './SearchableSelect';
 
 interface DirectExpenseFormModalProps {
   isOpen: boolean;
@@ -65,6 +66,17 @@ const DirectExpenseFormModal: React.FC<DirectExpenseFormModalProps> = ({
       showToast('שגיאה בטעינת סעיפים', 'error');
     }
   };
+
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    return budgets.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`,
+      options: budget.funds.map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+        sublabel: `זמין: ₪${fund.available_amount?.toFixed(2)}`,
+      })),
+    }));
+  }, [budgets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,25 +142,14 @@ const DirectExpenseFormModal: React.FC<DirectExpenseFormModalProps> = ({
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.formGroup}>
           <label style={styles.label} htmlFor="fund">סעיף *</label>
-          <select
-            id="fund"
+          <SearchableSelect
             value={selectedFundId}
-            onChange={(e) => setSelectedFundId(e.target.value)}
+            onChange={setSelectedFundId}
+            groups={fundSelectGroups}
+            placeholder="בחר סעיף"
             required
             disabled={!!preselectedFundId || !!expense}
-            style={styles.select}
-          >
-            <option value="">בחר סעיף</option>
-            {budgets.map((budget) => (
-              <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
-                {budget.funds.map((fund) => (
-                  <option key={fund.id} value={fund.id}>
-                    {fund.name} (זמין: ₪{fund.available_amount?.toFixed(2)})
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          />
         </div>
 
         <div style={styles.formGroup}>

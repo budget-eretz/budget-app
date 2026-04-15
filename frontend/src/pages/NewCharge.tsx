@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fundsAPI, chargesAPI } from '../services/api';
 import { BudgetWithFunds } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
+import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 
 export default function NewCharge() {
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
@@ -104,6 +105,17 @@ export default function NewCharge() {
     return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
   };
 
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    return budgets.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'}${budget.groupName ? ' - ' + budget.groupName : ''})`,
+      options: budget.funds.map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+        sublabel: `זמין: ${formatCurrency(fund.available_amount || 0)}`,
+      })),
+    }));
+  }, [budgets]);
+
   if (loading) {
     return <div style={styles.loading}>טוען...</div>;
   }
@@ -127,30 +139,13 @@ export default function NewCharge() {
               <label style={styles.label}>
                 בחר סעיף <span style={{ color: '#e53e3e' }}>*</span>
               </label>
-              <select
+              <SearchableSelect
                 value={formData.fundId}
-                onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, fundId: val })}
+                groups={fundSelectGroups}
+                placeholder="-- בחר סעיף --"
                 required
-                style={styles.select}
-              >
-                <option value="">-- בחר סעיף --</option>
-                {budgets.length === 0 ? (
-                  <option disabled>אין סעיפים זמינים</option>
-                ) : (
-                  budgets.map((budget) => (
-                    <optgroup 
-                      key={budget.id} 
-                      label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'}${budget.groupName ? ' - ' + budget.groupName : ''})`}
-                    >
-                      {budget.funds.map((fund) => (
-                        <option key={fund.id} value={fund.id}>
-                          {fund.name} - זמין: {formatCurrency(fund.available_amount || 0)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))
-                )}
-              </select>
+              />
             </div>
 
             <div style={styles.field}>

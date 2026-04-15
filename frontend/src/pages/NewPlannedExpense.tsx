@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { fundsAPI, plannedExpensesAPI, monthlyAllocationsAPI, authAPI, apartmentsAPI } from '../services/api';
 import { Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
+import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 
 interface Budget {
   id: number;
@@ -225,6 +226,17 @@ export default function NewPlannedExpense() {
     return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
   };
 
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    return budgets.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`,
+      options: budget.funds.map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+        sublabel: `מתוכנן: ${formatCurrency(getPlannedForFund(fund.id))}`,
+      })),
+    }));
+  }, [budgets, monthlyFundStatus]);
+
   if (loading) {
     return <div style={styles.loading}>טוען...</div>;
   }
@@ -250,23 +262,13 @@ export default function NewPlannedExpense() {
               <label style={styles.label}>
                 בחר סעיף <span style={{ color: '#e53e3e' }}>*</span>
               </label>
-              <select
+              <SearchableSelect
                 value={formData.fundId}
-                onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, fundId: val })}
+                groups={fundSelectGroups}
+                placeholder="-- בחר סעיף --"
                 required
-                style={styles.select}
-              >
-                <option value="">-- בחר סעיף --</option>
-                {budgets.map((budget) => (
-                  <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
-                    {budget.funds.map((fund) => (
-                      <option key={fund.id} value={fund.id}>
-                        {fund.name} - מתוכנן החודש: {formatCurrency(getPlannedForFund(fund.id))}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              />
             </div>
 
             <div style={styles.field}>

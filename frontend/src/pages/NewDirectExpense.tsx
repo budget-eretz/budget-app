@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fundsAPI, directExpensesAPI, apartmentsAPI } from '../services/api';
 import { BudgetWithFunds, Apartment } from '../types';
 import { useToast } from '../components/Toast';
+import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 import '../styles/NewReimbursement.css';
 
 const NewDirectExpense: React.FC = () => {
@@ -45,6 +46,17 @@ const NewDirectExpense: React.FC = () => {
       console.error('Failed to load apartments:', error);
     }
   };
+
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    return budgets.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`,
+      options: budget.funds.map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+        sublabel: `זמין: ₪${fund.available_amount?.toFixed(2)}`,
+      })),
+    }));
+  }, [budgets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,24 +102,14 @@ const NewDirectExpense: React.FC = () => {
       <form onSubmit={handleSubmit} className="reimbursement-form">
         <div className="form-group">
           <label htmlFor="fund">סעיף *</label>
-          <select
-            id="fund"
+          <SearchableSelect
             value={selectedFundId}
-            onChange={(e) => setSelectedFundId(e.target.value)}
+            onChange={setSelectedFundId}
+            groups={fundSelectGroups}
+            placeholder="בחר סעיף"
             required
             disabled={!!preselectedFundId}
-          >
-            <option value="">בחר סעיף</option>
-            {budgets.map((budget) => (
-              <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
-                {budget.funds.map((fund) => (
-                  <option key={fund.id} value={fund.id}>
-                    {fund.name} (זמין: ₪{fund.available_amount?.toFixed(2)})
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="form-group">

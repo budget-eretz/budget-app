@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { RecurringTransfer, BudgetWithFunds, BasicUser } from '../types';
 import { fundsAPI, usersAPI } from '../services/api';
+import SearchableSelect, { SearchableSelectGroup } from './SearchableSelect';
 
 interface RecurringTransferFormModalProps {
   isOpen: boolean;
@@ -120,6 +121,25 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
     onClose();
   };
 
+  const userSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'חברים',
+    options: users.map((user) => ({
+      value: user.id.toString(),
+      label: user.fullName,
+    })),
+  }], [users]);
+
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    const bwf = Array.isArray(budgetsWithFunds) ? budgetsWithFunds : [];
+    return bwf.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`,
+      options: (Array.isArray(budget.funds) ? budget.funds : []).map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+      })),
+    }));
+  }, [budgetsWithFunds]);
+
   const frequencyOptions = [
     { value: 'monthly', label: 'חודשי' },
     { value: 'quarterly', label: 'רבעוני' },
@@ -138,27 +158,14 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
                 מקבל התשלום <span style={{ color: '#ef4444' }}>*</span>
               </label>
-              <select
-                value={recipientUserId}
-                onChange={(e) => setRecipientUserId(Number(e.target.value))}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                  backgroundColor: !!transfer ? '#f3f4f6' : 'white'
-                }}
+              <SearchableSelect
+                value={recipientUserId ? recipientUserId.toString() : ''}
+                onChange={(val) => setRecipientUserId(val ? Number(val) : 0)}
+                groups={userSelectGroups}
+                placeholder="בחר חבר"
                 required
                 disabled={!!transfer}
-              >
-                <option value={0}>בחר חבר</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Fund */}
@@ -171,33 +178,13 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
                   </span>
                 )}
               </label>
-              <select
-                value={fundId}
-                onChange={(e) => {
-                  console.log('Fund selected:', e.target.value);
-                  setFundId(Number(e.target.value));
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: transfer?.isBudgetActive === false ? '2px solid #c53030' : '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                  backgroundColor: 'white'
-                }}
+              <SearchableSelect
+                value={fundId ? fundId.toString() : ''}
+                onChange={(val) => setFundId(val ? Number(val) : 0)}
+                groups={fundSelectGroups}
+                placeholder="בחר סעיף"
                 required
-              >
-                <option value={0}>בחר סעיף</option>
-                {Array.isArray(budgetsWithFunds) && budgetsWithFunds.map((budget) => (
-                  <optgroup key={budget.id} label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'})`}>
-                    {Array.isArray(budget.funds) && budget.funds.map((fund) => (
-                      <option key={fund.id} value={fund.id}>
-                        {fund.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              />
               {transfer && (
                 <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
                   ניתן לשנות את הסעיף להעברה קבועה קיימת

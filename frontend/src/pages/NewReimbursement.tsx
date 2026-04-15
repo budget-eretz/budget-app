@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { fundsAPI, reimbursementsAPI, usersAPI, monthlyAllocationsAPI, authAPI, apartmentsAPI } from '../services/api';
 import { BudgetWithFunds, BasicUser, Apartment } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
+import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 import '../styles/NewReimbursement.css';
 
 export default function NewReimbursement() {
@@ -224,6 +225,25 @@ export default function NewReimbursement() {
     return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS' }).format(amount);
   };
 
+  const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
+    return budgets.map((budget) => ({
+      label: `${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'}${budget.groupName ? ' - ' + budget.groupName : ''})`,
+      options: budget.funds.map((fund) => ({
+        value: fund.id.toString(),
+        label: fund.name,
+        sublabel: `זמין: ${formatCurrency(getRemainingForFund(fund.id))}`,
+      })),
+    }));
+  }, [budgets, monthlyFundStatus]);
+
+  const userSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'חברים',
+    options: users.map((u) => ({
+      value: u.id.toString(),
+      label: u.fullName,
+    })),
+  }], [users]);
+
   if (loading) {
     return <div style={styles.loading}>טוען...</div>;
   }
@@ -242,48 +262,25 @@ export default function NewReimbursement() {
               <label style={styles.label}>
                 בחר סעיף <span style={{ color: '#e53e3e' }}>*</span>
               </label>
-              <select
+              <SearchableSelect
                 value={formData.fundId}
-                onChange={(e) => setFormData({ ...formData, fundId: e.target.value })}
+                onChange={(val) => setFormData({ ...formData, fundId: val })}
+                groups={fundSelectGroups}
+                placeholder="-- בחר סעיף --"
                 required
-                style={styles.select}
-              >
-                <option value="">-- בחר סעיף --</option>
-                {budgets.length === 0 ? (
-                  <option disabled>אין סעיפים זמינים</option>
-                ) : (
-                  budgets.map((budget) => (
-                    <optgroup 
-                      key={budget.id} 
-                      label={`${budget.name} (${budget.type === 'circle' ? 'מעגלי' : 'קבוצתי'}${budget.groupName ? ' - ' + budget.groupName : ''})`}
-                    >
-                      {budget.funds.map((fund) => (
-                        <option key={fund.id} value={fund.id}>
-                          {fund.name} - זמין החודש: {formatCurrency(getRemainingForFund(fund.id))}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))
-                )}
-              </select>
+              />
             </div>
 
             <div style={styles.field}>
               <label style={styles.label}>
                 שלח תשלום ל (אופציונלי)
               </label>
-              <select
+              <SearchableSelect
                 value={formData.recipientUserId}
-                onChange={(e) => setFormData({ ...formData, recipientUserId: e.target.value })}
-                style={styles.select}
-              >
-                <option value="">-- אני (ברירת מחדל) --</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.fullName}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, recipientUserId: val })}
+                groups={userSelectGroups}
+                placeholder="-- אני (ברירת מחדל) --"
+              />
               <small style={{ color: '#718096', fontSize: '13px' }}>
                 אם ההחזר מיועד למישהו אחר, בחר את שמו כאן
               </small>

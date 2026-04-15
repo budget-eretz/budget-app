@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { ExpectedIncome, IncomeCategory, BasicUser } from '../types';
 import { useAuth } from '../context/AuthContext';
+import SearchableSelect, { SearchableSelectGroup } from './SearchableSelect';
 
 interface ExpectedIncomeFormModalProps {
   isOpen: boolean;
@@ -163,6 +164,16 @@ export default function ExpectedIncomeFormModal({
     }
   };
 
+  const userSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'חברים',
+    options: users
+      .filter(u => isCircleTreasurer || u.id === user?.id)
+      .map((u) => ({
+        value: u.id.toString(),
+        label: u.fullName,
+      })),
+  }], [users, isCircleTreasurer, user]);
+
   const handleCategorySelect = (categoryId: number) => {
     setFormData(prev => ({
       ...prev,
@@ -235,24 +246,14 @@ export default function ExpectedIncomeFormModal({
             <label style={styles.label}>
               בחר חבר <span style={styles.required}>*</span>
             </label>
-            <select
-              value={formData.user_id || ''}
-              onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) || undefined })}
-              style={{
-                ...styles.select,
-                ...(errors.source ? styles.inputError : {}),
-              }}
+            <SearchableSelect
+              value={formData.user_id?.toString() || ''}
+              onChange={(val) => setFormData({ ...formData, user_id: val ? parseInt(val) : undefined })}
+              groups={userSelectGroups}
+              placeholder="-- בחר חבר --"
+              required
               disabled={!isCircleTreasurer}
-            >
-              <option value="">-- בחר חבר --</option>
-              {users
-                .filter(u => isCircleTreasurer || u.id === user?.id)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName}
-                  </option>
-                ))}
-            </select>
+            />
             {errors.source && <span style={styles.errorText}>{errors.source}</span>}
             {!isCircleTreasurer && (
               <span style={styles.infoText}>ניתן להוסיף הכנסה צפויה רק על עצמך</span>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { Income, IncomeCategory, BasicUser } from '../types';
 import { useAuth } from '../context/AuthContext';
+import SearchableSelect, { SearchableSelectGroup } from './SearchableSelect';
 
 interface IncomeFormModalProps {
   isOpen: boolean;
@@ -131,6 +132,14 @@ export default function IncomeFormModal({
     }
   };
 
+  const userSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'חברים',
+    options: users.map((u) => ({
+      value: u.id.toString(),
+      label: u.fullName,
+    })),
+  }], [users]);
+
   const handleCategorySelect = (categoryId: number) => {
     setFormData(prev => ({
       ...prev,
@@ -245,21 +254,13 @@ export default function IncomeFormModal({
             <label style={styles.label}>
               בחר חבר <span style={styles.required}>*</span>
             </label>
-            <select
-              value={formData.user_id || ''}
-              onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) || undefined })}
-              style={{
-                ...styles.select,
-                ...(errors.source ? styles.inputError : {}),
-              }}
-            >
-              <option value="">-- בחר חבר --</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.fullName}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={formData.user_id?.toString() || ''}
+              onChange={(val) => setFormData({ ...formData, user_id: val ? parseInt(val) : undefined })}
+              groups={userSelectGroups}
+              placeholder="-- בחר חבר --"
+              required
+            />
             {errors.source && <span style={styles.errorText}>{errors.source}</span>}
           </div>
         ) : (
