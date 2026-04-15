@@ -680,9 +680,11 @@ button:disabled:hover {
 .table-row:nth-child(5) { animation-delay: 0.25s; }
 
 /* Smooth scroll behavior */
-html {
+html, body {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
+
 
 /* Focus visible for accessibility */
 *:focus-visible {

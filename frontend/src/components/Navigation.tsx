@@ -305,15 +305,17 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'sticky',
     top: 0,
     zIndex: 1000,
+    maxWidth: '100vw',
+    overflowX: 'hidden',
   },
   container: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px 40px',
     maxWidth: '1400px',
     margin: '0 auto',
     position: 'relative',
+    width: '100%',
   },
   leftSection: {
     display: 'flex',
@@ -468,35 +470,39 @@ const styles: Record<string, React.CSSProperties> = {
 // Add responsive media queries
 const navMediaQueryStyle = document.createElement('style');
 navMediaQueryStyle.textContent = `
-  @media (max-width: 768px) {
+  .nav-container {
+    padding: 12px 16px;
+  }
+
+  @media (min-width: 769px) {
     .nav-container {
-      padding: 12px 20px !important;
+      padding: 16px 40px;
     }
-    
+
+    .hamburger-btn {
+      display: none !important;
+    }
+
+    .mobile-menu {
+      display: none !important;
+    }
+  }
+
+  @media (max-width: 768px) {
     .nav-links {
       display: none !important;
     }
-    
+
     .nav-right {
       display: none !important;
     }
-    
+
     .hamburger-btn {
       display: flex !important;
     }
-    
+
     .mobile-menu {
       display: flex !important;
-    }
-  }
-  
-  @media (min-width: 769px) {
-    .hamburger-btn {
-      display: none !important;
-    }
-    
-    .mobile-menu {
-      display: none !important;
     }
   }
 `;

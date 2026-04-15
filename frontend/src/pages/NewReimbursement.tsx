@@ -232,11 +232,11 @@ export default function NewReimbursement() {
     <div style={styles.container}>
       <Navigation />
 
-      <div className="reimbursement-content" style={styles.content}>
+      <div className="reimbursement-content">
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>{isEditMode ? 'עריכת בקשת החזר' : 'הגשת בקשת החזר'}</h1>
         </div>
-        <div className="form-card" style={styles.formCard}>
+        <div className="form-card">
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>
@@ -368,7 +368,7 @@ export default function NewReimbursement() {
         </div>
 
         {budgets.length > 0 && (
-          <div className="reimbursement-sidebar" style={styles.sidebar}>
+          <div className="reimbursement-sidebar">
             <h3 style={styles.sidebarTitle}>סעיפים זמינים</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (
@@ -417,7 +417,6 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
     background: '#f7fafc',
-    overflowX: 'hidden',
   },
   pageHeader: {
     gridColumn: '1 / -1',
@@ -427,20 +426,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '24px',
     fontWeight: 'bold',
     margin: 0,
-  },
-  content: {
-    padding: '40px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr',
-    gap: '40px',
-  },
-  formCard: {
-    background: 'white',
-    padding: '32px',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   form: {
     display: 'flex',
@@ -492,11 +477,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '12px',
     justifyContent: 'flex-end',
     marginTop: '16px',
-  },
-  sidebar: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
   },
   sidebarTitle: {
     fontSize: '18px',
