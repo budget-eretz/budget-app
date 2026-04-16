@@ -83,8 +83,22 @@ const RecurringTransferTable: React.FC<RecurringTransferTableProps> = ({
       label: 'מקבל',
       render: (transfer: RecurringTransfer) => (
         <div>
-          <div style={styles.recipientName}>{transfer.recipientName}</div>
-          {transfer.recipientEmail && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              background: transfer.recipientGroupId ? '#d1fae5' : '#dbeafe',
+              color: transfer.recipientGroupId ? '#065f46' : '#1e40af',
+              padding: '1px 6px',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: '600',
+            }}>
+              {transfer.recipientGroupId ? 'קבוצה' : 'חבר'}
+            </span>
+            <span style={styles.recipientName}>
+              {transfer.recipientGroupId ? transfer.recipientGroupName : transfer.recipientName}
+            </span>
+          </div>
+          {!transfer.recipientGroupId && transfer.recipientEmail && (
             <div style={styles.recipientEmail}>{transfer.recipientEmail}</div>
           )}
         </div>
