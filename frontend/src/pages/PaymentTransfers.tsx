@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats, RecurringTransfer, DirectExpense } from '../types';
+import { PaymentTransfer, PaymentTransferDetails, PaymentTransferStats, RecurringTransfer, DirectExpense, GroupBankTransfer, GroupBankTransferStats } from '../types';
 import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
@@ -10,7 +10,8 @@ import RecurringTransferTable from '../components/RecurringTransferTable';
 import DirectExpenseFormModal from '../components/DirectExpenseFormModal';
 import DirectExpenseTable from '../components/DirectExpenseTable';
 import Modal from '../components/Modal';
-import api, { recurringTransfersAPI, directExpensesAPI, paymentTransfersAPI } from '../services/api';
+import OneTimeTransferFormModal from '../components/OneTimeTransferFormModal';
+import api, { recurringTransfersAPI, directExpensesAPI, paymentTransfersAPI, groupBankTransfersAPI } from '../services/api';
 
 export default function PaymentTransfers() {
   const [activeTab, setActiveTab] = useState<'pending' | 'executed' | 'recurring' | 'direct'>('pending');
@@ -40,6 +41,20 @@ export default function PaymentTransfers() {
   // Generate recurring state
   const [generatingRecurring, setGeneratingRecurring] = useState(false);
 
+  // Group bank transfers state
+  const [pendingGroupTransfers, setPendingGroupTransfers] = useState<GroupBankTransfer[]>([]);
+  const [executedGroupTransfers, setExecutedGroupTransfers] = useState<GroupBankTransfer[]>([]);
+  const [groupTransferStats, setGroupTransferStats] = useState<GroupBankTransferStats | null>(null);
+
+  // One-time transfer modal
+  const [showOneTimeForm, setShowOneTimeForm] = useState(false);
+
+  // Group transfer confirm modals
+  const [groupTransferToExecute, setGroupTransferToExecute] = useState<number | null>(null);
+  const [showGroupExecuteConfirm, setShowGroupExecuteConfirm] = useState(false);
+  const [groupTransferToDelete, setGroupTransferToDelete] = useState<number | null>(null);
+  const [showGroupDeleteConfirm, setShowGroupDeleteConfirm] = useState(false);
+
   // Filters
   const [recipientFilter, setRecipientFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -54,22 +69,26 @@ export default function PaymentTransfers() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load transfers, stats, recurring transfers, and direct expenses
-      const [transfersResponse, statsResponse, recurringResponse, directExpensesResponse] = await Promise.all([
+      const [transfersResponse, statsResponse, recurringResponse, directExpensesResponse, groupTransfersResponse, groupStatsResponse] = await Promise.all([
         api.get('/payment-transfers'),
         api.get('/payment-transfers/stats'),
         recurringTransfersAPI.getAll(),
         directExpensesAPI.getAll(),
+        groupBankTransfersAPI.getAll(),
+        groupBankTransfersAPI.getStats(),
       ]);
 
       const transfers = transfersResponse.data as PaymentTransfer[];
-
-      // Separate by status
       setPendingTransfers(transfers.filter(t => t.status === 'pending'));
       setExecutedTransfers(transfers.filter(t => t.status === 'executed'));
       setStats(statsResponse.data);
       setRecurringTransfers(recurringResponse.data);
       setDirectExpenses(directExpensesResponse.data);
+
+      const groupTransfers = groupTransfersResponse.data as GroupBankTransfer[];
+      setPendingGroupTransfers(groupTransfers.filter(t => t.status === 'pending'));
+      setExecutedGroupTransfers(groupTransfers.filter(t => t.status === 'executed'));
+      setGroupTransferStats(groupStatsResponse.data);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת נתוני העברות', 'error');
       console.error('Error loading payment transfers:', error);
@@ -223,7 +242,16 @@ export default function PaymentTransfers() {
     setShowRecurringForm(true);
   };
 
-  const handleRecurringSubmit = async (data: any) => {
+  const handleRecurringSubmit = async (data: {
+    recipientUserId?: number;
+    recipientGroupId?: number;
+    fundId: number;
+    amount: number;
+    description: string;
+    startDate: string;
+    endDate?: string;
+    frequency: 'monthly' | 'quarterly' | 'annual';
+  }) => {
     setSavingRecurring(true);
     try {
       if (editingRecurring) {
@@ -317,6 +345,66 @@ export default function PaymentTransfers() {
     }
   };
 
+  // Group bank transfer handlers
+  const handleGroupExecuteClick = (id: number) => {
+    setGroupTransferToExecute(id);
+    setShowGroupExecuteConfirm(true);
+  };
+
+  const handleGroupExecuteConfirm = async () => {
+    if (!groupTransferToExecute) return;
+    try {
+      await groupBankTransfersAPI.execute(groupTransferToExecute);
+      showToast('העברה לקבוצה בוצעה בהצלחה', 'success');
+      setShowGroupExecuteConfirm(false);
+      setGroupTransferToExecute(null);
+      loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בביצוע העברה', 'error');
+    }
+  };
+
+  const handleGroupDeleteClick = (id: number) => {
+    setGroupTransferToDelete(id);
+    setShowGroupDeleteConfirm(true);
+  };
+
+  const handleGroupDeleteConfirm = async () => {
+    if (!groupTransferToDelete) return;
+    try {
+      await groupBankTransfersAPI.delete(groupTransferToDelete);
+      showToast('העברה נמחקה', 'success');
+      setShowGroupDeleteConfirm(false);
+      setGroupTransferToDelete(null);
+      loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה במחיקת העברה', 'error');
+    }
+  };
+
+  // One-time transfer handlers
+  const handleOneTimeGroupSubmit = async (data: { groupId: number; amount: number; description?: string; budgetId?: number }) => {
+    try {
+      await groupBankTransfersAPI.create(data);
+      showToast('העברה חד-פעמית לקבוצה נוצרה', 'success');
+      setShowOneTimeForm(false);
+      loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה ביצירת העברה', 'error');
+    }
+  };
+
+  const handleOneTimeMemberSubmit = async (data: { fundId: number; amount: number; description: string; expenseDate: string; payee: string }) => {
+    try {
+      await directExpensesAPI.create({ ...data, receiptUrl: undefined });
+      showToast('הוצאה ישירה נוצרה', 'success');
+      setShowOneTimeForm(false);
+      loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה ביצירת הוצאה', 'error');
+    }
+  };
+
   // Delete a recurring transfer application from a payment transfer
   const handleDeleteRecurringApplication = async (transferId: number, applicationId: number) => {
     if (!confirm('האם אתה בטוח שברצונך להסיר העברה קבועה זו מההעברה?')) {
@@ -384,7 +472,7 @@ export default function PaymentTransfers() {
             }}
             onClick={() => setActiveTab('pending')}
           >
-            ממתינות לביצוע ({pendingTransfers.length})
+            ממתינות לביצוע ({pendingTransfers.length + pendingGroupTransfers.length})
           </button>
           <button
             style={{
@@ -393,7 +481,7 @@ export default function PaymentTransfers() {
             }}
             onClick={() => setActiveTab('executed')}
           >
-            בוצעו ({executedTransfers.length})
+            בוצעו ({executedTransfers.length + executedGroupTransfers.length})
           </button>
           <button
             style={{
@@ -465,13 +553,16 @@ export default function PaymentTransfers() {
 
         {/* Generate Recurring Button - only show in pending tab */}
         {activeTab === 'pending' && (
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
             <Button
               onClick={handleGenerateRecurring}
               variant="secondary"
               disabled={generatingRecurring}
             >
               {generatingRecurring ? 'מרענן...' : 'רענן העברות קבועות'}
+            </Button>
+            <Button onClick={() => setShowOneTimeForm(true)} variant="primary">
+              + העברה חד-פעמית
             </Button>
           </div>
         )}
@@ -513,30 +604,93 @@ export default function PaymentTransfers() {
             onDelete={handleDeleteDirectExpense}
             showActions={true}
           />
-        ) : filteredTransfers.length === 0 ? (
-          <div style={styles.emptyState}>
-            {hasActiveFilters ? (
-              <>
-                <p style={styles.emptyText}>לא נמצאו העברות התואמות את הסינון</p>
-                <Button onClick={clearFilters} variant="secondary">נקה סינון</Button>
-              </>
-            ) : (
-              <p style={styles.emptyText}>
-                {activeTab === 'pending'
-                  ? 'אין העברות ממתינות לביצוע'
-                  : 'אין העברות שבוצעו'}
-              </p>
-            )}
-          </div>
         ) : (
-          <PaymentTransferTable
-            transfers={filteredTransfers}
-            onTransferClick={handleTransferClick}
-            onExecute={handleExecuteClick}
-            onDelete={handleDeleteClick}
-            showExecuteAction={activeTab === 'pending'}
-            showDeleteAction={activeTab === 'pending'}
-          />
+          <>
+            {filteredTransfers.length === 0 ? (
+              <div style={styles.emptyState}>
+                {hasActiveFilters ? (
+                  <>
+                    <p style={styles.emptyText}>לא נמצאו העברות התואמות את הסינון</p>
+                    <Button onClick={clearFilters} variant="secondary">נקה סינון</Button>
+                  </>
+                ) : (
+                  <p style={styles.emptyText}>
+                    {activeTab === 'pending'
+                      ? 'אין העברות ממתינות לביצוע'
+                      : 'אין העברות שבוצעו'}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <PaymentTransferTable
+                transfers={filteredTransfers}
+                onTransferClick={handleTransferClick}
+                onExecute={handleExecuteClick}
+                onDelete={handleDeleteClick}
+                showExecuteAction={activeTab === 'pending'}
+                showDeleteAction={activeTab === 'pending'}
+              />
+            )}
+
+            {/* Group Bank Transfers section */}
+            {(activeTab === 'pending' ? pendingGroupTransfers : executedGroupTransfers).length > 0 && (
+              <div style={{ marginTop: '24px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: '#d1fae5', padding: '2px 8px', borderRadius: '8px', fontSize: '12px' }}>קבוצות</span>
+                  העברות לקבוצות
+                </h3>
+                <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ background: '#f0fdf4', borderBottom: '2px solid #e2e8f0' }}>
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600' }}>קבוצה</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600' }}>סכום</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600' }}>תיאור</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600' }}>תאריך</th>
+                        {activeTab === 'executed' && (
+                          <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600' }}>בוצע ע"י</th>
+                        )}
+                        {activeTab === 'pending' && (
+                          <th style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '600' }}>פעולות</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(activeTab === 'pending' ? pendingGroupTransfers : executedGroupTransfers).map((gt) => (
+                        <tr key={`group-${gt.id}`} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: '600' }}>{gt.groupName}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: '600', color: '#059669' }}>
+                            {formatCurrency(Number(gt.amount))}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#6c757d' }}>{gt.description || '-'}</td>
+                          <td style={{ padding: '12px 16px', color: '#6c757d' }}>
+                            {new Date(gt.createdAt).toLocaleDateString('he-IL')}
+                          </td>
+                          {activeTab === 'executed' && (
+                            <td style={{ padding: '12px 16px', color: '#6c757d' }}>
+                              {gt.executedByName} ({gt.executedAt ? new Date(gt.executedAt).toLocaleDateString('he-IL') : ''})
+                            </td>
+                          )}
+                          {activeTab === 'pending' && (
+                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                <Button onClick={() => handleGroupExecuteClick(gt.id)} variant="primary" style={{ fontSize: '12px', padding: '4px 12px' }}>
+                                  בוצע
+                                </Button>
+                                <Button onClick={() => handleGroupDeleteClick(gt.id)} variant="danger" style={{ fontSize: '12px', padding: '4px 12px' }}>
+                                  מחק
+                                </Button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Details Modal */}
@@ -666,6 +820,36 @@ export default function PaymentTransfers() {
           }}
           expense={editingDirectExpense}
         />
+
+        {/* One-time transfer modal */}
+        <OneTimeTransferFormModal
+          isOpen={showOneTimeForm}
+          onClose={() => setShowOneTimeForm(false)}
+          onSubmitGroup={handleOneTimeGroupSubmit}
+          onSubmitMember={handleOneTimeMemberSubmit}
+        />
+
+        {/* Group transfer execute confirm */}
+        <Modal isOpen={showGroupExecuteConfirm} onClose={() => setShowGroupExecuteConfirm(false)} title="אישור ביצוע העברה">
+          <div style={{ padding: '1rem' }}>
+            <p>האם ביצעת את ההעברה הבנקאית לקבוצה?</p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <Button onClick={() => setShowGroupExecuteConfirm(false)} variant="secondary">ביטול</Button>
+              <Button onClick={handleGroupExecuteConfirm} variant="primary">כן, בוצע</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Group transfer delete confirm */}
+        <Modal isOpen={showGroupDeleteConfirm} onClose={() => setShowGroupDeleteConfirm(false)} title="אישור מחיקת העברה">
+          <div style={{ padding: '1rem' }}>
+            <p>האם למחוק את ההעברה הממתינה?</p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <Button onClick={() => setShowGroupDeleteConfirm(false)} variant="secondary">ביטול</Button>
+              <Button onClick={handleGroupDeleteConfirm} variant="danger">מחק</Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
