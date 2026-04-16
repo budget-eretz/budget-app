@@ -674,23 +674,84 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
       created.push(transferId);
     }
 
+    // STEP 3: Find all group recurring transfers that haven't been applied for the current period
+    let groupQuery = `
+      SELECT DISTINCT
+        rt.id as recurring_transfer_id,
+        rt.recipient_group_id,
+        rt.amount,
+        rt.description,
+        rt.frequency
+      FROM recurring_transfers rt
+      JOIN funds f ON rt.fund_id = f.id
+      JOIN budgets b ON f.budget_id = b.id
+      WHERE rt.status = 'active'
+        AND rt.recipient_group_id IS NOT NULL
+        AND b.is_active = true
+        AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
+        AND NOT EXISTS (
+          SELECT 1 FROM recurring_transfer_applications rta
+          WHERE rta.recurring_transfer_id = rt.id
+            AND rta.period_year = EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER
+            AND rta.period_month = CASE
+              WHEN rt.frequency = 'monthly' THEN EXTRACT(MONTH FROM CURRENT_DATE)::INTEGER
+              WHEN rt.frequency = 'quarterly' THEN (FLOOR((EXTRACT(MONTH FROM CURRENT_DATE) - 1) / 3) * 3 + 1)::INTEGER
+              WHEN rt.frequency = 'annual' THEN 1
+            END
+        )
+    `;
+
+    // Only circle treasurers can generate group transfers
+    if (!user.isCircleTreasurer) {
+      groupQuery += ` AND 1=0`;
+    }
+
+    const groupResult = await client.query(groupQuery);
+
+    let groupCreated = 0;
+    for (const row of groupResult.rows) {
+      const insertResult = await client.query(`
+        INSERT INTO group_bank_transfers (group_id, amount, description, status, created_by)
+        VALUES ($1, $2, $3, 'pending', $4)
+        RETURNING id
+      `, [row.recipient_group_id, row.amount, row.description, user.userId]);
+
+      // Record the application to prevent duplicate generation
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const periodMonth = row.frequency === 'monthly'
+        ? currentMonth
+        : row.frequency === 'quarterly'
+          ? Math.floor((currentMonth - 1) / 3) * 3 + 1
+          : 1;
+
+      await client.query(`
+        INSERT INTO recurring_transfer_applications (
+          recurring_transfer_id, payment_transfer_id, period_year, period_month, applied_amount
+        ) VALUES ($1, $2, EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER, $3, $4)
+      `, [row.recurring_transfer_id, insertResult.rows[0].id, periodMonth, row.amount]);
+
+      groupCreated++;
+    }
+
     await client.query('COMMIT');
 
-    // Build response message
-    let message = '';
-    if (removedCount > 0 && created.length > 0) {
-      message = `הוסרו ${removedCount} העברות מתקציבים לא פעילים, נוצרו/עודכנו ${created.length} העברות`;
-    } else if (removedCount > 0) {
-      message = `הוסרו ${removedCount} העברות מתקציבים לא פעילים`;
-    } else if (created.length > 0) {
-      message = `נוצרו/עודכנו ${created.length} העברות`;
-    } else {
-      message = 'אין שינויים';
+    const parts: string[] = [];
+    if (removedCount > 0) {
+      parts.push(`הוסרו ${removedCount} העברות מתקציבים לא פעילים`);
     }
+    if (created.length > 0) {
+      parts.push(`נוצרו/עודכנו ${created.length} העברות לחברים`);
+    }
+    if (groupCreated > 0) {
+      parts.push(`נוצרו ${groupCreated} העברות לקבוצות`);
+    }
+    const message = parts.length > 0 ? parts.join(', ') : 'אין שינויים';
 
     res.json({
       message,
       count: created.length,
+      groupCount: groupCreated,
       removedCount,
       transferIds: created
     });
