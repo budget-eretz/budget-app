@@ -9,6 +9,8 @@ const toCamelCase = (row: any) => ({
   recipientUserId: row.recipient_user_id,
   recipientName: row.recipient_name,
   recipientEmail: row.recipient_email,
+  recipientGroupId: row.recipient_group_id,
+  recipientGroupName: row.recipient_group_name,
   fundId: row.fund_id,
   fundName: row.fund_name,
   budgetId: row.budget_id,
@@ -38,6 +40,7 @@ export const getRecurringTransfers = async (req: Request, res: Response) => {
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
+        rg.name as recipient_group_name,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
@@ -46,7 +49,8 @@ export const getRecurringTransfers = async (req: Request, res: Response) => {
         g.name as group_name,
         creator.full_name as created_by_name
       FROM recurring_transfers rt
-      JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN groups rg ON rt.recipient_group_id = rg.id
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
@@ -86,6 +90,7 @@ export const getMyRecurringTransfers = async (req: Request, res: Response) => {
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
+        rg.name as recipient_group_name,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
@@ -94,7 +99,8 @@ export const getMyRecurringTransfers = async (req: Request, res: Response) => {
         g.name as group_name,
         creator.full_name as created_by_name
       FROM recurring_transfers rt
-      JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN groups rg ON rt.recipient_group_id = rg.id
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
@@ -122,6 +128,7 @@ export const getRecurringTransferById = async (req: Request, res: Response) => {
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
+        rg.name as recipient_group_name,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
@@ -130,7 +137,8 @@ export const getRecurringTransferById = async (req: Request, res: Response) => {
         g.name as group_name,
         creator.full_name as created_by_name
       FROM recurring_transfers rt
-      JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN groups rg ON rt.recipient_group_id = rg.id
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
@@ -166,14 +174,15 @@ export const getRecurringTransferById = async (req: Request, res: Response) => {
 export const createRecurringTransfer = async (req: Request, res: Response) => {
   try {
     const { userId, isCircleTreasurer, isGroupTreasurer, groupIds } = req.user!;
-    const { 
-      recipientUserId, 
-      fundId, 
-      amount, 
-      description, 
-      startDate, 
-      endDate, 
-      frequency 
+    const {
+      recipientUserId,
+      recipientGroupId,
+      fundId,
+      amount,
+      description,
+      startDate,
+      endDate,
+      frequency
     } = req.body;
 
     // Validate treasurer permission
@@ -182,8 +191,16 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
     }
 
     // Validate required fields
-    if (!recipientUserId || !fundId || !amount || !description || !startDate || !frequency) {
+    if (!fundId || !amount || !description || !startDate || !frequency) {
       return res.status(400).json({ error: 'חסרים שדות חובה' });
+    }
+
+    // Validate recipient: exactly one of recipientUserId or recipientGroupId must be provided
+    if (!recipientUserId && !recipientGroupId) {
+      return res.status(400).json({ error: 'יש לספק מקבל תשלום (משתמש או קבוצה)' });
+    }
+    if (recipientUserId && recipientGroupId) {
+      return res.status(400).json({ error: 'לא ניתן לציין גם משתמש וגם קבוצה כמקבל תשלום' });
     }
 
     // Validate amount
@@ -218,23 +235,35 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
     }
 
     // Check recipient exists
-    const recipientCheck = await pool.query('SELECT id FROM users WHERE id = $1', [recipientUserId]);
-    if (recipientCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'מקבל התשלום לא נמצא' });
+    if (recipientGroupId) {
+      // Only circle treasurers can create group recurring transfers
+      if (!isCircleTreasurer) {
+        return res.status(403).json({ error: 'רק גזבר מעגלי יכול ליצור העברה קבועה לקבוצה' });
+      }
+      const groupCheck = await pool.query('SELECT id FROM groups WHERE id = $1', [recipientGroupId]);
+      if (groupCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'הקבוצה המקבלת לא נמצאה' });
+      }
+    } else {
+      const recipientCheck = await pool.query('SELECT id FROM users WHERE id = $1', [recipientUserId]);
+      if (recipientCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'מקבל התשלום לא נמצא' });
+      }
     }
 
     // Create recurring transfer
     const insertQuery = `
       INSERT INTO recurring_transfers (
-        recipient_user_id, fund_id, amount, description, 
+        recipient_user_id, recipient_group_id, fund_id, amount, description,
         start_date, end_date, frequency, status, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9)
       RETURNING *
     `;
 
     const result = await pool.query(insertQuery, [
-      recipientUserId,
+      recipientUserId || null,
+      recipientGroupId || null,
       fundId,
       amount,
       description,
@@ -250,6 +279,7 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
         rt.*,
         u.full_name as recipient_name,
         u.email as recipient_email,
+        rg.name as recipient_group_name,
         f.name as fund_name,
         b.id as budget_id,
         b.name as budget_name,
@@ -258,7 +288,8 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
         g.name as group_name,
         creator.full_name as created_by_name
       FROM recurring_transfers rt
-      JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN users u ON rt.recipient_user_id = u.id
+      LEFT JOIN groups rg ON rt.recipient_group_id = rg.id
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
@@ -268,11 +299,13 @@ export const createRecurringTransfer = async (req: Request, res: Response) => {
 
     const detailsResult = await pool.query(detailsQuery, [result.rows[0].id]);
 
-    // Update any existing pending payment transfers for this recipient
-    try {
-      await updatePaymentTransfersForRecurringChange(recipientUserId, fundId);
-    } catch (error) {
-      console.error('Warning: Failed to update payment transfers after creating recurring transfer:', error);
+    // Update any existing pending payment transfers for this recipient (only for user recipients)
+    if (recipientUserId) {
+      try {
+        await updatePaymentTransfersForRecurringChange(recipientUserId, fundId);
+      } catch (error) {
+        console.error('Warning: Failed to update payment transfers after creating recurring transfer:', error);
+      }
     }
 
     res.status(201).json(toCamelCase(detailsResult.rows[0]));
