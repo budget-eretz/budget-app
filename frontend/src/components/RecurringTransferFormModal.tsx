@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { RecurringTransfer, BudgetWithFunds, BasicUser } from '../types';
-import { fundsAPI, usersAPI } from '../services/api';
+import { fundsAPI, usersAPI, groupsAPI } from '../services/api';
 import SearchableSelect, { SearchableSelectGroup } from './SearchableSelect';
 
 interface RecurringTransferFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: {
-    recipientUserId: number;
+    recipientUserId?: number;
+    recipientGroupId?: number;
     fundId: number;
     amount: number;
     description: string;
@@ -27,7 +28,9 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
   transfer,
   isLoading = false,
 }) => {
+  const [recipientType, setRecipientType] = useState<'member' | 'group'>('member');
   const [recipientUserId, setRecipientUserId] = useState<number>(0);
+  const [recipientGroupId, setRecipientGroupId] = useState<number>(0);
   const [fundId, setFundId] = useState<number>(0);
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -36,6 +39,7 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
   const [budgetsWithFunds, setBudgetsWithFunds] = useState<BudgetWithFunds[]>([]);
   const [users, setUsers] = useState<BasicUser[]>([]);
+  const [groups, setGroups] = useState<{ id: number; name: string }[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -46,7 +50,9 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
 
   useEffect(() => {
     if (transfer) {
-      setRecipientUserId(transfer.recipientUserId);
+      setRecipientType(transfer.recipientGroupId ? 'group' : 'member');
+      setRecipientUserId(transfer.recipientUserId || 0);
+      setRecipientGroupId(transfer.recipientGroupId || 0);
       setFundId(transfer.fundId);
       setAmount(String(transfer.amount));
       setDescription(transfer.description);
@@ -61,28 +67,33 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const [fundsRes, usersRes] = await Promise.all([
+      const [fundsRes, usersRes, groupsRes] = await Promise.all([
         fundsAPI.getAccessible(),
         usersAPI.getBasic().catch((error) => {
           console.error('Error loading users list:', error);
           return { data: [] as BasicUser[] };
         }),
+        groupsAPI.getAll().catch(() => ({ data: [] })),
       ]);
 
       const budgetsData = fundsRes.data?.budgets || fundsRes.data;
       setBudgetsWithFunds(Array.isArray(budgetsData) ? budgetsData : []);
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
+      setGroups(Array.isArray(groupsRes.data) ? groupsRes.data : []);
     } catch (error) {
       console.error('Error loading funds data:', error);
       setBudgetsWithFunds([]);
       setUsers([]);
+      setGroups([]);
     } finally {
       setLoadingData(false);
     }
   };
 
   const resetForm = () => {
+    setRecipientType('member');
     setRecipientUserId(0);
+    setRecipientGroupId(0);
     setFundId(0);
     setAmount('');
     setDescription('');
@@ -94,7 +105,16 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!recipientUserId || !fundId || !amount || !description || !startDate) {
+    if (recipientType === 'member' && !recipientUserId) {
+      alert('נא לבחור מקבל תשלום');
+      return;
+    }
+    if (recipientType === 'group' && !recipientGroupId) {
+      alert('נא לבחור קבוצה');
+      return;
+    }
+
+    if (!fundId || !amount || !description || !startDate) {
       alert('נא למלא את כל השדות החובה');
       return;
     }
@@ -106,7 +126,7 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
     }
 
     onSubmit({
-      recipientUserId,
+      ...(recipientType === 'member' ? { recipientUserId } : { recipientGroupId }),
       fundId,
       amount: amountNum,
       description,
@@ -128,6 +148,14 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
       label: user.fullName,
     })),
   }], [users]);
+
+  const groupSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
+    label: 'קבוצות',
+    options: groups.map((g) => ({
+      value: g.id.toString(),
+      label: g.name,
+    })),
+  }], [groups]);
 
   const fundSelectGroups: SearchableSelectGroup[] = useMemo(() => {
     const bwf = Array.isArray(budgetsWithFunds) ? budgetsWithFunds : [];
@@ -153,20 +181,76 @@ const RecurringTransferFormModal: React.FC<RecurringTransferFormModalProps> = ({
           <div className="text-center py-4">טוען נתונים...</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Recipient User */}
+            {/* Recipient type toggle */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
-                מקבל התשלום <span style={{ color: '#ef4444' }}>*</span>
+                סוג נמען
               </label>
-              <SearchableSelect
-                value={recipientUserId ? recipientUserId.toString() : ''}
-                onChange={(val) => setRecipientUserId(val ? Number(val) : 0)}
-                groups={userSelectGroups}
-                placeholder="בחר חבר"
-                required
-                disabled={!!transfer}
-              />
+              <div style={{ display: 'flex', gap: '0', border: '1px solid #d1d5db', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('member')}
+                  style={{
+                    flex: 1, padding: '0.5rem', border: 'none',
+                    background: recipientType === 'member' ? '#2563eb' : 'white',
+                    color: recipientType === 'member' ? 'white' : '#6b7280',
+                    fontWeight: recipientType === 'member' ? '600' : '400',
+                    cursor: !!transfer ? 'not-allowed' : 'pointer',
+                    fontSize: '0.875rem',
+                    borderLeft: '1px solid #d1d5db',
+                  }}
+                  disabled={!!transfer}
+                >
+                  חבר
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('group')}
+                  style={{
+                    flex: 1, padding: '0.5rem', border: 'none',
+                    background: recipientType === 'group' ? '#2563eb' : 'white',
+                    color: recipientType === 'group' ? 'white' : '#6b7280',
+                    fontWeight: recipientType === 'group' ? '600' : '400',
+                    cursor: !!transfer ? 'not-allowed' : 'pointer',
+                    fontSize: '0.875rem',
+                  }}
+                  disabled={!!transfer}
+                >
+                  קבוצה
+                </button>
+              </div>
             </div>
+
+            {/* Recipient selector */}
+            {recipientType === 'member' ? (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                  מקבל התשלום <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <SearchableSelect
+                  value={recipientUserId ? recipientUserId.toString() : ''}
+                  onChange={(val) => setRecipientUserId(val ? Number(val) : 0)}
+                  groups={userSelectGroups}
+                  placeholder="בחר חבר"
+                  required
+                  disabled={!!transfer}
+                />
+              </div>
+            ) : (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>
+                  קבוצה <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <SearchableSelect
+                  value={recipientGroupId ? recipientGroupId.toString() : ''}
+                  onChange={(val) => setRecipientGroupId(val ? Number(val) : 0)}
+                  groups={groupSelectGroups}
+                  placeholder="בחר קבוצה"
+                  required
+                  disabled={!!transfer}
+                />
+              </div>
+            )}
 
             {/* Fund */}
             <div>
