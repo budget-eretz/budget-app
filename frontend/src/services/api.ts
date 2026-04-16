@@ -367,14 +367,15 @@ export const recurringTransfersAPI = {
   getAll: () => api.get('/recurring-transfers'),
   getMy: () => api.get('/recurring-transfers/my'),
   getById: (id: number) => api.get(`/recurring-transfers/${id}`),
-  create: (data: { 
-    recipientUserId: number; 
-    fundId: number; 
-    amount: number; 
-    description: string; 
-    startDate: string; 
-    endDate?: string; 
-    frequency: 'monthly' | 'quarterly' | 'annual' 
+  create: (data: {
+    recipientUserId?: number;
+    recipientGroupId?: number;
+    fundId: number;
+    amount: number;
+    description: string;
+    startDate: string;
+    endDate?: string;
+    frequency: 'monthly' | 'quarterly' | 'annual'
   }) => api.post('/recurring-transfers', data),
   update: (id: number, data: Partial<{ 
     amount: number; 
@@ -384,6 +385,20 @@ export const recurringTransfersAPI = {
     status: 'active' | 'paused' | 'cancelled' 
   }>) => api.patch(`/recurring-transfers/${id}`, data),
   delete: (id: number) => api.delete(`/recurring-transfers/${id}`),
+};
+
+// Group Bank Transfers API
+export const groupBankTransfersAPI = {
+  getAll: (params?: { status?: string; groupId?: number }) =>
+    api.get('/group-bank-transfers', { params }),
+  getStats: () =>
+    api.get('/group-bank-transfers/stats'),
+  create: (data: { groupId: number; amount: number; description?: string; budgetId?: number }) =>
+    api.post('/group-bank-transfers', data),
+  execute: (id: number) =>
+    api.post(`/group-bank-transfers/${id}/execute`),
+  delete: (id: number) =>
+    api.delete(`/group-bank-transfers/${id}`),
 };
 
 // Apartments API

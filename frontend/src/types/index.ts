@@ -431,6 +431,8 @@ export interface MonthlyExpense {
 export interface RecurringTransfer {
   id: number;
   recipientUserId: number;
+  recipientGroupId?: number | null;
+  recipientGroupName?: string | null;
   recipientName?: string;
   recipientEmail?: string;
   fundId: number;
@@ -456,6 +458,30 @@ export interface RecurringTransfer {
   period_year?: number;
   period_month?: number;
   period_display?: string;
+}
+
+export interface GroupBankTransfer {
+  id: number;
+  groupId: number;
+  groupName: string;
+  amount: number;
+  description: string | null;
+  budgetId: number | null;
+  budgetName: string | null;
+  status: 'pending' | 'executed';
+  createdBy: number;
+  createdByName: string;
+  executedAt: string | null;
+  executedBy: number | null;
+  executedByName: string | null;
+  createdAt: string;
+}
+
+export interface GroupBankTransferStats {
+  pendingCount: number;
+  pendingTotalAmount: number;
+  executedCount: number;
+  executedTotalAmount: number;
 }
 
 // Report data interfaces
