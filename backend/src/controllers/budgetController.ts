@@ -6,12 +6,15 @@ import { removeRecurringApplicationsForInactiveBudget } from '../utils/paymentTr
 export async function getBudgets(req: Request, res: Response) {
   try {
     const user = req.user!;
-    
+
+    const isTreasurer = !!(user.isCircleTreasurer || user.isGroupTreasurer);
+    const activeOnlyClause = isTreasurer ? '' : ' AND b.is_active = true';
+
     // Check if user is Circle Treasurer (can see all budgets)
     const isCircleTreas = await isCircleTreasurer(user.userId);
-    
+
     if (isCircleTreas) {
-      // Circle treasurer can see all budgets
+      // Circle treasurer can see all budgets (including inactive)
       const result = await pool.query(
         `SELECT b.*, g.name as group_name
          FROM budgets b
@@ -20,21 +23,21 @@ export async function getBudgets(req: Request, res: Response) {
       );
       return res.json(result.rows);
     }
-    
+
     // For non-Circle Treasurers, get their accessible group IDs
     const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
-    
+
     // Build query to show circle-level budgets and budgets from accessible groups
     let query = '';
     let params: any[] = [];
-    
+
     if (accessibleGroupIds.length > 0) {
       // User has group assignments - show circle budgets + their group budgets
       query = `
         SELECT b.*, g.name as group_name
         FROM budgets b
         LEFT JOIN groups g ON b.group_id = g.id
-        WHERE b.group_id IS NULL OR b.group_id = ANY($1)
+        WHERE (b.group_id IS NULL OR b.group_id = ANY($1))${activeOnlyClause}
         ORDER BY b.created_at DESC
       `;
       params = [accessibleGroupIds];
@@ -44,7 +47,7 @@ export async function getBudgets(req: Request, res: Response) {
         SELECT b.*, g.name as group_name
         FROM budgets b
         LEFT JOIN groups g ON b.group_id = g.id
-        WHERE b.group_id IS NULL
+        WHERE b.group_id IS NULL${activeOnlyClause}
         ORDER BY b.created_at DESC
       `;
     }

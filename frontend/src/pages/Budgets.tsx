@@ -9,9 +9,12 @@ import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import BudgetForm, { BudgetFormData } from '../components/BudgetForm';
 
+const ALL_YEARS_VALUE = 'all' as const;
+
 export default function Budgets() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isTreasurer = !!(user?.isCircleTreasurer || user?.isGroupTreasurer);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -20,6 +23,10 @@ export default function Budgets() {
   const [submitting, setSubmitting] = useState(false);
   const [groupBudgetsExpanded, setGroupBudgetsExpanded] = useState(true);
   const [circleBudgetsExpanded, setCircleBudgetsExpanded] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<number | typeof ALL_YEARS_VALUE>(
+    new Date().getFullYear()
+  );
+  const [showInactive, setShowInactive] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -165,6 +172,33 @@ export default function Budgets() {
     );
   }
 
+  const availableYears = Array.from(
+    new Set(
+      budgets
+        .map(b => b.fiscal_year)
+        .filter((y): y is number => typeof y === 'number')
+    )
+  ).sort((a, b) => b - a);
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions =
+    availableYears.includes(currentYear) || selectedYear === currentYear
+      ? availableYears
+      : [currentYear, ...availableYears];
+
+  const filteredBudgets = budgets.filter(b => {
+    if (!isTreasurer || !showInactive) {
+      if (!b.is_active) return false;
+    }
+    if (selectedYear !== ALL_YEARS_VALUE && b.fiscal_year !== selectedYear) {
+      return false;
+    }
+    return true;
+  });
+
+  const groupBudgets = filteredBudgets.filter(b => b.group_id != null);
+  const circleBudgets = filteredBudgets.filter(b => b.group_id == null);
+
   return (
     <div style={styles.container}>
       <Navigation />
@@ -197,82 +231,125 @@ export default function Budgets() {
           </div>
         ) : (
           <div>
-            {/* Group Budgets Section */}
-            {budgets.filter(b => b.group_id != null).length > 0 && (
-              <div style={styles.collapsibleSection}>
-                <button
-                  onClick={() => setGroupBudgetsExpanded(!groupBudgetsExpanded)}
-                  style={styles.collapsibleHeader}
-                  className="collapsible-header"
-                >
-                  <div style={styles.collapsibleHeaderContent}>
-                    <span style={styles.collapsibleArrow}>
-                      {groupBudgetsExpanded ? '▼' : '◀'}
-                    </span>
-                    <h2 style={styles.collapsibleTitle}>תקציבי קבוצות</h2>
-                    <span style={styles.collapsibleCount}>
-                      ({budgets.filter(b => b.group_id != null).length})
-                    </span>
-                  </div>
-                </button>
-                <div
-                  style={{
-                    ...styles.collapsibleBody,
-                    maxHeight: groupBudgetsExpanded ? '4000px' : '0',
-                    opacity: groupBudgetsExpanded ? 1 : 0,
-                    marginTop: groupBudgetsExpanded ? '16px' : '0',
+            <div className="budgets-filters" style={styles.filtersBar}>
+              <div style={styles.filterGroup}>
+                <label htmlFor="year-filter" style={styles.filterLabel}>
+                  שנת כספים:
+                </label>
+                <select
+                  id="year-filter"
+                  value={selectedYear}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setSelectedYear(v === ALL_YEARS_VALUE ? ALL_YEARS_VALUE : Number(v));
                   }}
+                  style={styles.select}
                 >
-                  <div className="budgets-grid" style={styles.grid}>
-                    {budgets.filter(b => b.group_id != null).map(budget => (
-                      <BudgetCard
-                        key={budget.id}
-                        budget={budget}
-                        onClick={() => handleBudgetClick(budget.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
+                  {yearOptions.map(y => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                  <option value={ALL_YEARS_VALUE}>כל השנים</option>
+                </select>
               </div>
-            )}
+              {isTreasurer && (
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={e => setShowInactive(e.target.checked)}
+                    style={styles.checkbox}
+                  />
+                  הצג תקציבים לא פעילים
+                </label>
+              )}
+            </div>
 
-            {/* Circle Budgets Section */}
-            {budgets.filter(b => b.group_id == null).length > 0 && (
-              <div style={styles.collapsibleSection}>
-                <button
-                  onClick={() => setCircleBudgetsExpanded(!circleBudgetsExpanded)}
-                  style={styles.collapsibleHeader}
-                  className="collapsible-header"
-                >
-                  <div style={styles.collapsibleHeaderContent}>
-                    <span style={styles.collapsibleArrow}>
-                      {circleBudgetsExpanded ? '▼' : '◀'}
-                    </span>
-                    <h2 style={styles.collapsibleTitle}>תקציבי מעגל</h2>
-                    <span style={styles.collapsibleCount}>
-                      ({budgets.filter(b => b.group_id == null).length})
-                    </span>
-                  </div>
-                </button>
-                <div
-                  style={{
-                    ...styles.collapsibleBody,
-                    maxHeight: circleBudgetsExpanded ? '4000px' : '0',
-                    opacity: circleBudgetsExpanded ? 1 : 0,
-                    marginTop: circleBudgetsExpanded ? '16px' : '0',
-                  }}
-                >
-                  <div className="budgets-grid" style={styles.grid}>
-                    {budgets.filter(b => b.group_id == null).map(budget => (
-                      <BudgetCard
-                        key={budget.id}
-                        budget={budget}
-                        onClick={() => handleBudgetClick(budget.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
+            {filteredBudgets.length === 0 ? (
+              <div style={styles.emptyState}>
+                <p style={styles.emptyText}>אין תקציבים התואמים לסינון</p>
               </div>
+            ) : (
+              <>
+                {/* Group Budgets Section */}
+                {groupBudgets.length > 0 && (
+                  <div style={styles.collapsibleSection}>
+                    <button
+                      onClick={() => setGroupBudgetsExpanded(!groupBudgetsExpanded)}
+                      style={styles.collapsibleHeader}
+                      className="collapsible-header"
+                    >
+                      <div style={styles.collapsibleHeaderContent}>
+                        <span style={styles.collapsibleArrow}>
+                          {groupBudgetsExpanded ? '▼' : '◀'}
+                        </span>
+                        <h2 style={styles.collapsibleTitle}>תקציבי קבוצות</h2>
+                        <span style={styles.collapsibleCount}>
+                          ({groupBudgets.length})
+                        </span>
+                      </div>
+                    </button>
+                    <div
+                      style={{
+                        ...styles.collapsibleBody,
+                        maxHeight: groupBudgetsExpanded ? '4000px' : '0',
+                        opacity: groupBudgetsExpanded ? 1 : 0,
+                        marginTop: groupBudgetsExpanded ? '16px' : '0',
+                      }}
+                    >
+                      <div className="budgets-grid" style={styles.grid}>
+                        {groupBudgets.map(budget => (
+                          <BudgetCard
+                            key={budget.id}
+                            budget={budget}
+                            onClick={() => handleBudgetClick(budget.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Circle Budgets Section */}
+                {circleBudgets.length > 0 && (
+                  <div style={styles.collapsibleSection}>
+                    <button
+                      onClick={() => setCircleBudgetsExpanded(!circleBudgetsExpanded)}
+                      style={styles.collapsibleHeader}
+                      className="collapsible-header"
+                    >
+                      <div style={styles.collapsibleHeaderContent}>
+                        <span style={styles.collapsibleArrow}>
+                          {circleBudgetsExpanded ? '▼' : '◀'}
+                        </span>
+                        <h2 style={styles.collapsibleTitle}>תקציבי מעגל</h2>
+                        <span style={styles.collapsibleCount}>
+                          ({circleBudgets.length})
+                        </span>
+                      </div>
+                    </button>
+                    <div
+                      style={{
+                        ...styles.collapsibleBody,
+                        maxHeight: circleBudgetsExpanded ? '4000px' : '0',
+                        opacity: circleBudgetsExpanded ? 1 : 0,
+                        marginTop: circleBudgetsExpanded ? '16px' : '0',
+                      }}
+                    >
+                      <div className="budgets-grid" style={styles.grid}>
+                        {circleBudgets.map(budget => (
+                          <BudgetCard
+                            key={budget.id}
+                            budget={budget}
+                            onClick={() => handleBudgetClick(budget.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -393,6 +470,54 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '18px',
     color: '#718096',
     margin: 0,
+  },
+  filtersBar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '24px',
+    padding: '16px 20px',
+    background: 'white',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  },
+  filterGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  filterLabel: {
+    fontSize: '14px',
+    color: '#4a5568',
+    fontWeight: 600,
+  },
+  select: {
+    padding: '8px 12px',
+    fontSize: '14px',
+    border: '1px solid #cbd5e0',
+    borderRadius: '6px',
+    background: 'white',
+    color: '#2d3748',
+    cursor: 'pointer',
+    minWidth: '120px',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '14px',
+    color: '#4a5568',
+    fontWeight: 600,
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  checkbox: {
+    width: '18px',
+    height: '18px',
+    cursor: 'pointer',
+    accentColor: '#667eea',
   },
   collapsibleSection: {
     marginBottom: '24px',
