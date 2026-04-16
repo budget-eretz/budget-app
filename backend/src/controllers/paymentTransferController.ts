@@ -605,6 +605,7 @@ export async function generateRecurringTransfers(req: Request, res: Response) {
       JOIN funds f ON rt.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       WHERE rt.status = 'active'
+        AND rt.recipient_user_id IS NOT NULL
         AND b.is_active = true
         AND (rt.end_date IS NULL OR rt.end_date >= CURRENT_DATE)
         AND NOT EXISTS (
