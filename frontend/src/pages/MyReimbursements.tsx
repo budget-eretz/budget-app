@@ -25,6 +25,7 @@ export default function MyReimbursements() {
   const [sortField, setSortField] = useState<SortField>('expense_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [deleteModal, setDeleteModal] = useState<{ 
     isOpen: boolean; 
     type: 'reimbursement' | 'charge';
@@ -174,13 +175,28 @@ export default function MyReimbursements() {
     .filter((reimb) => {
       // Status filter
       if (statusFilter !== 'all' && reimb.status !== statusFilter) return false;
-      
+
       // Month filter
       if (monthFilter !== 'all') {
         const reimbMonthKey = getMonthYearKey(reimb.expense_date);
         if (reimbMonthKey !== monthFilter) return false;
       }
-      
+
+      // Search filter
+      const trimmedQuery = searchQuery.trim().toLowerCase();
+      if (trimmedQuery) {
+        const haystack = [
+          reimb.description,
+          reimb.fund_name,
+          reimb.notes,
+          reimb.recipient_name,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(trimmedQuery)) return false;
+      }
+
       return true;
     })
     .sort((a, b) => {
@@ -350,7 +366,7 @@ export default function MyReimbursements() {
             </button>
           </div>
 
-          {/* Month Filter */}
+          {/* Month Filter + Search */}
           <div style={styles.filterControls}>
             <div style={styles.monthFilter}>
               <label style={styles.filterLabel}>סינון לפי חודש:</label>
@@ -367,6 +383,27 @@ export default function MyReimbursements() {
                 ))}
               </select>
             </div>
+            <div style={styles.searchBox}>
+              <label style={styles.filterLabel} htmlFor="reimb-search">חיפוש:</label>
+              <input
+                id="reimb-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="חיפוש לפי תיאור, סעיף, הערות או מקבל תשלום..."
+                style={styles.searchInput}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={styles.searchClearButton}
+                  aria-label="נקה חיפוש"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Filter Summary */}
@@ -376,9 +413,10 @@ export default function MyReimbursements() {
                 {(() => {
                   const statusText = statusFilter !== 'all' ? getStatusText(statusFilter) : null;
                   const monthText = monthFilter !== 'all' ? availableMonths.find(m => m.key === monthFilter)?.label : null;
-                  
+                  const trimmedQuery = searchQuery.trim();
+
                   let message = `מציג ${filteredReimbursements.length} בקשות החזר`;
-                  
+
                   if (statusText && monthText) {
                     message += ` בסטטוס "${statusText}" עבור ${monthText}`;
                   } else if (statusText) {
@@ -386,9 +424,13 @@ export default function MyReimbursements() {
                   } else if (monthText) {
                     message += ` עבור ${monthText}`;
                   }
-                  
+
+                  if (trimmedQuery) {
+                    message += ` התואמים לחיפוש "${trimmedQuery}"`;
+                  }
+
                   message += ` בסך ${formatCurrency(filteredTotal)}`;
-                  
+
                   return message;
                 })()}
               </span>
@@ -779,6 +821,36 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flex: 1,
+    minWidth: '240px',
+    position: 'relative',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '8px 12px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    fontSize: '14px',
+    background: 'white',
+    color: '#2d3748',
+  },
+  searchClearButton: {
+    position: 'absolute',
+    left: '8px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent',
+    border: 'none',
+    color: '#718096',
+    fontSize: '20px',
+    cursor: 'pointer',
+    padding: '0 6px',
+    lineHeight: 1,
   },
   filterLabel: {
     fontSize: '14px',
