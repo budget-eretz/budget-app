@@ -177,7 +177,7 @@ export default function MonthNavigator({
         }}
         aria-label="חודש קודם"
       >
-        ←
+        →
       </button>
 
       <div style={{ position: 'relative' }}>
@@ -201,7 +201,7 @@ export default function MonthNavigator({
                   e.currentTarget.style.background = '#e2e8f0';
                 }}
               >
-                ←
+                →
               </button>
               <div style={yearDisplayStyle}>{year}</div>
               <button
@@ -214,7 +214,7 @@ export default function MonthNavigator({
                   e.currentTarget.style.background = '#e2e8f0';
                 }}
               >
-                →
+                ←
               </button>
             </div>
 
@@ -258,7 +258,7 @@ export default function MonthNavigator({
         }}
         aria-label="חודש הבא"
       >
-        →
+        ←
       </button>
     </div>
   );
