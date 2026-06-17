@@ -1,24 +1,26 @@
 /* Quick-entry helpers: suggestion chips + amount quick-add buttons.
-   Tuned for fast tapping on mobile (large touch targets, wrapping rows). */
+   Compact, but still comfortable to tap on mobile. */
 
 .qe-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .qe-chips-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .qe-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 14px;
+  gap: 4px;
+  padding: 5px 11px;
+  font-size: 13px;
+  line-height: 1.2;
   font-family: inherit;
   color: #2d3748;
   background: #edf2f7;
@@ -26,8 +28,7 @@
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
-  /* Comfortable tap target on touch devices */
-  min-height: 38px;
+  min-height: 30px;
   max-width: 100%;
 }
 
@@ -53,29 +54,29 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 220px;
+  max-width: 200px;
 }
 
 /* Amount quick-add row */
 .qe-amount-adds {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .qe-amount-btn {
-  flex: 1 1 auto;
-  min-width: 64px;
-  min-height: 40px;
-  padding: 8px 10px;
-  font-size: 15px;
+  flex: 1 1 0;
+  min-width: 46px;
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 13px;
   font-family: inherit;
   font-weight: 600;
   color: #2d3748;
   background: #f7fafc;
   border: 1px solid #cbd5e0;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -92,18 +93,5 @@
 .qe-amount-btn--clear {
   color: #c53030;
   flex: 0 0 auto;
-  min-width: 56px;
-}
-
-@media (max-width: 768px) {
-  .qe-chip {
-    padding: 10px 16px;
-    font-size: 15px;
-    min-height: 42px;
-  }
-
-  .qe-amount-btn {
-    min-height: 44px;
-    font-size: 16px;
-  }
+  min-width: 48px;
 }
