@@ -365,23 +365,36 @@ export default function NewPlannedExpense() {
               </small>
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>
-                דירה (אופציונלי)
-              </label>
-              <select
-                value={formData.apartmentId}
-                onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
-                style={styles.select}
-              >
-                <option value="">ללא דירה</option>
-                {apartments.map((apt) => (
-                  <option key={apt.id} value={apt.id}>
-                    {apt.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {apartments.length > 0 && (
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  דירה (אופציונלי)
+                </label>
+                {apartments.length <= 6 ? (
+                  <SuggestionChips
+                    items={[
+                      { value: '', label: 'ללא דירה' },
+                      ...apartments.map((apt) => ({ value: apt.id.toString(), label: apt.name })),
+                    ]}
+                    selectedValue={formData.apartmentId}
+                    onSelect={(val) => setFormData({ ...formData, apartmentId: val })}
+                  />
+                ) : (
+                  <select
+                    value={formData.apartmentId}
+                    onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
+                    style={styles.select}
+                  >
+                    <option value="">ללא דירה</option>
+                    {apartments.map((apt) => (
+                      <option key={apt.id} value={apt.id}>
+                        {apt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
 
             <div style={styles.actions}>
               <Button

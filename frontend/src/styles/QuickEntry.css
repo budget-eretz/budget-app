@@ -57,6 +57,25 @@
   max-width: 200px;
 }
 
+/* Subtle inline link-style button (e.g. "send payment to someone else") */
+.qe-link-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-size: 14px;
+  font-family: inherit;
+  color: #4c51bf;
+  cursor: pointer;
+}
+
+.qe-link-btn:hover {
+  text-decoration: underline;
+}
+
 /* Amount input with inline clear icon */
 .qe-amount-input-wrap {
   position: relative;
