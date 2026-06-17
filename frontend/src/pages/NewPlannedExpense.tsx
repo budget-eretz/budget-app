@@ -6,6 +6,9 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
+import SuggestionChips from '../components/SuggestionChips';
+import AmountQuickAdd from '../components/AmountQuickAdd';
+import { HistoryRecord, getFrequentFundIds, getFrequentDescriptions } from '../utils/quickEntry';
 
 interface Budget {
   id: number;
@@ -43,6 +46,7 @@ export default function NewPlannedExpense() {
     apartmentId: '',
   });
   const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { planned: number; remaining: number }>>({});
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
 
   useEffect(() => {
     loadData();
@@ -124,9 +128,10 @@ export default function NewPlannedExpense() {
 
   const loadData = async () => {
     try {
-      const [fundsResponse, meResponse] = await Promise.all([
+      const [fundsResponse, meResponse, historyResponse] = await Promise.all([
         fundsAPI.getAccessible(),
         authAPI.getMe(),
+        plannedExpensesAPI.getAll().catch(() => ({ data: [] })),
       ]);
 
       const currentUser = meResponse.data;
@@ -140,6 +145,12 @@ export default function NewPlannedExpense() {
       }
 
       setBudgets(accessibleBudgets);
+      // Keep suggestions personal: treasurers receive everyone's planned
+      // expenses from this endpoint, so filter down to the current user.
+      const myHistory = (historyResponse.data || []).filter(
+        (record: any) => record.user_id === currentUser.id
+      );
+      setHistory(myHistory);
 
       // If in edit mode, load the planned expense data
       if (isEditMode && id) {
@@ -237,6 +248,33 @@ export default function NewPlannedExpense() {
     }));
   }, [budgets, monthlyFundStatus]);
 
+  // Map of fund id -> fund name, for labelling quick-pick chips.
+  const fundNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    budgets.forEach((budget) =>
+      budget.funds.forEach((fund) => map.set(fund.id, fund.name))
+    );
+    return map;
+  }, [budgets]);
+
+  // Frequently used funds (from the user's own planned-expense history).
+  const frequentFundChips = useMemo(() => {
+    const allowed = new Set(fundNameById.keys());
+    return getFrequentFundIds(history, allowed).map((id) => ({
+      value: id.toString(),
+      label: fundNameById.get(id) || '',
+    }));
+  }, [history, fundNameById]);
+
+  // Frequently used descriptions for the currently selected fund.
+  const descriptionChips = useMemo(() => {
+    const fundId = formData.fundId ? parseInt(formData.fundId) : null;
+    return getFrequentDescriptions(history, fundId).map((text) => ({
+      value: text,
+      label: text,
+    }));
+  }, [history, formData.fundId]);
+
   if (loading) {
     return <div style={styles.loading}>טוען...</div>;
   }
@@ -269,6 +307,14 @@ export default function NewPlannedExpense() {
                 placeholder="-- בחר סעיף --"
                 required
               />
+              {frequentFundChips.length > 0 && (
+                <SuggestionChips
+                  label="בשימוש נפוץ:"
+                  items={frequentFundChips}
+                  selectedValue={formData.fundId}
+                  onSelect={(val) => setFormData({ ...formData, fundId: val })}
+                />
+              )}
             </div>
 
             <div style={styles.field}>
@@ -277,6 +323,7 @@ export default function NewPlannedExpense() {
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0.01"
                 value={formData.amount}
@@ -284,6 +331,10 @@ export default function NewPlannedExpense() {
                 required
                 style={styles.input}
                 placeholder="0.00"
+              />
+              <AmountQuickAdd
+                value={formData.amount}
+                onChange={(val) => setFormData({ ...formData, amount: val })}
               />
             </div>
 
@@ -299,6 +350,13 @@ export default function NewPlannedExpense() {
                 style={styles.textarea}
                 placeholder="למה אתה מתכנן להוציא את הכסף?"
               />
+              {descriptionChips.length > 0 && (
+                <SuggestionChips
+                  label="תיאורים נפוצים לסעיף זה:"
+                  items={descriptionChips}
+                  onSelect={(val) => setFormData({ ...formData, description: val })}
+                />
+              )}
             </div>
 
             <div style={styles.field}>
