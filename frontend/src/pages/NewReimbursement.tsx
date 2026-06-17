@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 import SuggestionChips from '../components/SuggestionChips';
-import AmountQuickAdd from '../components/AmountQuickAdd';
+import AmountField from '../components/AmountField';
 import { HistoryRecord, getFrequentFundIds, getFrequentDescriptions } from '../utils/quickEntry';
 import '../styles/NewReimbursement.css';
 
@@ -35,6 +35,12 @@ export default function NewReimbursement() {
   });
   const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { remaining: number; planned: number }>>({});
   const [history, setHistory] = useState<HistoryRecord[]>([]);
+  // Recipient is rarely used, so keep it collapsed behind a link unless an
+  // explicit non-self recipient is already set (e.g. when editing).
+  const [showRecipient, setShowRecipient] = useState(
+    !!editingReimbursement?.recipient_user_id &&
+      editingReimbursement.recipient_user_id !== editingReimbursement.user_id
+  );
 
   useEffect(() => {
     loadData();
@@ -313,56 +319,76 @@ export default function NewReimbursement() {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>
-                שלח תשלום ל (אופציונלי)
-              </label>
-              <SearchableSelect
-                value={formData.recipientUserId}
-                onChange={(val) => setFormData({ ...formData, recipientUserId: val })}
-                groups={userSelectGroups}
-                placeholder="-- אני (ברירת מחדל) --"
-              />
-              <small style={{ color: '#718096', fontSize: '13px' }}>
-                אם ההחזר מיועד למישהו אחר, בחר את שמו כאן
-              </small>
+              {!showRecipient ? (
+                <button
+                  type="button"
+                  className="qe-link-btn"
+                  onClick={() => setShowRecipient(true)}
+                >
+                  + שלח תשלום למישהו אחר
+                </button>
+              ) : (
+                <>
+                  <label style={styles.label}>שלח תשלום ל</label>
+                  <SearchableSelect
+                    value={formData.recipientUserId}
+                    onChange={(val) => setFormData({ ...formData, recipientUserId: val })}
+                    groups={userSelectGroups}
+                    placeholder="-- אני (ברירת מחדל) --"
+                  />
+                  <button
+                    type="button"
+                    className="qe-link-btn"
+                    onClick={() => {
+                      setFormData({ ...formData, recipientUserId: '' });
+                      setShowRecipient(false);
+                    }}
+                  >
+                    בטל — ההחזר עבורי
+                  </button>
+                </>
+              )}
             </div>
 
-            <div style={styles.field}>
-              <label style={styles.label}>
-                דירה (אופציונלי)
-              </label>
-              <select
-                value={formData.apartmentId}
-                onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
-                style={styles.select}
-              >
-                <option value="">ללא דירה</option>
-                {apartments.map((apt) => (
-                  <option key={apt.id} value={apt.id}>
-                    {apt.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {apartments.length > 0 && (
+              <div style={styles.field}>
+                <label style={styles.label}>
+                  דירה (אופציונלי)
+                </label>
+                {apartments.length <= 6 ? (
+                  <SuggestionChips
+                    items={[
+                      { value: '', label: 'ללא דירה' },
+                      ...apartments.map((apt) => ({ value: apt.id.toString(), label: apt.name })),
+                    ]}
+                    selectedValue={formData.apartmentId}
+                    onSelect={(val) => setFormData({ ...formData, apartmentId: val })}
+                  />
+                ) : (
+                  <select
+                    value={formData.apartmentId}
+                    onChange={(e) => setFormData({ ...formData, apartmentId: e.target.value })}
+                    style={styles.select}
+                  >
+                    <option value="">ללא דירה</option>
+                    {apartments.map((apt) => (
+                      <option key={apt.id} value={apt.id}>
+                        {apt.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
 
             <div style={styles.field}>
               <label style={styles.label}>
                 סכום <span style={{ color: '#e53e3e' }}>*</span>
               </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                required
-                style={styles.input}
-                placeholder="0.00"
-              />
-              <AmountQuickAdd
+              <AmountField
                 value={formData.amount}
                 onChange={(val) => setFormData({ ...formData, amount: val })}
+                required
               />
             </div>
 
@@ -370,6 +396,13 @@ export default function NewReimbursement() {
               <label style={styles.label}>
                 תיאור <span style={{ color: '#e53e3e' }}>*</span>
               </label>
+              {descriptionChips.length > 0 && (
+                <SuggestionChips
+                  label="תיאורים נפוצים לסעיף זה:"
+                  items={descriptionChips}
+                  onSelect={(val) => setFormData({ ...formData, description: val })}
+                />
+              )}
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -378,13 +411,6 @@ export default function NewReimbursement() {
                 style={styles.textarea}
                 placeholder="תאר את ההוצאה..."
               />
-              {descriptionChips.length > 0 && (
-                <SuggestionChips
-                  label="תיאורים נפוצים לסעיף זה:"
-                  items={descriptionChips}
-                  onSelect={(val) => setFormData({ ...formData, description: val })}
-                />
-              )}
             </div>
 
             <div style={styles.field}>
