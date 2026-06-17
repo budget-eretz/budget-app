@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
+import '../styles/FormPageLayout.css';
 
 export default function NewCharge() {
   const [budgets, setBudgets] = useState<BudgetWithFunds[]>([]);
@@ -124,7 +125,7 @@ export default function NewCharge() {
     <div style={styles.container}>
       <Navigation />
 
-      <div style={styles.content}>
+      <div style={styles.content} className="form-page-content">
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>{isEditing ? 'עריכת חיוב' : 'הגשת חיוב'}</h1>
           <p style={styles.explanation}>
@@ -133,7 +134,7 @@ export default function NewCharge() {
               : 'חיוב הוא סכום שאתה חייב למעגל. החיוב יקוזז מסך ההחזרים שלך ויפחית את הסכום הנטו שמגיע לך.'}
           </p>
         </div>
-        <div style={styles.formCard}>
+        <div style={styles.formCard} className="form-page-card">
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.field}>
               <label style={styles.label}>
@@ -209,7 +210,7 @@ export default function NewCharge() {
         </div>
 
         {budgets.length > 0 && (
-          <div style={styles.sidebar}>
+          <div style={styles.sidebar} className="form-page-sidebar">
             <h3 style={styles.sidebarTitle}>סעיפים זמינים</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (

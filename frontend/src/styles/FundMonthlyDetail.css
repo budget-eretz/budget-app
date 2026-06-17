@@ -1,0 +1,26 @@
+/*
+ * Mobile-responsive overrides for the Fund Monthly Detail page.
+ * The page uses inline `style` objects; on phones the header (back + title on
+ * one side, two wide action buttons on the other) does not wrap and overflows.
+ * `!important` is needed to win over the inline styles.
+ */
+
+@media (max-width: 768px) {
+  .fmd-content {
+    padding: 16px !important;
+  }
+
+  .fmd-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* Action buttons wrap instead of forcing a row wider than the viewport */
+  .fmd-header-actions {
+    flex-wrap: wrap !important;
+  }
+
+  .fmd-header-actions > button {
+    flex: 1 1 auto;
+  }
+}

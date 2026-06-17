@@ -1,0 +1,32 @@
+/*
+ * Shared mobile-responsive layout for the two-column form pages
+ * (New Charge, New Planned Expense). These pages use inline `style` objects
+ * with a `2fr 1fr` grid (form + "available funds" sidebar); on phones the grid
+ * must collapse to a single column or the sidebar is pushed off-screen and
+ * clipped. `!important` is required to win over the inline styles, matching the
+ * approach already used in NewReimbursement.css, Navigation.tsx and Button.tsx.
+ */
+
+@media (max-width: 768px) {
+  .form-page-content {
+    grid-template-columns: 1fr !important;
+    padding: 16px !important;
+    gap: 20px !important;
+  }
+
+  /* Prevent grid/flex children from forcing a min content width wider than the
+     viewport */
+  .form-page-content > * {
+    min-width: 0;
+  }
+
+  .form-page-card {
+    padding: 16px !important;
+  }
+
+  /* Match NewReimbursement: the available-funds sidebar is hidden on mobile to
+     keep the form usable on a narrow screen */
+  .form-page-sidebar {
+    display: none !important;
+  }
+}

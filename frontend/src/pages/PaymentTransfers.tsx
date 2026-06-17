@@ -918,6 +918,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tabsContainer: {
     display: 'flex',
+    flexWrap: 'wrap',
     gap: '8px',
     marginBottom: '24px',
     borderBottom: '2px solid #e2e8f0',
