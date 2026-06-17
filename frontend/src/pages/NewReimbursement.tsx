@@ -6,6 +6,9 @@ import { useToast } from '../components/Toast';
 import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
+import SuggestionChips from '../components/SuggestionChips';
+import AmountQuickAdd from '../components/AmountQuickAdd';
+import { HistoryRecord, getFrequentFundIds, getFrequentDescriptions } from '../utils/quickEntry';
 import '../styles/NewReimbursement.css';
 
 export default function NewReimbursement() {
@@ -31,6 +34,7 @@ export default function NewReimbursement() {
     apartmentId: editingReimbursement?.apartment_id?.toString() || '',
   });
   const [monthlyFundStatus, setMonthlyFundStatus] = useState<Record<number, { remaining: number; planned: number }>>({});
+  const [history, setHistory] = useState<HistoryRecord[]>([]);
 
   useEffect(() => {
     loadData();
@@ -129,10 +133,11 @@ export default function NewReimbursement() {
 
   const loadData = async () => {
     try {
-      const [fundsResponse, usersResponse, meResponse] = await Promise.all([
+      const [fundsResponse, usersResponse, meResponse, historyResponse] = await Promise.all([
         fundsAPI.getAccessible(),
         usersAPI.getBasic(),
         authAPI.getMe(),
+        reimbursementsAPI.getMy().catch(() => ({ data: [] })),
       ]);
 
       const currentUser = meResponse.data;
@@ -147,6 +152,7 @@ export default function NewReimbursement() {
 
       setBudgets(accessibleBudgets);
       setUsers(usersResponse.data || []);
+      setHistory(historyResponse.data || []);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה בטעינת הנתונים', 'error');
     } finally {
@@ -236,6 +242,33 @@ export default function NewReimbursement() {
     }));
   }, [budgets, monthlyFundStatus]);
 
+  // Map of fund id -> fund name, for labelling quick-pick chips.
+  const fundNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    budgets.forEach((budget) =>
+      budget.funds.forEach((fund) => map.set(fund.id, fund.name))
+    );
+    return map;
+  }, [budgets]);
+
+  // Frequently used funds (from the user's own reimbursement history).
+  const frequentFundChips = useMemo(() => {
+    const allowed = new Set(fundNameById.keys());
+    return getFrequentFundIds(history, allowed).map((id) => ({
+      value: id.toString(),
+      label: fundNameById.get(id) || '',
+    }));
+  }, [history, fundNameById]);
+
+  // Frequently used descriptions for the currently selected fund.
+  const descriptionChips = useMemo(() => {
+    const fundId = formData.fundId ? parseInt(formData.fundId) : null;
+    return getFrequentDescriptions(history, fundId).map((text) => ({
+      value: text,
+      label: text,
+    }));
+  }, [history, formData.fundId]);
+
   const userSelectGroups: SearchableSelectGroup[] = useMemo(() => [{
     label: 'חברים',
     options: users.map((u) => ({
@@ -269,6 +302,14 @@ export default function NewReimbursement() {
                 placeholder="-- בחר סעיף --"
                 required
               />
+              {frequentFundChips.length > 0 && (
+                <SuggestionChips
+                  label="בשימוש נפוץ:"
+                  items={frequentFundChips}
+                  selectedValue={formData.fundId}
+                  onSelect={(val) => setFormData({ ...formData, fundId: val })}
+                />
+              )}
             </div>
 
             <div style={styles.field}>
@@ -310,6 +351,7 @@ export default function NewReimbursement() {
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0.01"
                 value={formData.amount}
@@ -317,6 +359,10 @@ export default function NewReimbursement() {
                 required
                 style={styles.input}
                 placeholder="0.00"
+              />
+              <AmountQuickAdd
+                value={formData.amount}
+                onChange={(val) => setFormData({ ...formData, amount: val })}
               />
             </div>
 
@@ -332,6 +378,13 @@ export default function NewReimbursement() {
                 style={styles.textarea}
                 placeholder="תאר את ההוצאה..."
               />
+              {descriptionChips.length > 0 && (
+                <SuggestionChips
+                  label="תיאורים נפוצים לסעיף זה:"
+                  items={descriptionChips}
+                  onSelect={(val) => setFormData({ ...formData, description: val })}
+                />
+              )}
             </div>
 
             <div style={styles.field}>
