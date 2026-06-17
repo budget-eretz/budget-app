@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import Navigation from '../components/Navigation';
 import SearchableSelect, { SearchableSelectGroup } from '../components/SearchableSelect';
 import SuggestionChips from '../components/SuggestionChips';
-import AmountQuickAdd from '../components/AmountQuickAdd';
+import AmountField from '../components/AmountField';
 import { HistoryRecord, getFrequentFundIds, getFrequentDescriptions } from '../utils/quickEntry';
 import '../styles/NewReimbursement.css';
 
@@ -349,20 +349,10 @@ export default function NewReimbursement() {
               <label style={styles.label}>
                 סכום <span style={{ color: '#e53e3e' }}>*</span>
               </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                required
-                style={styles.input}
-                placeholder="0.00"
-              />
-              <AmountQuickAdd
+              <AmountField
                 value={formData.amount}
                 onChange={(val) => setFormData({ ...formData, amount: val })}
+                required
               />
             </div>
 
@@ -370,6 +360,13 @@ export default function NewReimbursement() {
               <label style={styles.label}>
                 תיאור <span style={{ color: '#e53e3e' }}>*</span>
               </label>
+              {descriptionChips.length > 0 && (
+                <SuggestionChips
+                  label="תיאורים נפוצים לסעיף זה:"
+                  items={descriptionChips}
+                  onSelect={(val) => setFormData({ ...formData, description: val })}
+                />
+              )}
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -378,13 +375,6 @@ export default function NewReimbursement() {
                 style={styles.textarea}
                 placeholder="תאר את ההוצאה..."
               />
-              {descriptionChips.length > 0 && (
-                <SuggestionChips
-                  label="תיאורים נפוצים לסעיף זה:"
-                  items={descriptionChips}
-                  onSelect={(val) => setFormData({ ...formData, description: val })}
-                />
-              )}
             </div>
 
             <div style={styles.field}>

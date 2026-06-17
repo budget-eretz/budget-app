@@ -57,6 +57,52 @@
   max-width: 200px;
 }
 
+/* Amount input with inline clear icon */
+.qe-amount-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.qe-amount-input {
+  width: 100%;
+  padding: 10px 12px;
+  padding-left: 40px; /* room for the clear icon (left side in RTL) */
+  font-size: 15px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.qe-amount-input:focus {
+  border-color: #667eea;
+}
+
+.qe-amount-clear {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #a0aec0;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.qe-amount-clear:hover {
+  color: #c53030;
+  background: #fed7d7;
+}
+
 /* Amount quick-add row */
 .qe-amount-adds {
   display: flex;
@@ -88,10 +134,4 @@
 
 .qe-amount-btn:active {
   background: #e2e8f0;
-}
-
-.qe-amount-btn--clear {
-  color: #c53030;
-  flex: 0 0 auto;
-  min-width: 48px;
 }

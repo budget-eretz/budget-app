@@ -61,7 +61,7 @@ export function getFrequentFundIds(
 export function getFrequentDescriptions(
   records: HistoryRecord[],
   fundId: number | null,
-  limit = 6
+  limit = 5
 ): string[] {
   if (!fundId) return [];
 
