@@ -10,3 +10,6 @@ build/
 .mcp.json
 .playwright-cli/
 .playwright/
+
+# Manual-testing screenshot artifacts
+.claude/screenshots/
