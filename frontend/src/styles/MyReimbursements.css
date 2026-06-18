@@ -1,0 +1,59 @@
+/*
+ * Mobile-responsive overrides for the "My Reimbursements" page.
+ * The page itself is styled with inline `style` objects, so these rules use
+ * `!important` to win over inline styles on small screens (same pattern used
+ * by Navigation.tsx and Button.tsx).
+ */
+
+@media (max-width: 768px) {
+  /* Tighter page padding so content isn't crammed on phones */
+  .reimb-content {
+    padding: 16px !important;
+  }
+
+  /* Stack the title above the action buttons instead of side-by-side */
+  .reimb-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+
+  /* Action buttons fill the width and wrap as needed */
+  .reimb-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .reimb-header-actions > button {
+    flex: 1 1 140px;
+  }
+
+  /* Month filter + search stack vertically and stop forcing a min width
+     (their fixed min-widths were the main cause of horizontal overflow) */
+  .reimb-filters {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .reimb-month-filter,
+  .reimb-search {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .reimb-month-filter select {
+    flex: 1;
+    min-width: 0 !important;
+  }
+
+  .reimb-search-input {
+    min-width: 0 !important;
+  }
+}
+
+/* Smooth momentum scrolling for the horizontally scrollable tables on touch
+   devices (applies at all widths; harmless on desktop) */
+.reimb-table-container {
+  -webkit-overflow-scrolling: touch;
+}

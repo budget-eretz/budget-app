@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import Navigation from '../components/Navigation';
 import ReimbursementDetailsModal from '../components/ReimbursementDetailsModal';
 import RecurringTransferTable from '../components/RecurringTransferTable';
+import '../styles/MyReimbursements.css';
 
 type StatusFilter = 'all' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
 type SortField = 'expense_date' | 'created_at' | 'amount' | 'fund_name' | 'description';
@@ -262,10 +263,10 @@ export default function MyReimbursements() {
     <div style={styles.container}>
       <Navigation />
 
-      <div style={styles.content}>
-        <div style={styles.header}>
+      <div style={styles.content} className="reimb-content">
+        <div style={styles.header} className="reimb-header">
           <h1 style={styles.title}>ההחזרים שלי</h1>
-          <div style={styles.headerActions}>
+          <div style={styles.headerActions} className="reimb-header-actions">
             <Button variant="primary" onClick={() => navigate('/reimbursements/new')}>
               + הגש בקשת החזר
             </Button>
@@ -367,8 +368,8 @@ export default function MyReimbursements() {
           </div>
 
           {/* Month Filter + Search */}
-          <div style={styles.filterControls}>
-            <div style={styles.monthFilter}>
+          <div style={styles.filterControls} className="reimb-filters">
+            <div style={styles.monthFilter} className="reimb-month-filter">
               <label style={styles.filterLabel}>סינון לפי חודש:</label>
               <select
                 value={monthFilter}
@@ -383,7 +384,7 @@ export default function MyReimbursements() {
                 ))}
               </select>
             </div>
-            <div style={styles.searchBox}>
+            <div style={styles.searchBox} className="reimb-search">
               <label style={styles.filterLabel} htmlFor="reimb-search">חיפוש:</label>
               <input
                 id="reimb-search"
@@ -392,6 +393,7 @@ export default function MyReimbursements() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="חיפוש לפי תיאור, סעיף, הערות או מקבל תשלום..."
                 style={styles.searchInput}
+                className="reimb-search-input"
               />
               {searchQuery && (
                 <button
@@ -443,7 +445,7 @@ export default function MyReimbursements() {
               <p>אין בקשות החזר להצגה</p>
             </div>
           ) : (
-            <div style={styles.tableContainer}>
+            <div style={styles.tableContainer} className="reimb-table-container">
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>
@@ -565,7 +567,7 @@ export default function MyReimbursements() {
               </div>
             )}
             
-            <div style={styles.tableContainer}>
+            <div style={styles.tableContainer} className="reimb-table-container">
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>

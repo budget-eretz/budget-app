@@ -10,6 +10,7 @@ import MonthlyExpenseTable from '../components/MonthlyExpenseTable';
 import MonthlyPlannedExpenseTable from '../components/MonthlyPlannedExpenseTable';
 import MonthlyAllocationManager from '../components/MonthlyAllocationManager';
 import AllocationHistoryModal from '../components/AllocationHistoryModal';
+import '../styles/FundMonthlyDetail.css';
 
 export default function FundMonthlyDetail() {
   const { fundId } = useParams<{ fundId: string }>();
@@ -142,9 +143,9 @@ export default function FundMonthlyDetail() {
     <div style={styles.container}>
       <Navigation />
 
-      <div style={styles.content}>
+      <div style={styles.content} className="fmd-content">
         {/* Header */}
-        <div style={styles.header}>
+        <div style={styles.header} className="fmd-header">
           <div style={styles.headerTop}>
             <button onClick={() => navigate(-1)} style={styles.backButton}>
               ← חזור
@@ -152,7 +153,7 @@ export default function FundMonthlyDetail() {
             <h1 style={styles.title}>{fund?.name || 'סעיף'}</h1>
           </div>
           {isTreasurer && (
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px' }} className="fmd-header-actions">
               <button
                 onClick={() => setShowAllocationManager(true)}
                 style={styles.manageButton}

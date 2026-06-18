@@ -9,6 +9,7 @@ import SearchableSelect, { SearchableSelectGroup } from '../components/Searchabl
 import SuggestionChips from '../components/SuggestionChips';
 import AmountField from '../components/AmountField';
 import { HistoryRecord, getFrequentFundIds, getFrequentDescriptions } from '../utils/quickEntry';
+import '../styles/FormPageLayout.css';
 
 interface Budget {
   id: number;
@@ -283,11 +284,11 @@ export default function NewPlannedExpense() {
     <div style={styles.container}>
       <Navigation />
 
-      <div style={styles.content}>
+      <div style={styles.content} className="form-page-content">
         <div style={styles.pageHeader}>
           <h1 style={styles.title}>{isEditMode ? 'עריכת תכנון הוצאה' : 'יצירת תכנון הוצאה'}</h1>
         </div>
-        <div style={styles.formCard}>
+        <div style={styles.formCard} className="form-page-card">
           <p style={{ color: '#718096', marginBottom: '24px' }}>
             {isEditMode 
               ? 'ערוך את פרטי התכנון שלך. שים לב שהשינויים ישפיעו על החישובים החודשיים.'
@@ -413,7 +414,7 @@ export default function NewPlannedExpense() {
         </div>
 
         {budgets.length > 0 && (
-          <div style={styles.sidebar}>
+          <div style={styles.sidebar} className="form-page-sidebar">
             <h3 style={styles.sidebarTitle}>סעיפים זמינים</h3>
             <div style={styles.fundsList}>
               {budgets.map((budget) => (
