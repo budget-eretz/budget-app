@@ -27,6 +27,7 @@ export default function PaymentTransfers() {
   const [transferToDelete, setTransferToDelete] = useState<number | null>(null);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
   const [transferToRevert, setTransferToRevert] = useState<number | null>(null);
+  const [revertCountdown, setRevertCountdown] = useState(0);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Recurring transfers state
@@ -67,6 +68,24 @@ export default function PaymentTransfers() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Force the treasurer to read the revert warning by disabling the confirm
+  // button for a few seconds after the dialog opens.
+  const REVERT_COUNTDOWN_SECONDS = 5;
+  useEffect(() => {
+    if (!showRevertConfirm) return;
+    setRevertCountdown(REVERT_COUNTDOWN_SECONDS);
+    const interval = setInterval(() => {
+      setRevertCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showRevertConfirm]);
 
   const loadData = async () => {
     setLoading(true);
@@ -854,8 +873,9 @@ export default function PaymentTransfers() {
               <Button
                 onClick={handleRevertConfirm}
                 variant="danger"
+                disabled={revertCountdown > 0}
               >
-                בטל ביצוע
+                {revertCountdown > 0 ? `בטל ביצוע (${revertCountdown})` : 'בטל ביצוע'}
               </Button>
               <Button
                 onClick={() => {
