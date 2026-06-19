@@ -436,6 +436,95 @@ export async function executePaymentTransfer(req: Request, res: Response) {
 }
 
 /**
+ * Revert an executed payment transfer back to pending.
+ * Used when a transfer was marked as executed by mistake (e.g. the money was
+ * never actually paid). This is the exact inverse of executePaymentTransfer:
+ * it moves the transfer status from 'executed' back to 'pending' and reverts
+ * all associated reimbursements and charges from 'paid' back to 'approved'.
+ * total_amount is left untouched, since execution never changed it.
+ */
+export async function revertPaymentTransfer(req: Request, res: Response) {
+  const client = await pool.connect();
+
+  try {
+    const user = req.user!;
+    const { id } = req.params;
+
+    await client.query('BEGIN');
+
+    // Get transfer with row lock
+    const transferResult = await client.query(
+      `SELECT pt.id, pt.recipient_user_id, pt.budget_type, pt.group_id, pt.status
+       FROM payment_transfers pt
+       WHERE pt.id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (transferResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'העברה לא נמצאה' });
+    }
+
+    const transfer = transferResult.rows[0];
+
+    // Only executed transfers can be reverted
+    if (transfer.status !== 'executed') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'ניתן לבטל ביצוע רק של העברה שכבר בוצעה' });
+    }
+
+    // Check access control
+    const hasAccess = await canAccessBudgetType(user, transfer.budget_type, transfer.group_id);
+    if (!hasAccess) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'אין לך הרשאה לבטל ביצוע של העברה זו' });
+    }
+
+    // Move the transfer back to pending and clear execution metadata
+    await client.query(
+      `UPDATE payment_transfers
+       SET status = 'pending',
+           executed_at = NULL,
+           executed_by = NULL
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Revert all associated reimbursements from paid back to approved
+    await client.query(
+      `UPDATE reimbursements
+       SET status = 'approved',
+           updated_at = NOW()
+       WHERE payment_transfer_id = $1 AND status = 'paid'`,
+      [id]
+    );
+
+    // Revert all associated charges from paid back to approved
+    await client.query(
+      `UPDATE charges
+       SET status = 'approved',
+           updated_at = NOW()
+       WHERE payment_transfer_id = $1 AND status = 'paid'`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      message: 'ביצוע ההעברה בוטל. ההעברה חזרה לסטטוס "ממתין לביצוע".',
+      transferId: id
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error reverting payment transfer:', error);
+    res.status(500).json({ error: 'שגיאה בביטול ביצוע ההעברה' });
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Get payment transfer statistics
  * Returns counts and totals for pending and executed transfers
  */

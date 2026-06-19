@@ -25,6 +25,9 @@ router.get('/:id', paymentTransferController.getPaymentTransferById);
 // Execute payment transfer
 router.post('/:id/execute', paymentTransferController.executePaymentTransfer);
 
+// Revert an executed payment transfer back to pending (undo accidental execution)
+router.post('/:id/revert', paymentTransferController.revertPaymentTransfer);
+
 // Delete pending payment transfer
 router.delete('/:id', paymentTransferController.deletePaymentTransfer);
 

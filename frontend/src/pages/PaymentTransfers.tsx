@@ -25,6 +25,8 @@ export default function PaymentTransfers() {
   const [transferToExecute, setTransferToExecute] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [transferToDelete, setTransferToDelete] = useState<number | null>(null);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [transferToRevert, setTransferToRevert] = useState<number | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Recurring transfers state
@@ -148,6 +150,39 @@ export default function PaymentTransfers() {
     } catch (error: any) {
       showToast(error.response?.data?.error || 'שגיאה במחיקת העברה', 'error');
       console.error('Error deleting transfer:', error);
+    }
+  };
+
+  const handleRevertClick = (transferId: number) => {
+    setTransferToRevert(transferId);
+    setShowRevertConfirm(true);
+  };
+
+  const getRevertTransferRecipientName = () => {
+    if (!transferToRevert) return '';
+    const transfer = executedTransfers.find(t => t.id === transferToRevert);
+    return transfer?.recipientName || '';
+  };
+
+  const getRevertTransferAmount = () => {
+    if (!transferToRevert) return 0;
+    const transfer = executedTransfers.find(t => t.id === transferToRevert);
+    return transfer ? Math.abs(parseFloat(transfer.totalAmount.toString())) : 0;
+  };
+
+  const handleRevertConfirm = async () => {
+    if (!transferToRevert) return;
+
+    try {
+      await paymentTransfersAPI.revert(transferToRevert);
+      showToast('ביצוע ההעברה בוטל. ההעברה חזרה לסטטוס "ממתין לביצוע".', 'success');
+      setShowRevertConfirm(false);
+      setTransferToRevert(null);
+      setShowDetailsModal(false);
+      await loadData();
+    } catch (error: any) {
+      showToast(error.response?.data?.error || 'שגיאה בביטול ביצוע ההעברה', 'error');
+      console.error('Error reverting transfer:', error);
     }
   };
 
@@ -627,8 +662,10 @@ export default function PaymentTransfers() {
                 onTransferClick={handleTransferClick}
                 onExecute={handleExecuteClick}
                 onDelete={handleDeleteClick}
+                onRevert={handleRevertClick}
                 showExecuteAction={activeTab === 'pending'}
                 showDeleteAction={activeTab === 'pending'}
+                showRevertAction={activeTab === 'executed'}
               />
             )}
 
@@ -791,6 +828,43 @@ export default function PaymentTransfers() {
                 variant="secondary"
               >
                 ביטול
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Revert Execution Confirmation Modal */}
+        <Modal
+          isOpen={showRevertConfirm}
+          onClose={() => {
+            setShowRevertConfirm(false);
+            setTransferToRevert(null);
+          }}
+          title="⚠️ ביטול ביצוע העברה"
+        >
+          <div style={styles.confirmContent}>
+            <p style={styles.confirmText}>
+              האם לבטל את ביצוע ההעברה ל-<strong>{getRevertTransferRecipientName()}</strong> בסך <strong>{formatCurrency(getRevertTransferAmount())}</strong>?
+            </p>
+            <p style={styles.confirmSubtext}>
+              השתמשו בפעולה זו רק אם ההעברה סומנה כבוצעה בטעות והכסף לא הועבר בפועל.
+              ההעברה תחזור לסטטוס "ממתין לביצוע" וכל ההחזרים והחיובים המשויכים יחזרו לסטטוס "מאושר".
+            </p>
+            <div style={styles.confirmActions}>
+              <Button
+                onClick={handleRevertConfirm}
+                variant="danger"
+              >
+                בטל ביצוע
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowRevertConfirm(false);
+                  setTransferToRevert(null);
+                }}
+                variant="secondary"
+              >
+                חזרה
               </Button>
             </div>
           </div>

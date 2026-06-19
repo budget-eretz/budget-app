@@ -315,6 +315,8 @@ export const paymentTransfersAPI = {
     api.get(`/payment-transfers/${id}`),
   execute: (id: number) =>
     api.post(`/payment-transfers/${id}/execute`),
+  revert: (id: number) =>
+    api.post(`/payment-transfers/${id}/revert`),
   getStats: () =>
     api.get('/payment-transfers/stats'),
   generateRecurring: () =>

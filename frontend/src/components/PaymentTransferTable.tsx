@@ -7,8 +7,10 @@ interface PaymentTransferTableProps {
   onTransferClick: (transfer: PaymentTransfer) => void;
   onExecute?: (transferId: number) => void;
   onDelete?: (transferId: number) => void;
+  onRevert?: (transferId: number) => void;
   showExecuteAction: boolean;
   showDeleteAction?: boolean;
+  showRevertAction?: boolean;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -30,8 +32,10 @@ export default function PaymentTransferTable({
   onTransferClick,
   onExecute,
   onDelete,
+  onRevert,
   showExecuteAction,
   showDeleteAction,
+  showRevertAction,
 }: PaymentTransferTableProps) {
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const { tableClassName, headerCellRef } = useStickyTableHeader();
@@ -235,6 +239,20 @@ export default function PaymentTransferTable({
               ✕
             </button>
           )}
+          {showRevertAction && transfer.status === 'executed' && onRevert && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRevert(transfer.id);
+              }}
+              style={styles.revertBtn}
+              className="action-btn revert-btn"
+              title="בטל ביצוע (סומן בטעות)"
+              aria-label="בטל ביצוע"
+            >
+              ↩
+            </button>
+          )}
         </div>
       ),
     },
@@ -319,6 +337,9 @@ tableHoverStyle.textContent = `
   }
   .delete-btn:hover {
     background: #e53e3e !important;
+  }
+  .revert-btn:hover {
+    background: #dd6b20 !important;
   }
   .details-btn:hover {
     background: #718096 !important;
@@ -452,6 +473,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
     transition: 'all 0.2s',
     background: '#fc8181',
+    color: 'white',
+    minWidth: '32px',
+    minHeight: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revertBtn: {
+    padding: '6px 10px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    transition: 'all 0.2s',
+    background: '#ed8936',
     color: 'white',
     minWidth: '32px',
     minHeight: '32px',
