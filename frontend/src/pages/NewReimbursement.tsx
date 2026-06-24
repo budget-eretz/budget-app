@@ -17,7 +17,7 @@ export default function NewReimbursement() {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const { showToast } = useToast();
+  const { showToast, success: showSuccess } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -210,7 +210,10 @@ export default function NewReimbursement() {
           apartmentId: formData.apartmentId ? parseInt(formData.apartmentId) : undefined,
         });
 
-        showToast('בקשת ההחזר הוגשה בהצלחה! ניתן להגיש החזר נוסף', 'success');
+        showSuccess('בקשת ההחזר הוגשה בהצלחה!', 'ניתן להגיש החזר נוסף', {
+          label: 'ההחזרים שלי',
+          onClick: () => navigate('/my-reimbursements'),
+        });
 
         // Reset form completely
         setFormData({
