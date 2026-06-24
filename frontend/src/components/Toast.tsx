@@ -91,15 +91,15 @@ function Toast({ message, onClose }: ToastProps) {
         <div style={styles.toastText}>
           <div style={styles.toastTitle}>{message.title}</div>
           <div style={styles.toastMessage}>{message.message}</div>
+          {message.action && (
+            <button
+              onClick={message.action.onClick}
+              style={styles.toastAction}
+            >
+              {message.action.label} ←
+            </button>
+          )}
         </div>
-        {message.action && (
-          <button
-            onClick={message.action.onClick}
-            style={styles.toastAction}
-          >
-            {message.action.label}
-          </button>
-        )}
         <button
           onClick={handleClose}
           style={styles.toastClose}
@@ -265,16 +265,17 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '1.4',
   },
   toastAction: {
-    padding: '4px 12px',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    border: '1px solid rgba(0,0,0,0.1)',
-    borderRadius: '4px',
-    fontSize: '12px',
+    padding: '0',
+    backgroundColor: 'transparent',
+    border: 'none',
+    fontSize: '13px',
     fontWeight: '600',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    flexShrink: 0,
-  },
+    color: '#2b6cb0',
+    textDecoration: 'underline',
+    marginTop: '6px',
+    display: 'inline-block',
+  } as React.CSSProperties,
   toastClose: {
     background: 'none',
     border: 'none',
