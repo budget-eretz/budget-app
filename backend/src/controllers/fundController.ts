@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { getUserAccessibleGroupIds, isCircleTreasurer, canAccessFund, validateFundAccess } from '../middleware/accessControl';
+import { getUserAccessibleGroupIds, isCircleTreasurer, canAccessFund, validateFundAccess, getHiddenBudgetIds } from '../middleware/accessControl';
 
 export async function getFunds(req: Request, res: Response) {
   try {
@@ -42,6 +42,11 @@ export async function getFunds(req: Request, res: Response) {
         conditions.push(`(b.group_id IS NULL OR b.group_id IN (${groupIdPlaceholders}))`);
         params.push(...accessibleGroupIds);
       }
+
+      // Hide restricted budgets (personal budgets of other members, treasurers budget)
+      const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+      conditions.push(`b.id <> ALL($${params.length + 1}::int[])`);
+      params.push(hiddenBudgetIds);
     }
 
     if (budgetId) {
@@ -171,6 +176,38 @@ export async function createFund(req: Request, res: Response) {
   }
 }
 
+/**
+ * Check whether a treasurer may manage (edit / delete) a fund.
+ * Circle-level funds - including personal budgets - are managed by circle treasurers only.
+ * Group funds are managed by the treasurers of that group.
+ * Returns an error message, or null when allowed.
+ */
+async function getFundManagementError(user: Express.Request['user'], fundId: number): Promise<string | null> {
+  const budgetResult = await pool.query(
+    `SELECT b.group_id
+     FROM funds f
+     JOIN budgets b ON f.budget_id = b.id
+     WHERE f.id = $1`,
+    [fundId]
+  );
+
+  if (budgetResult.rows.length === 0) {
+    return 'Fund not found';
+  }
+
+  const budgetGroupId = budgetResult.rows[0].group_id;
+
+  if (budgetGroupId === null) {
+    return user!.isCircleTreasurer ? null : 'Only circle treasurer can manage circle funds';
+  }
+
+  if (!user!.isCircleTreasurer && !user!.groupIds.includes(budgetGroupId)) {
+    return 'Cannot manage funds for other groups';
+  }
+
+  return null;
+}
+
 export async function updateFund(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -182,6 +219,12 @@ export async function updateFund(req: Request, res: Response) {
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    const managementError = await getFundManagementError(user, parseInt(id));
+
+    if (managementError) {
+      return res.status(managementError === 'Fund not found' ? 404 : 403).json({ error: managementError });
     }
 
     const result = await pool.query(
@@ -215,6 +258,12 @@ export async function deleteFund(req: Request, res: Response) {
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    const managementError = await getFundManagementError(user, parseInt(id));
+
+    if (managementError) {
+      return res.status(managementError === 'Fund not found' ? 404 : 403).json({ error: managementError });
     }
 
     const result = await pool.query(
@@ -269,17 +318,15 @@ export async function getAccessibleFunds(req: Request, res: Response) {
       ORDER BY b.group_id NULLS FIRST, b.name, f.name
     `);
 
-    // Check if user is circle treasurer
-    const isCircleTreas = user.isCircleTreasurer;
+    // Restricted budgets the user must not see (personal budgets of others, treasurers budget)
+    const hiddenBudgetIds = new Set(await getHiddenBudgetIds(user.userId));
 
     // Filter funds based on user's access using validateFundAccess
     const accessibleFunds = [];
     for (const fund of fundsResult.rows) {
-      // FILTER OUT TREASURERS BUDGETS for non-circle treasurers
-      if (fund.budget_type === 'treasurers') {
-        if (!isCircleTreas) {
-          continue; // Skip treasurers budget funds
-        }
+      // FILTER OUT RESTRICTED BUDGETS (treasurers budget, personal budgets of other members)
+      if (hiddenBudgetIds.has(fund.budget_id)) {
+        continue;
       }
 
       const hasAccess = await validateFundAccess(user.userId, fund.id);
@@ -696,6 +743,11 @@ export async function getDashboardMonthlyStatus(req: Request, res: Response) {
         conditions.push(`(b.group_id IS NULL OR b.group_id IN (${groupIdPlaceholders}))`);
         params.push(...accessibleGroupIds);
       }
+
+      // Hide restricted budgets (personal budgets of other members, treasurers budget)
+      const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+      conditions.push(`b.id <> ALL($${params.length + 1}::int[])`);
+      params.push(hiddenBudgetIds);
     }
 
     if (conditions.length > 0) {

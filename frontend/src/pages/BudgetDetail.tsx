@@ -574,6 +574,12 @@ export default function BudgetDetail() {
               {!budget.group_name && (
                 <span style={styles.metaItem}>תקציב מעגלי</span>
               )}
+              {budget.budget_type === 'personal' && (
+                <span style={styles.metaItem}>
+                  🔒 תקציב אישי
+                  {budget.owners?.length ? ` — ${budget.owners.map(owner => owner.full_name).join(', ')}` : ''}
+                </span>
+              )}
               {budget.fiscal_year && (
                 <span style={styles.metaItem}>שנה: {budget.fiscal_year}</span>
               )}

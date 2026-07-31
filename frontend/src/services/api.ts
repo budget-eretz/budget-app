@@ -29,9 +29,9 @@ export const authAPI = {
 export const budgetsAPI = {
   getAll: () => api.get('/budgets'),
   getById: (id: number) => api.get(`/budgets/${id}`),
-  create: (data: { name: string; totalAmount: number; groupId?: number; fiscalYear?: number; isActive?: boolean }) =>
+  create: (data: { name: string; totalAmount: number; groupId?: number; fiscalYear?: number; isActive?: boolean; budgetType?: string; ownerIds?: number[] }) =>
     api.post('/budgets', data),
-  update: (id: number, data: Partial<{ name: string; totalAmount: number; fiscalYear: number; isActive: boolean }>) =>
+  update: (id: number, data: Partial<{ name: string; totalAmount: number; fiscalYear: number; isActive: boolean; budgetType: string; ownerIds: number[] }>) =>
     api.patch(`/budgets/${id}`, data),
   delete: (id: number) => api.delete(`/budgets/${id}`),
   transfer: (data: { fromBudgetId: number; toBudgetId: number; amount: number; description?: string }) =>
@@ -258,12 +258,12 @@ export const reportsAPI = {
     api.get(`/reports/category-income-details/${categoryId}/${year}/${month}`),
 
   // Detailed Annual Execution Report
-  getDetailedAnnualExecutionReport: (year: number) =>
-    api.get(`/reports/detailed-annual-execution/${year}`),
-  exportDetailedAnnualExecutionReport: (year: number) =>
-    api.get(`/reports/export/detailed-annual-execution/${year}`, { responseType: 'blob' }),
-  exportDetailedAnnualExecutionReportExcel: (year: number) =>
-    api.get(`/reports/export/detailed-annual-execution-excel/${year}`, { responseType: 'blob' }),
+  getDetailedAnnualExecutionReport: (year: number, budgetId?: number) =>
+    api.get(`/reports/detailed-annual-execution/${year}`, { params: { budgetId } }),
+  exportDetailedAnnualExecutionReport: (year: number, budgetId?: number) =>
+    api.get(`/reports/export/detailed-annual-execution/${year}`, { params: { budgetId }, responseType: 'blob' }),
+  exportDetailedAnnualExecutionReportExcel: (year: number, budgetId?: number) =>
+    api.get(`/reports/export/detailed-annual-execution-excel/${year}`, { params: { budgetId }, responseType: 'blob' }),
 };
 
 // Users API

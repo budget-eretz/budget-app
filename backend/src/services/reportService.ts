@@ -5,6 +5,7 @@ import {
   VALIDATION_ERRORS,
   ValidationResult 
 } from './reportValidationService';
+import { getHiddenBudgetIds } from '../middleware/accessControl';
 
 // Report data interfaces
 export interface MonthlyClosingData {
@@ -137,6 +138,8 @@ export interface AccessControl {
   isCircleTreasurer: boolean;
   isGroupTreasurer: boolean;
   groupIds: number[];
+  /** Budgets this user must never see in reports (personal budgets of other members, treasurers budget) */
+  hiddenBudgetIds: number[];
 }
 
 // User interface for access control creation
@@ -222,8 +225,26 @@ export class ReportService {
     return {
       isCircleTreasurer: user.is_circle_treasurer,
       isGroupTreasurer: user.is_group_treasurer,
-      groupIds
+      groupIds,
+      hiddenBudgetIds: await getHiddenBudgetIds(user.id)
     };
+  }
+
+  /**
+   * SQL fragment excluding restricted budgets (personal budgets of other members,
+   * treasurers budget). The IDs come from the database, so inlining them keeps the
+   * fragment compatible with the $PARAM-based filters used across the report queries.
+   */
+  private hiddenBudgetClause(accessControl: AccessControl, column: string = 'budget_id'): string {
+    const ids = (accessControl.hiddenBudgetIds || [])
+      .map(Number)
+      .filter(id => Number.isInteger(id));
+
+    if (ids.length === 0) {
+      return '';
+    }
+
+    return ` AND ${column} NOT IN (${ids.join(', ')})`;
   }
   /**
    * Filter report data based on user permissions
@@ -272,6 +293,11 @@ export class ReportService {
       return true;
     }
 
+    // Restricted budgets (personal budgets of other members, treasurers budget)
+    if ((accessControl.hiddenBudgetIds || []).includes(budgetId)) {
+      return false;
+    }
+
     // Group treasurers can access their group budgets and circle budgets
     if (accessControl.isGroupTreasurer && accessControl.groupIds.length > 0) {
       const budgetQuery = `
@@ -309,10 +335,11 @@ export class ReportService {
     }
 
     if (accessControl.isGroupTreasurer && accessControl.groupIds.length > 0) {
-      // Group treasurers see their group budgets and circle budgets
-      // For views, we need to check budget_type and group_name
+      // Group treasurers see their group budgets and circle budgets,
+      // minus restricted budgets (personal budgets, treasurers budget)
       return {
-        whereClause: ' AND (budget_type = \'circle\' OR budget_id IN (SELECT id FROM budgets WHERE group_id = ANY($PARAM)))',
+        whereClause: ' AND (budget_type = \'circle\' OR budget_id IN (SELECT id FROM budgets WHERE group_id = ANY($PARAM)))'
+          + this.hiddenBudgetClause(accessControl),
         params: [accessControl.groupIds]
       };
     }
@@ -390,8 +417,11 @@ export class ReportService {
     if (accessControl.isGroupTreasurer && accessControl.groupIds.length > 0) {
       // Group treasurers can access their group budgets and circle budgets
       const result = await pool.query(
-        'SELECT id FROM budgets WHERE group_id IS NULL OR group_id = ANY($1) ORDER BY id',
-        [accessControl.groupIds]
+        `SELECT id FROM budgets
+         WHERE (group_id IS NULL OR group_id = ANY($1))
+           AND id <> ALL($2::int[])
+         ORDER BY id`,
+        [accessControl.groupIds, accessControl.hiddenBudgetIds || []]
       );
       return result.rows.map(row => row.id);
     }
@@ -1352,7 +1382,8 @@ export class ReportService {
    */
   async calculateDetailedAnnualExecution(
     year: number,
-    accessControl: AccessControl
+    accessControl: AccessControl,
+    budgetId?: number
   ): Promise<DetailedAnnualExecutionData> {
     // Validate treasurer access
     if (!accessControl.isCircleTreasurer && !accessControl.isGroupTreasurer) {
@@ -1362,6 +1393,19 @@ export class ReportService {
     // Validate year
     if (year < 2000 || year > 2100 || !Number.isInteger(year)) {
       throw new Error('Invalid year parameter');
+    }
+
+    // When scoped to a single budget, make sure the user may see that budget
+    if (budgetId !== undefined) {
+      if (!Number.isInteger(budgetId) || budgetId <= 0) {
+        throw new Error('Invalid budget parameter');
+      }
+
+      const hasAccess = await this.validateBudgetReportAccess(budgetId, accessControl);
+
+      if (!hasAccess) {
+        throw new Error('Access denied: budget not accessible');
+      }
     }
 
     // Query 1: Actual income by category using optimized view
@@ -1391,6 +1435,26 @@ export class ReportService {
       GROUP BY ic.id, ic.name, ei.month
       ORDER BY ic.name, ei.month
     `;
+
+    // Access control + optional budget scoping for the expense query.
+    // $1 is the year (used inside the sub-queries), extra params start at $2.
+    const expenseParams: any[] = [year];
+    const expenseConditions: string[] = ['b.is_active = true'];
+
+    if (!accessControl.isCircleTreasurer) {
+      // Group treasurers see circle-level budgets and their own group budgets...
+      expenseParams.push(accessControl.groupIds || []);
+      expenseConditions.push(`(b.group_id IS NULL OR b.group_id = ANY($${expenseParams.length}))`);
+
+      // ...minus restricted budgets (personal budgets, treasurers budget)
+      expenseParams.push(accessControl.hiddenBudgetIds || []);
+      expenseConditions.push(`b.id <> ALL($${expenseParams.length}::int[])`);
+    }
+
+    if (budgetId !== undefined) {
+      expenseParams.push(budgetId);
+      expenseConditions.push(`b.id = $${expenseParams.length}`);
+    }
 
     // Query 3: Expenses by fund (combining 3 sources)
     const expenseQuery = `
@@ -1432,16 +1496,19 @@ export class ReportService {
       JOIN funds f ON expenses.fund_id = f.id
       JOIN budgets b ON f.budget_id = b.id
       LEFT JOIN groups g ON b.group_id = g.id
-      WHERE b.is_active = true
+      WHERE ${expenseConditions.join(' AND ')}
       GROUP BY b.id, b.name, budget_type, g.name, f.id, f.name, f.allocated_amount, month
       ORDER BY b.name, f.name, month
     `;
 
+    // Income is circle-wide, so it is only meaningful for the full report
+    const scopedToBudget = budgetId !== undefined;
+
     // Execute queries
     const [incomeResult, expectedIncomeResult, expenseResult] = await Promise.all([
-      pool.query(incomeQuery, [year]),
-      pool.query(expectedIncomeQuery, [year]),
-      pool.query(expenseQuery, [year])
+      scopedToBudget ? Promise.resolve({ rows: [] }) : pool.query(incomeQuery, [year]),
+      scopedToBudget ? Promise.resolve({ rows: [] }) : pool.query(expectedIncomeQuery, [year]),
+      pool.query(expenseQuery, expenseParams)
     ]);
 
     // Transform income data to monthly arrays
@@ -1450,18 +1517,10 @@ export class ReportService {
       expectedIncomeResult.rows
     );
 
-    // Transform expense data to hierarchical structure
-    const expenseByBudget = this.transformExpensesToHierarchy(
+    // Transform expense data to hierarchical structure (already access-filtered in SQL)
+    const filteredExpenses = this.transformExpensesToHierarchy(
       expenseResult.rows
     );
-
-    // Apply access control filtering
-    const filteredExpenses = accessControl.isCircleTreasurer
-      ? expenseByBudget
-      : expenseByBudget.filter(budget =>
-          budget.budgetType === 'circle' ||
-          (budget.groupName && accessControl.groupIds.some(gid => budget.groupName?.includes(String(gid))))
-        );
 
     // Calculate totals
     const incomeTotals = this.calculateIncomeTotals(incomeByCategory);
