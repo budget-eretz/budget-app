@@ -13,3 +13,8 @@ build/
 
 # Manual-testing screenshot artifacts
 .claude/screenshots/
+
+# Local tool artifacts (playwright MCP logs, superpowers brainstorm sessions/plans)
+.playwright-mcp/
+.superpowers/
+docs/superpowers/

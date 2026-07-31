@@ -34,7 +34,18 @@
       "Bash(playwright-cli run-code *)",
       "Bash(playwright-cli close *)",
       "Bash(curl -s -X POST http://localhost:4567/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"gizbar.a@circle.com\",\"password\":\"123456\"}')",
-      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f'ID:{e[\\\\\"id\\\\\"]} - {e[\\\\\"description\\\\\"]}'\\) for e in data]\")"
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f'ID:{e[\\\\\"id\\\\\"]} - {e[\\\\\"description\\\\\"]}'\\) for e in data]\")",
+      "Bash(mkdir -p /home/sagizo/Desktop/budget-app/.claude/screenshots)",
+      "Bash(playwright-cli screenshot *)",
+      "Bash(playwright-cli close-all *)",
+      "Bash(/root/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(curl -s -X POST http://localhost:4567/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"gizbar@circle.com\",\"password\":\"__TRACKED_VAR__\"}')",
+      "Bash(git checkout *)",
+      "Bash(git commit -m ' *)",
+      "Read(//home/**)",
+      "Read(//home/sagizo/**)",
+      "Bash(chown sagizo:sagizo /home/sagizo/.config/Claude/claude_desktop_config.json)",
+      "Bash(chmod 600 /home/sagizo/.config/Claude/claude_desktop_config.json)"
     ],
     "deny": [],
     "ask": []

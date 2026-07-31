@@ -343,6 +343,22 @@ docker-compose exec backend npm run seed
 - Backend: http://localhost:4567
 - PostgreSQL: localhost:5433
 
+#### 👥 משתמשי בדיקה (מתוך `seed-initial.ts`)
+
+הסיסמה לכל המשתמשים נקבעת ע"י משתנה הסביבה `DEFAULT_PASSWORD` ב-seed. כרגע היא `123456`.
+
+| תפקיד | אימייל | שם |
+|-------|--------|-----|
+| גזברית מעגל | `gizbar@circle.com` | גזברית מעגל |
+| גזברית קבוצה א | `gizbar.a@circle.com` | גזברית קבוצה א |
+| גזבר קבוצה ב | `gizbar.b@circle.com` | גזבר קבוצה ב |
+| חבר (קבוצה א) | `member1@circle.com` | מיכל אברהם |
+| חבר (קבוצה א) | `member2@circle.com` | רועי דוד |
+| חבר (קבוצה ב) | `member3@circle.com` | נועה שלום |
+| חבר (קבוצה ג) | `member4@circle.com` | עמית ברק |
+
+**שים לב:** הקובץ `backend/src/db/seed.ts` הוא seed ישן שכולל אימיילים שונים (`gizbarit@test.com`, `treasurer@north.com` וכו׳) — **לא בשימוש**. ה-seed הפעיל הוא `seed-initial.ts`.
+
 #### פקודות Docker שימושיות:
 
 ```bash
