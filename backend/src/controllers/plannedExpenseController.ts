@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { getHiddenBudgetIds, validateFundAccess } from '../middleware/accessControl';
 
 export async function getPlannedExpenses(req: Request, res: Response) {
   try {
@@ -30,6 +31,13 @@ export async function getPlannedExpenses(req: Request, res: Response) {
       params.push(user.userId);
     }
 
+    // Hide planned expenses of restricted budgets (personal budgets of other members)
+    if (!user.isCircleTreasurer) {
+      const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+      conditions.push(`f.budget_id <> ALL($${params.length + 1}::int[])`);
+      params.push(hiddenBudgetIds);
+    }
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
@@ -52,6 +60,13 @@ export async function createPlannedExpense(req: Request, res: Response) {
     // Validate required fields
     if (!plannedDate) {
       return res.status(400).json({ error: 'תאריך מתוכנן הוא שדה חובה' });
+    }
+
+    // Validate fund access (blocks personal budgets of other members)
+    const hasAccess = await validateFundAccess(user.userId, fundId);
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'אין לך הרשאה לגשת לסעיף זה' });
     }
 
     // VALIDATION: Check if fund belongs to treasurers budget

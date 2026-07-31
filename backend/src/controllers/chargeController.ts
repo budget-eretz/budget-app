@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { associateChargeWithTransfer } from '../utils/paymentTransferHelpers';
+import { getHiddenBudgetIds } from '../middleware/accessControl';
 
 export async function getMyCharges(req: Request, res: Response) {
   try {
@@ -67,6 +68,13 @@ export async function getCharges(req: Request, res: Response) {
     if (!user.isCircleTreasurer && !user.isGroupTreasurer) {
       conditions.push(`c.user_id = $${params.length + 1}`);
       params.push(user.userId);
+    }
+
+    // Hide charges of restricted budgets (personal budgets of other members)
+    if (!user.isCircleTreasurer) {
+      const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+      conditions.push(`f.budget_id <> ALL($${params.length + 1}::int[])`);
+      params.push(hiddenBudgetIds);
     }
 
     if (conditions.length > 0) {

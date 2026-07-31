@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { groupsAPI } from '../services/api';
+import { groupsAPI, usersAPI } from '../services/api';
+import { BudgetOwner } from '../types';
 import Button from './Button';
 import Modal from './Modal';
+import SearchableSelect from './SearchableSelect';
+
+export type BudgetType = 'general' | 'treasurers' | 'personal';
 
 interface BudgetFormProps {
   budget?: {
@@ -11,8 +15,9 @@ interface BudgetFormProps {
     total_amount: number;
     fiscal_year?: number;
     group_id?: number;
-    budget_type?: 'general' | 'treasurers';
+    budget_type?: BudgetType;
     is_active?: boolean;
+    owners?: BudgetOwner[];
   };
   onSubmit: (data: BudgetFormData) => Promise<void>;
   onCancel: () => void;
@@ -25,7 +30,8 @@ export interface BudgetFormData {
   fiscalYear?: number;
   groupId?: number;
   isActive?: boolean;
-  budgetType?: 'general' | 'treasurers';
+  budgetType?: BudgetType;
+  ownerIds?: number[];
 }
 
 interface Group {
@@ -33,10 +39,16 @@ interface Group {
   name: string;
 }
 
+interface BasicUser {
+  id: number;
+  fullName: string;
+}
+
 export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: BudgetFormProps) {
   const { user } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [members, setMembers] = useState<BasicUser[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<BudgetFormData>({
@@ -46,12 +58,14 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
     groupId: budget?.group_id || undefined,
     isActive: budget ? (budget as any).is_active !== false : true, // Default to true for new budgets
     budgetType: budget ? (budget as any).budget_type || 'general' : 'general',
+    ownerIds: budget?.owners?.map(owner => owner.id) || [],
   });
 
   useEffect(() => {
-    // Fetch groups for circle treasurer
+    // Fetch groups and members for circle treasurer
     if (user?.isCircleTreasurer) {
       loadGroups();
+      loadMembers();
     }
   }, [user]);
 
@@ -66,6 +80,32 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
       setLoadingGroups(false);
     }
   };
+
+  const loadMembers = async () => {
+    try {
+      const response = await usersAPI.getBasic();
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Failed to load members:', error);
+    }
+  };
+
+  const selectedOwnerIds = formData.ownerIds || [];
+
+  const addOwner = (userId: number) => {
+    if (selectedOwnerIds.includes(userId)) {
+      return;
+    }
+
+    handleChange('ownerIds', [...selectedOwnerIds, userId]);
+  };
+
+  const removeOwner = (userId: number) => {
+    handleChange('ownerIds', selectedOwnerIds.filter(id => id !== userId));
+  };
+
+  const memberName = (userId: number) =>
+    members.find(member => member.id === userId)?.fullName || `משתמש #${userId}`;
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -87,6 +127,15 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
     // Validate treasurers budget must be circle-level
     if (formData.budgetType === 'treasurers' && formData.groupId) {
       newErrors.budgetType = 'תקציב גזברים חייב להיות תקציב מעגלי (ללא קבוצה)';
+    }
+
+    // Validate personal budget must be circle-level and assigned to someone
+    if (formData.budgetType === 'personal') {
+      if (formData.groupId) {
+        newErrors.budgetType = 'תקציב אישי חייב להיות תקציב מעגלי (ללא קבוצה)';
+      } else if (selectedOwnerIds.length === 0) {
+        newErrors.ownerIds = 'יש לשייך את התקציב לחבר אחד לפחות';
+      }
     }
 
     setErrors(newErrors);
@@ -221,27 +270,64 @@ export default function BudgetForm({ budget, onSubmit, onCancel, isLoading }: Bu
           {user?.isCircleTreasurer && !formData.groupId && (
             <div style={styles.field}>
               <label style={styles.label}>סוג תקציב</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <input
-                    type="checkbox"
-                    id="isTreasurersBudget"
-                    checked={formData.budgetType === 'treasurers'}
-                    onChange={(e) => handleChange('budgetType', e.target.checked ? 'treasurers' : 'general')}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    disabled={isLoading}
-                  />
-                  <label htmlFor="isTreasurersBudget" style={{ fontSize: '14px', color: '#2d3748', cursor: 'pointer' }}>
-                    👥 תקציב גזברים
-                  </label>
-                </div>
-                <small style={{ color: '#718096', fontSize: '13px' }}>
-                  {formData.budgetType === 'treasurers'
-                    ? '⚠️ רק גזברי מעגל יוכלו לרשום הוצאות והחזרים בתקציב זה'
+              <select
+                value={formData.budgetType || 'general'}
+                onChange={(e) => handleChange('budgetType', e.target.value as BudgetType)}
+                style={styles.select}
+                disabled={isLoading}
+              >
+                <option value="general">תקציב רגיל - גלוי לכל המעגל</option>
+                <option value="treasurers">👥 תקציב גזברים - גלוי לגזברי מעגל בלבד</option>
+                <option value="personal">🔒 תקציב אישי - גלוי לחברים המשויכים בלבד</option>
+              </select>
+              <small style={{ color: '#718096', fontSize: '13px' }}>
+                {formData.budgetType === 'treasurers'
+                  ? '⚠️ רק גזברי מעגל יוכלו לרשום הוצאות והחזרים בתקציב זה'
+                  : formData.budgetType === 'personal'
+                    ? '⚠️ רק החברים המשויכים וגזברי המעגל יראו את התקציב ואת הסעיפים שלו'
                     : 'תקציב רגיל - כל החברים יכולים לרשום הוצאות'}
-                </small>
-              </div>
+              </small>
               {errors.budgetType && <span style={styles.errorText}>{errors.budgetType}</span>}
+            </div>
+          )}
+
+          {/* Personal budget owners - who the budget belongs to */}
+          {user?.isCircleTreasurer && !formData.groupId && formData.budgetType === 'personal' && (
+            <div style={styles.field}>
+              <label style={styles.label}>
+                משויך לחברים <span style={{ color: '#e53e3e' }}>*</span>
+              </label>
+              <SearchableSelect
+                value=""
+                onChange={(value) => value && addOwner(parseInt(value))}
+                groups={[{
+                  label: 'חברים',
+                  options: members
+                    .filter(member => !selectedOwnerIds.includes(member.id))
+                    .map(member => ({ value: String(member.id), label: member.fullName })),
+                }]}
+                placeholder="הוסף חבר..."
+                disabled={isLoading}
+              />
+              {selectedOwnerIds.length > 0 && (
+                <div style={styles.ownerChips}>
+                  {selectedOwnerIds.map(ownerId => (
+                    <span key={ownerId} style={styles.ownerChip}>
+                      {memberName(ownerId)}
+                      <button
+                        type="button"
+                        onClick={() => removeOwner(ownerId)}
+                        style={styles.ownerChipRemove}
+                        disabled={isLoading}
+                        aria-label={`הסר את ${memberName(ownerId)}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {errors.ownerIds && <span style={styles.errorText}>{errors.ownerIds}</span>}
             </div>
           )}
 
@@ -337,6 +423,32 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#e53e3e',
     fontSize: '13px',
     marginTop: '4px',
+  },
+  ownerChips: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginTop: '8px',
+  },
+  ownerChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    background: '#ebf8ff',
+    border: '1px solid #90cdf4',
+    borderRadius: '999px',
+    fontSize: '13px',
+    color: '#2c5282',
+  },
+  ownerChipRemove: {
+    background: 'none',
+    border: 'none',
+    color: '#2c5282',
+    cursor: 'pointer',
+    fontSize: '16px',
+    lineHeight: 1,
+    padding: 0,
   },
   actions: {
     display: 'flex',

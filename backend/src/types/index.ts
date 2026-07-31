@@ -40,8 +40,15 @@ export interface Budget {
   created_by: number;
   created_at: Date;
   updated_at: Date;
-  budget_type: 'general' | 'treasurers';
+  budget_type: 'general' | 'treasurers' | 'personal';
   is_active: boolean;
+  /** Members a personal budget is assigned to (empty for other budget types) */
+  owners?: BudgetOwner[];
+}
+
+export interface BudgetOwner {
+  id: number;
+  full_name: string;
 }
 
 export interface Fund {

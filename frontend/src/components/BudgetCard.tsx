@@ -68,7 +68,11 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onClick }) => {
       </div>
       
       <p style={styles.subtitle}>
-        {budget.group_name || 'תקציב מעגלי'}
+        {budget.budget_type === 'personal'
+          ? `🔒 תקציב אישי${budget.owners?.length ? ' — ' + budget.owners.map(owner => owner.full_name).join(', ') : ''}`
+          : budget.budget_type === 'treasurers'
+            ? '👥 תקציב גזברים'
+            : budget.group_name || 'תקציב מעגלי'}
       </p>
       
       <div style={styles.amountContainer}>

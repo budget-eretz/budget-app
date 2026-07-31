@@ -74,6 +74,7 @@ export default function Budgets() {
         groupId: data.groupId,
         isActive: data.isActive,
         budgetType: data.budgetType,
+        ownerIds: data.ownerIds,
       });
       showToast('התקציב נוצר בהצלחה', 'success');
       setShowCreateModal(false);
@@ -113,6 +114,7 @@ export default function Budgets() {
         fiscalYear: data.fiscalYear,
         isActive: data.isActive,
         budgetType: data.budgetType,
+        ownerIds: data.ownerIds,
       });
       showToast('התקציב עודכן בהצלחה', 'success');
       setShowEditModal(false);

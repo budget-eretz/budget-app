@@ -79,6 +79,14 @@ export async function getReimbursements(req: Request, res: Response) {
       params.push(user.userId);
     }
 
+    // Hide reimbursements of restricted budgets (personal budgets of other members)
+    if (!user.isCircleTreasurer) {
+      const { getHiddenBudgetIds } = await import('../middleware/accessControl');
+      const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+      conditions.push(`f.budget_id <> ALL($${params.length + 1}::int[])`);
+      params.push(hiddenBudgetIds);
+    }
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }

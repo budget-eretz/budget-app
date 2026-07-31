@@ -40,6 +40,67 @@ export async function getUserAccessibleGroupIds(userId: number): Promise<number[
 }
 
 /**
+ * Get the IDs of budgets a user must NOT see.
+ *
+ * These are circle-level budgets that look public (group_id IS NULL) but are
+ * restricted to a specific audience:
+ *   - 'personal'   -> only the members the budget is assigned to
+ *   - 'treasurers' -> only circle treasurers
+ *
+ * This is the single source of truth for restricted-budget filtering. Every list
+ * query that returns budgets, funds or expenses should exclude these IDs, e.g.:
+ *   AND b.id <> ALL($n::int[])
+ * An empty array is safe: `x <> ALL('{}')` evaluates to TRUE.
+ */
+export async function getHiddenBudgetIds(userId: number): Promise<number[]> {
+  const isCircleTreas = await isCircleTreasurer(userId);
+
+  if (isCircleTreas) {
+    return []; // Circle treasurers see everything
+  }
+
+  const result = await pool.query(
+    `SELECT b.id
+     FROM budgets b
+     WHERE b.budget_type = 'treasurers'
+        OR (
+          b.budget_type = 'personal'
+          AND NOT EXISTS (
+            SELECT 1 FROM budget_owners bo
+            WHERE bo.budget_id = b.id AND bo.user_id = $1
+          )
+        )`,
+    [userId]
+  );
+
+  return result.rows.map(row => row.id);
+}
+
+/**
+ * Check whether a restricted circle-level budget is accessible to a non-circle-treasurer.
+ * Returns null when the budget carries no restriction, so the caller keeps its own logic.
+ */
+async function checkRestrictedBudgetAccess(
+  userId: number,
+  budgetType: string,
+  budgetId: number
+): Promise<boolean | null> {
+  if (budgetType === 'treasurers') {
+    return false; // Circle treasurers only - they are short-circuited before this point
+  }
+
+  if (budgetType === 'personal') {
+    const ownerResult = await pool.query(
+      'SELECT 1 FROM budget_owners WHERE budget_id = $1 AND user_id = $2',
+      [budgetId, userId]
+    );
+    return ownerResult.rows.length > 0;
+  }
+
+  return null;
+}
+
+/**
  * Check if a user can access a specific budget
  * Circle Treasurers can access all budgets
  * Group Treasurers can access budgets from their assigned groups
@@ -55,7 +116,7 @@ export async function canAccessBudget(userId: number, budgetId: number): Promise
   
   // Get the budget's group_id
   const budgetResult = await pool.query(
-    'SELECT group_id FROM budgets WHERE id = $1',
+    'SELECT group_id, budget_type FROM budgets WHERE id = $1',
     [budgetId]
   );
   
@@ -65,6 +126,17 @@ export async function canAccessBudget(userId: number, budgetId: number): Promise
   
   const budgetGroupId = budgetResult.rows[0].group_id;
   
+  // Restricted circle-level budgets (personal / treasurers) have their own rules
+  const restrictedAccess = await checkRestrictedBudgetAccess(
+    userId,
+    budgetResult.rows[0].budget_type,
+    budgetId
+  );
+
+  if (restrictedAccess !== null) {
+    return restrictedAccess;
+  }
+
   // If budget is circle-level (group_id IS NULL), all users can access it
   if (budgetGroupId === null) {
     return true;
@@ -131,7 +203,7 @@ export async function canAccessFund(userId: number, fundId: number): Promise<boo
 export async function validateFundAccess(userId: number, fundId: number): Promise<boolean> {
   // Get the fund's budget information
   const result = await pool.query(`
-    SELECT b.group_id 
+    SELECT b.id AS budget_id, b.group_id, b.budget_type
     FROM funds f
     JOIN budgets b ON f.budget_id = b.id
     WHERE f.id = $1
@@ -142,7 +214,22 @@ export async function validateFundAccess(userId: number, fundId: number): Promis
   }
   
   const groupId = result.rows[0].group_id;
-  
+
+  // Restricted circle-level budgets (personal / treasurers) - circle treasurers or assigned members only
+  if (result.rows[0].budget_type === 'personal' || result.rows[0].budget_type === 'treasurers') {
+    if (await isCircleTreasurer(userId)) {
+      return true;
+    }
+
+    const restrictedAccess = await checkRestrictedBudgetAccess(
+      userId,
+      result.rows[0].budget_type,
+      result.rows[0].budget_id
+    );
+
+    return restrictedAccess === true;
+  }
+
   // Circle budget (group_id IS NULL) - accessible to all users
   if (!groupId) {
     return true;

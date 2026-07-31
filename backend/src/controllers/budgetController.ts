@@ -1,6 +1,50 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { getUserAccessibleGroupIds, canAccessBudget, isCircleTreasurer } from '../middleware/accessControl';
+import { getUserAccessibleGroupIds, canAccessBudget, isCircleTreasurer, getHiddenBudgetIds } from '../middleware/accessControl';
+
+/**
+ * SQL fragment that attaches the members a personal budget is assigned to.
+ * Always returns an array (empty for non-personal budgets).
+ */
+const BUDGET_OWNERS_SELECT = `
+  COALESCE((
+    SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name) ORDER BY u.full_name)
+    FROM budget_owners bo
+    JOIN users u ON bo.user_id = u.id
+    WHERE bo.budget_id = b.id
+  ), '[]'::json) as owners`;
+
+/**
+ * Replace the owners of a personal budget. Clears owners for any other budget type.
+ */
+async function setBudgetOwners(
+  client: { query: (text: string, params?: any[]) => Promise<any> },
+  budgetId: number,
+  budgetType: string,
+  ownerIds: number[] | undefined
+): Promise<void> {
+  if (budgetType !== 'personal') {
+    await client.query('DELETE FROM budget_owners WHERE budget_id = $1', [budgetId]);
+    return;
+  }
+
+  if (ownerIds === undefined) {
+    return; // Owners not part of this update
+  }
+
+  const uniqueIds = [...new Set(ownerIds.map(Number).filter(id => Number.isInteger(id) && id > 0))];
+
+  await client.query('DELETE FROM budget_owners WHERE budget_id = $1', [budgetId]);
+
+  if (uniqueIds.length > 0) {
+    await client.query(
+      `INSERT INTO budget_owners (budget_id, user_id)
+       SELECT $1, unnest($2::int[])
+       ON CONFLICT DO NOTHING`,
+      [budgetId, uniqueIds]
+    );
+  }
+}
 import { removeRecurringApplicationsForInactiveBudget } from '../utils/paymentTransferHelpers';
 
 export async function getBudgets(req: Request, res: Response) {
@@ -16,7 +60,7 @@ export async function getBudgets(req: Request, res: Response) {
     if (isCircleTreas) {
       // Circle treasurer can see all budgets (including inactive)
       const result = await pool.query(
-        `SELECT b.*, g.name as group_name
+        `SELECT b.*, g.name as group_name,${BUDGET_OWNERS_SELECT}
          FROM budgets b
          LEFT JOIN groups g ON b.group_id = g.id
          ORDER BY b.created_at DESC`
@@ -27,6 +71,9 @@ export async function getBudgets(req: Request, res: Response) {
     // For non-Circle Treasurers, get their accessible group IDs
     const accessibleGroupIds = await getUserAccessibleGroupIds(user.userId);
 
+    // Restricted budgets (personal budgets of other members, treasurers budget)
+    const hiddenBudgetIds = await getHiddenBudgetIds(user.userId);
+
     // Build query to show circle-level budgets and budgets from accessible groups
     let query = '';
     let params: any[] = [];
@@ -34,22 +81,25 @@ export async function getBudgets(req: Request, res: Response) {
     if (accessibleGroupIds.length > 0) {
       // User has group assignments - show circle budgets + their group budgets
       query = `
-        SELECT b.*, g.name as group_name
+        SELECT b.*, g.name as group_name,${BUDGET_OWNERS_SELECT}
         FROM budgets b
         LEFT JOIN groups g ON b.group_id = g.id
         WHERE (b.group_id IS NULL OR b.group_id = ANY($1))${activeOnlyClause}
+          AND b.id <> ALL($2::int[])
         ORDER BY b.created_at DESC
       `;
-      params = [accessibleGroupIds];
+      params = [accessibleGroupIds, hiddenBudgetIds];
     } else {
       // User has no group assignments - show only circle-level budgets
       query = `
-        SELECT b.*, g.name as group_name
+        SELECT b.*, g.name as group_name,${BUDGET_OWNERS_SELECT}
         FROM budgets b
         LEFT JOIN groups g ON b.group_id = g.id
         WHERE b.group_id IS NULL${activeOnlyClause}
+          AND b.id <> ALL($1::int[])
         ORDER BY b.created_at DESC
       `;
+      params = [hiddenBudgetIds];
     }
 
     const result = await pool.query(query, params);
@@ -83,7 +133,7 @@ export async function getBudgetById(req: Request, res: Response) {
     }
 
     const result = await pool.query(
-      `SELECT b.*, g.name as group_name,
+      `SELECT b.*, g.name as group_name,${BUDGET_OWNERS_SELECT},
               (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE budget_id = b.id) as total_income
        FROM budgets b
        LEFT JOIN groups g ON b.group_id = g.id
@@ -110,7 +160,7 @@ export async function getBudgetById(req: Request, res: Response) {
 
 export async function createBudget(req: Request, res: Response) {
   try {
-    const { name, totalAmount, groupId, fiscalYear, isActive, budgetType } = req.body;
+    const { name, totalAmount, groupId, fiscalYear, isActive, budgetType, ownerIds } = req.body;
     const user = req.user!;
 
     // Validate permissions
@@ -136,16 +186,53 @@ export async function createBudget(req: Request, res: Response) {
       }
     }
 
+    // PERSONAL BUDGET VALIDATION
+    if (budgetType === 'personal') {
+      if (!user.isCircleTreasurer) {
+        return res.status(403).json({
+          error: 'רק גזבר מעגלי יכול ליצור תקציב אישי'
+        });
+      }
+      if (groupId) {
+        return res.status(400).json({
+          error: 'תקציב אישי חייב להיות תקציב מעגלי (ללא קבוצה)'
+        });
+      }
+      if (!Array.isArray(ownerIds) || ownerIds.length === 0) {
+        return res.status(400).json({
+          error: 'יש לשייך את התקציב האישי לחבר אחד לפחות'
+        });
+      }
+    }
+
     const finalBudgetType = budgetType || 'general';  // Default to 'general'
 
-    const result = await pool.query(
-      `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, is_active, budget_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [name, totalAmount, groupId || null, fiscalYear || null, user.userId, isActive !== undefined ? isActive : true, finalBudgetType]
-    );
+    const client = await pool.connect();
+    let createdBudget;
 
-    res.status(201).json(result.rows[0]);
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
+        `INSERT INTO budgets (name, total_amount, group_id, fiscal_year, created_by, is_active, budget_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [name, totalAmount, groupId || null, fiscalYear || null, user.userId, isActive !== undefined ? isActive : true, finalBudgetType]
+      );
+
+      createdBudget = result.rows[0];
+
+      await setBudgetOwners(client, createdBudget.id, finalBudgetType, ownerIds);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.status(201).json(createdBudget);
   } catch (error) {
     console.error('Create budget error:', error);
     res.status(500).json({ error: 'Failed to create budget' });
@@ -155,7 +242,7 @@ export async function createBudget(req: Request, res: Response) {
 export async function updateBudget(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const { name, totalAmount, fiscalYear, isActive, budgetType } = req.body;
+    const { name, totalAmount, fiscalYear, isActive, budgetType, ownerIds } = req.body;
     const user = req.user!;
 
     // Check if user has access to this budget
@@ -167,7 +254,7 @@ export async function updateBudget(req: Request, res: Response) {
 
     // Get budget details to check if it's a group budget
     const budgetCheck = await pool.query(
-      'SELECT group_id FROM budgets WHERE id = $1',
+      'SELECT group_id, budget_type FROM budgets WHERE id = $1',
       [id]
     );
 
@@ -176,6 +263,7 @@ export async function updateBudget(req: Request, res: Response) {
     }
 
     const budgetGroupId = budgetCheck.rows[0].group_id;
+    const currentBudgetType = budgetCheck.rows[0].budget_type;
     const isCircleTreas = await isCircleTreasurer(user.userId);
 
     // Check permissions for updating specific fields
@@ -201,6 +289,13 @@ export async function updateBudget(req: Request, res: Response) {
       });
     }
 
+    // PERSONAL BUDGET VALIDATION: Can't turn a group budget into a personal budget
+    if (budgetType === 'personal' && budgetGroupId !== null) {
+      return res.status(400).json({
+        error: 'תקציב אישי חייב להיות תקציב מעגלי (ללא קבוצה)'
+      });
+    }
+
     // Only circle treasurer can change budget_type
     if (budgetType !== undefined && !isCircleTreas) {
       return res.status(403).json({
@@ -208,22 +303,67 @@ export async function updateBudget(req: Request, res: Response) {
       });
     }
 
-    const result = await pool.query(
-      `UPDATE budgets
-       SET name = COALESCE($1, name),
-           total_amount = COALESCE($2, total_amount),
-           fiscal_year = COALESCE($3, fiscal_year),
-           is_active = COALESCE($4, is_active),
-           budget_type = COALESCE($5, budget_type),
-           updated_at = NOW()
-       WHERE id = $6
-       RETURNING *`,
-      [name, totalAmount, fiscalYear, isActive, budgetType, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Budget not found' });
+    // Only circle treasurer can change who a personal budget is assigned to
+    if (ownerIds !== undefined && !isCircleTreas) {
+      return res.status(403).json({
+        error: 'רק גזבר מעגלי יכול לשנות את שיוך התקציב האישי'
+      });
     }
+
+    const finalBudgetType = budgetType || currentBudgetType;
+
+    // A personal budget must stay assigned to at least one member
+    if (finalBudgetType === 'personal' && ownerIds !== undefined) {
+      if (!Array.isArray(ownerIds) || ownerIds.length === 0) {
+        return res.status(400).json({
+          error: 'יש לשייך את התקציב האישי לחבר אחד לפחות'
+        });
+      }
+    }
+
+    if (budgetType === 'personal' && currentBudgetType !== 'personal' && ownerIds === undefined) {
+      return res.status(400).json({
+        error: 'יש לשייך את התקציב האישי לחבר אחד לפחות'
+      });
+    }
+
+    const client = await pool.connect();
+    let updatedBudget;
+
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(
+        `UPDATE budgets
+         SET name = COALESCE($1, name),
+             total_amount = COALESCE($2, total_amount),
+             fiscal_year = COALESCE($3, fiscal_year),
+             is_active = COALESCE($4, is_active),
+             budget_type = COALESCE($5, budget_type),
+             updated_at = NOW()
+         WHERE id = $6
+         RETURNING *`,
+        [name, totalAmount, fiscalYear, isActive, budgetType, id]
+      );
+
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Budget not found' });
+      }
+
+      updatedBudget = result.rows[0];
+
+      // Keep owners in sync - also clears them when the budget stops being personal
+      await setBudgetOwners(client, updatedBudget.id, updatedBudget.budget_type, ownerIds);
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
 
     // If budget was deactivated, remove recurring transfer applications from pending payment transfers
     if (isActive === false) {
@@ -235,7 +375,7 @@ export async function updateBudget(req: Request, res: Response) {
       }
     }
 
-    res.json(result.rows[0]);
+    res.json(updatedBudget);
   } catch (error) {
     console.error('Update budget error:', error);
     res.status(500).json({ error: 'Failed to update budget' });

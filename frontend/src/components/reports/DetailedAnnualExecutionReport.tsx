@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { reportsAPI } from '../../services/api';
-import { DetailedAnnualExecutionData } from '../../types';
+import { reportsAPI, budgetsAPI } from '../../services/api';
+import { Budget, DetailedAnnualExecutionData } from '../../types';
 import { LineChart, BarChart } from '../charts';
 import type { LineChartData, BarChartData } from '../charts';
 
@@ -24,16 +24,40 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
 }) => {
   const [reportData, setReportData] = useState<DetailedAnnualExecutionData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<number | ''>('');
+
+  // A budget-scoped report covers expenses only - income and balance are circle-wide
+  const scopedBudget = selectedBudgetId === ''
+    ? null
+    : budgets.find(budget => budget.id === selectedBudgetId) || null;
+  const isScoped = selectedBudgetId !== '';
 
   useEffect(() => {
     fetchReportData();
-  }, [year]);
+  }, [year, selectedBudgetId]);
+
+  useEffect(() => {
+    loadBudgets();
+  }, []);
+
+  const loadBudgets = async () => {
+    try {
+      const response = await budgetsAPI.getAll();
+      setBudgets(response.data);
+    } catch (err) {
+      console.error('Failed to load budgets:', err);
+    }
+  };
 
   const fetchReportData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await reportsAPI.getDetailedAnnualExecutionReport(year);
+      const response = await reportsAPI.getDetailedAnnualExecutionReport(
+        year,
+        selectedBudgetId === '' ? undefined : selectedBudgetId
+      );
       setReportData(response.data);
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || 'שגיאה בטעינת הדוח';
@@ -46,11 +70,19 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
 
   const handleExport = async () => {
     try {
-      const response = await reportsAPI.exportDetailedAnnualExecutionReportExcel(year);
+      const response = await reportsAPI.exportDetailedAnnualExecutionReportExcel(
+        year,
+        selectedBudgetId === '' ? undefined : selectedBudgetId
+      );
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `detailed-annual-execution-${year}.xlsx`);
+      link.setAttribute(
+        'download',
+        isScoped
+          ? `annual-report-budget-${selectedBudgetId}-${year}.xlsx`
+          : `detailed-annual-execution-${year}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -192,34 +224,67 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
       {/* Header */}
       <div style={styles.header}>
         <div>
-          <h2 style={styles.title}>דוח ביצוע שנתי מפורט</h2>
-          <p style={styles.subtitle}>שנת {year}</p>
+          <h2 style={styles.title}>
+            {isScoped ? 'דוח שנתי לפי סעיפים' : 'דוח ביצוע שנתי מפורט'}
+          </h2>
+          <p style={styles.subtitle}>
+            {scopedBudget ? `${scopedBudget.name} · שנת ${year}` : `שנת ${year}`}
+          </p>
         </div>
         <button onClick={handleExport} style={styles.exportButton}>
           ייצא לאקסל
         </button>
       </div>
 
+      {/* Budget selector - scopes the report to a single budget */}
+      <div style={styles.budgetFilter}>
+        <label style={styles.budgetFilterLabel} htmlFor="report-budget-filter">תקציב:</label>
+        <select
+          id="report-budget-filter"
+          value={selectedBudgetId}
+          onChange={(e) => setSelectedBudgetId(e.target.value ? parseInt(e.target.value) : '')}
+          style={styles.budgetFilterSelect}
+        >
+          <option value="">כל התקציבים</option>
+          {budgets.map((budget) => (
+            <option key={budget.id} value={budget.id}>
+              {budget.name}
+              {budget.budget_type === 'personal' ? ' 🔒' : ''}
+            </option>
+          ))}
+        </select>
+        {isScoped && (
+          <span style={styles.budgetFilterHint}>
+            מוצגות הוצאות התקציב בלבד, לפי סעיפים וחודשים
+          </span>
+        )}
+      </div>
+
       {/* Summary Cards */}
       <div style={styles.summaryCards}>
-        <div style={styles.summaryCard}>
-          <h3 style={styles.summaryTitle}>סך הכנסות שנתי</h3>
-          <p style={styles.summaryAmount}>{formatCurrency(yearlyTotals.income)}</p>
-        </div>
+        {!isScoped && (
+          <div style={styles.summaryCard}>
+            <h3 style={styles.summaryTitle}>סך הכנסות שנתי</h3>
+            <p style={styles.summaryAmount}>{formatCurrency(yearlyTotals.income)}</p>
+          </div>
+        )}
         <div style={styles.summaryCard}>
           <h3 style={styles.summaryTitle}>סך הוצאות שנתי</h3>
           <p style={styles.summaryAmount}>{formatCurrency(yearlyTotals.expenses)}</p>
         </div>
-        <div style={{
-          ...styles.summaryCard,
-          ...(yearlyTotals.balance >= 0 ? styles.positiveBalance : styles.negativeBalance)
-        }}>
-          <h3 style={styles.summaryTitle}>יתרה שנתית</h3>
-          <p style={styles.summaryAmount}>{formatCurrency(yearlyTotals.balance)}</p>
-        </div>
+        {!isScoped && (
+          <div style={{
+            ...styles.summaryCard,
+            ...(yearlyTotals.balance >= 0 ? styles.positiveBalance : styles.negativeBalance)
+          }}>
+            <h3 style={styles.summaryTitle}>יתרה שנתית</h3>
+            <p style={styles.summaryAmount}>{formatCurrency(yearlyTotals.balance)}</p>
+          </div>
+        )}
       </div>
 
       {/* Section 1: Income Table */}
+      {!isScoped && (
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>הכנסות</h3>
         <p style={styles.sectionDescription}>
@@ -303,8 +368,10 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
         </div>
       </div>
 
+      )}
+
       {/* Separator */}
-      <div style={styles.separator} />
+      {!isScoped && <div style={styles.separator} />}
 
       {/* Section 2: Expense Table */}
       <div style={styles.section}>
@@ -401,9 +468,10 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
       </div>
 
       {/* Separator */}
-      <div style={styles.separator} />
+      {!isScoped && <div style={styles.separator} />}
 
       {/* Section 3: Monthly Balance */}
+      {!isScoped && (
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>מאזן חודשי (הכנסות - הוצאות)</h3>
         <p style={styles.sectionDescription}>
@@ -438,7 +506,10 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
         </div>
       </div>
 
+      )}
+
       {/* Section 4: Charts */}
+      {!isScoped && (
       <div style={styles.section}>
         <h3 style={styles.sectionTitle}>מגמות ותרשימים</h3>
         <p style={styles.sectionDescription}>
@@ -465,6 +536,7 @@ const DetailedAnnualExecutionReport: React.FC<DetailedAnnualExecutionReportProps
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
@@ -503,6 +575,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'pointer',
     transition: 'background-color 0.2s'
+  },
+  budgetFilter: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '10px',
+    marginBottom: '20px'
+  },
+  budgetFilterLabel: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#4a5568'
+  },
+  budgetFilterSelect: {
+    padding: '8px 12px',
+    fontSize: '14px',
+    border: '1px solid #cbd5e0',
+    borderRadius: '6px',
+    background: 'white',
+    minWidth: '220px'
+  },
+  budgetFilterHint: {
+    fontSize: '13px',
+    color: '#718096',
+    fontStyle: 'italic'
   },
   summaryCards: {
     display: 'grid',
