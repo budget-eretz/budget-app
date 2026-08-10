@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { monthlyAllocationsAPI } from '../services/api';
 import { Fund, FundAllocationSummary, FundMonthlyAllocation } from '../types';
+import {
+  isOverAllocated,
+  getRemainingUnallocated,
+  splitAmountAcrossMonths,
+  isEvenlyDivisible,
+} from '../utils/allocationMath';
 import './BudgetMonthlyAllocationManager.css';
 
 interface BudgetMonthlyAllocationManagerProps {
@@ -333,11 +339,36 @@ const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerPro
   };
 
   const getFundRemainingUnallocated = (fund: FundAllocationData): number => {
-    return fund.totalFundAllocation - calculateFundTotalAllocated(fund);
+    return getRemainingUnallocated(fund.totalFundAllocation, calculateFundTotalAllocated(fund));
   };
 
   const isFundOverAllocated = (fund: FundAllocationData): boolean => {
-    return getFundRemainingUnallocated(fund) < 0;
+    return isOverAllocated(fund.totalFundAllocation, calculateFundTotalAllocated(fund));
+  };
+
+  // פריסה מדויקת של תקציב הסעיף על פני 12 חודשים, כולל שארית האגורות
+  const handleSplitFundEvenly = (fundId: number) => {
+    setFundsData(prev =>
+      prev.map(fund => {
+        if (fund.fundId !== fundId) {
+          return fund;
+        }
+
+        const year = fund.variableAllocations[0]?.year ?? currentYear;
+        const amounts = splitAmountAcrossMonths(fund.totalFundAllocation, 12);
+
+        return {
+          ...fund,
+          allocationType: 'variable' as const,
+          variableAllocations: amounts.map((amount, index) => ({
+            year,
+            month: index + 1,
+            amount,
+          })),
+        };
+      })
+    );
+    setError(null);
   };
 
   const validateAllFunds = (): string | null => {
@@ -471,6 +502,24 @@ const BudgetMonthlyAllocationManager: React.FC<BudgetMonthlyAllocationManagerPro
 
                   {isExpanded && (
                     <div className="fund-content">
+                      {fund.totalFundAllocation > 0 && (
+                        <div className="split-evenly-row">
+                          <button
+                            type="button"
+                            className="split-evenly-button"
+                            onClick={() => handleSplitFundEvenly(fund.fundId)}
+                          >
+                            פרוס את כל התקציב ל-12 חודשים
+                          </button>
+                          {!isEvenlyDivisible(fund.totalFundAllocation) && (
+                            <span className="split-evenly-hint">
+                              הסכום אינו מתחלק ל-12 בסכום חודשי אחיד — שארית האגורות תתווסף
+                              לחודשים הראשונים.
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <div className="allocation-type-toggle">
                         <button
                           className={`toggle-button ${fund.allocationType === 'fixed' ? 'active' : ''}`}

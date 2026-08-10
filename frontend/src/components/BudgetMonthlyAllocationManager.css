@@ -210,6 +210,36 @@
   border-top: 1px solid #e2e8f0;
 }
 
+.budget-monthly-allocation-manager .split-evenly-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.budget-monthly-allocation-manager .split-evenly-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #cbd5e0;
+  background-color: #fff;
+  color: #2c5282;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.budget-monthly-allocation-manager .split-evenly-button:hover {
+  background-color: #ebf4ff;
+  border-color: #90cdf4;
+}
+
+.budget-monthly-allocation-manager .split-evenly-hint {
+  color: #718096;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .budget-monthly-allocation-manager .allocation-type-toggle {
   display: flex;
   gap: 8px;

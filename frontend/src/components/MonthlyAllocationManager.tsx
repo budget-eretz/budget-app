@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { monthlyAllocationsAPI } from '../services/api';
 import { FundAllocationSummary, FundMonthlyAllocation } from '../types';
+import {
+  isOverAllocated as isAmountOverAllocated,
+  getRemainingUnallocated as calcRemainingUnallocated,
+  splitAmountAcrossMonths,
+  isEvenlyDivisible,
+} from '../utils/allocationMath';
 import './MonthlyAllocationManager.css';
 
 interface MonthlyAllocationManagerProps {
@@ -126,11 +132,21 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
   };
 
   const getRemainingUnallocated = (): number => {
-    return totalFundAllocation - calculateTotalAllocated();
+    return calcRemainingUnallocated(totalFundAllocation, calculateTotalAllocated());
   };
 
   const isOverAllocated = (): boolean => {
-    return getRemainingUnallocated() < 0;
+    return isAmountOverAllocated(totalFundAllocation, calculateTotalAllocated());
+  };
+
+  // פריסה מדויקת של תקציב הסעיף על פני 12 חודשים, כולל שארית האגורות
+  const handleSplitEvenly = () => {
+    const amounts = splitAmountAcrossMonths(totalFundAllocation, 12);
+    setAllocationType('variable');
+    setVariableAllocations(
+      amounts.map((amount, index) => ({ year: currentYear, month: index + 1, amount }))
+    );
+    setError(null);
   };
 
   const handleAllocationTypeChange = (type: 'fixed' | 'variable') => {
@@ -266,6 +282,24 @@ const MonthlyAllocationManager: React.FC<MonthlyAllocationManagerProps> = ({
               </div>
             </div>
           </div>
+
+          {totalFundAllocation > 0 && (
+            <div className="split-evenly-row">
+              <button
+                type="button"
+                className="split-evenly-button"
+                onClick={handleSplitEvenly}
+              >
+                פרוס את כל התקציב ל-12 חודשים
+              </button>
+              {!isEvenlyDivisible(totalFundAllocation) && (
+                <span className="split-evenly-hint">
+                  ₪{totalFundAllocation.toFixed(2)} אינו מתחלק ל-12 בסכום חודשי אחיד —
+                  הפריסה תוסיף את שארית האגורות לחודשים הראשונים.
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="allocation-type-toggle">
             <button
