@@ -56,6 +56,10 @@ async function isTreasurerForFund(userId: number, fundId: number): Promise<boole
   return false;
 }
 
+// סבילות של חצי אגורה: סכימת סכומים בשקלים כ-float עלולה לייצר חריגה מדומה
+// (למשל 8.15 * 12 = 97.80000000000003 מול תקציב של 97.80).
+const ALLOCATION_EPSILON = 0.005;
+
 // Helper function to validate total allocations don't exceed fund's allocated amount
 async function validateTotalAllocations(
   fundId: number,
@@ -95,7 +99,7 @@ async function validateTotalAllocations(
   const newTotal = newAllocations.reduce((sum, alloc) => sum + alloc.amount, 0);
   const grandTotal = existingTotal + newTotal;
 
-  if (grandTotal > totalFundAllocation) {
+  if (grandTotal - totalFundAllocation > ALLOCATION_EPSILON) {
     return {
       valid: false,
       error: `Total monthly allocations (${grandTotal}) exceed fund's total allocation (${totalFundAllocation}). Remaining available: ${totalFundAllocation - existingTotal}`,
