@@ -23,6 +23,26 @@ services:
       - key: JWT_EXPIRES_IN
         value: 30d
 
+  # Remote MCP server — lets each budget-app user connect their own AI client
+  # (e.g. claude.ai custom connectors) via OAuth, acting under their own identity.
+  - type: web
+    name: budget-mcp-server
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    buildCommand: cd mcp-server && npm install
+    startCommand: cd mcp-server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: budget-app-db
+          property: connectionString
+      - key: BUDGET_API_URL
+        value: https://budget-app-backend-r7x1.onrender.com/api
+
   # Frontend (Static Site)
   - type: web
     name: budget-app-frontend
