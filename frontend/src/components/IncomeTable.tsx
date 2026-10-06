@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Income } from '../types';
-import { useStickyTableHeader } from '../hooks/useStickyTableHeader';
 
 interface IncomeTableProps {
   incomes: Income[];
@@ -43,8 +42,8 @@ export default function IncomeTable({
   const [sortState, setSortState] = useState<SortState>({ column: null, direction: null });
   const [filterState, setFilterState] = useState<FilterState>({});
   const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [isHeaderStuck, setIsHeaderStuck] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
-  const { tableClassName, headerCellRef } = useStickyTableHeader();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -385,7 +384,15 @@ export default function IncomeTable({
   const sortedIncomes = getSortedIncomes();
 
   return (
-    <div style={styles.tableContainer} ref={tableRef}>
+    <div
+      style={styles.tableContainer}
+      ref={tableRef}
+      onScroll={() => {
+        // The table scrolls inside its own panel, so the sticky header is relative to it
+        const scrollTop = tableRef.current?.scrollTop || 0;
+        setIsHeaderStuck(scrollTop > 0);
+      }}
+    >
       {hasActiveFilters && (
         <div style={styles.filterBar}>
           <span style={styles.filterBarText}>
@@ -396,14 +403,13 @@ export default function IncomeTable({
           </button>
         </div>
       )}
-      <table style={styles.table} className={tableClassName}>
+      <table style={styles.table} className={isHeaderStuck ? 'sticky-table scrolled' : 'sticky-table'}>
         <thead>
           <tr style={styles.headerRow}>
-            {columns.map((column, columnIndex) => (
+            {columns.map((column) => (
               <th 
                 key={column.key} 
                 style={styles.headerCell}
-                ref={columnIndex === 0 ? headerCellRef : undefined}
               >
                 <div style={styles.headerContent}>
                   <div 
@@ -527,7 +533,8 @@ if (!document.head.querySelector('style[data-income-table]')) {
 const styles: Record<string, React.CSSProperties> = {
   tableContainer: {
     overflowX: 'auto',
-    overflowY: 'visible',
+    overflowY: 'auto',
+    maxHeight: '60vh',
     background: 'white',
     borderRadius: '8px',
     border: '1px solid #e2e8f0',
