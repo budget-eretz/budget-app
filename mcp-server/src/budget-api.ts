@@ -40,6 +40,18 @@ export function decodeJwtExpiry(jwt: string): Date {
   return new Date(payload.exp * 1000);
 }
 
+/** Reads the budget-app user id (`userId` claim) from the user's own JWT, used
+ * only to narrow list results client-side — authorization stays in the backend. */
+export function decodeJwtUserId(jwt: string): number | null {
+  try {
+    const [, payloadB64] = jwt.split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+    return typeof payload.userId === "number" ? payload.userId : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiGet(jwt: string, path: string): Promise<any> {
   const res = await fetch(`${API_URL}${path}`, {
     headers: { Authorization: `Bearer ${jwt}` },

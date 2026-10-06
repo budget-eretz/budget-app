@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { apiGet, apiRequest } from "./budget-api.js";
+import { apiGet, apiRequest, decodeJwtUserId } from "./budget-api.js";
 
 /**
  * Builds a fresh McpServer with all budget tools bound to one user's JWT.
@@ -169,5 +169,167 @@ export function createBudgetServer(jwt: string): McpServer {
     }
   );
 
+  // ---- Planned expenses ("תכנונים") ----
+  // A plan reserves part of a fund for a future expense: while its status is
+  // "planned" its amount is deducted from the fund's available balance.
+  // All permission checks (fund access, treasurers-budget restriction,
+  // ownership on update/delete) are enforced by the backend.
+
+  server.tool(
+    "list_my_planned_expenses",
+    "List planned expenses (תכנונים) — future expenses that reserve part of a fund's budget. Can filter by fund, month and status. Use this to find a plan's ID before updating/deleting it, or to check for duplicates before creating one.",
+    {
+      fundId: z.number().optional().describe("Filter by fund ID (optional)"),
+      month: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("Filter by planned month in YYYY-MM format (optional)"),
+      status: z
+        .enum(["planned", "executed", "cancelled"])
+        .optional()
+        .describe("Filter by status (optional)"),
+      onlyMine: z
+        .boolean()
+        .optional()
+        .describe(
+          "Only plans created by the current user (default true). Treasurers can set false to see plans of others they have access to."
+        ),
+    },
+    async ({ fundId, month, status, onlyMine }) => {
+      const query = fundId !== undefined ? `?fundId=${fundId}` : "";
+      const plans: any[] = await apiGet(jwt, `/planned-expenses${query}`);
+
+      const myUserId = decodeJwtUserId(jwt);
+      const filtered = plans.filter(
+        (p) =>
+          (!month || toDateOnly(p.planned_date).startsWith(month)) &&
+          (!status || p.status === status) &&
+          (onlyMine === false || myUserId === null || p.user_id === myUserId)
+      );
+
+      if (filtered.length === 0) {
+        return {
+          content: [
+            { type: "text" as const, text: "No planned expenses found." },
+          ],
+        };
+      }
+
+      const formatted = filtered.map(
+        (p) =>
+          `[${p.id}] ₪${p.amount} — ${p.description} | fund: ${p.fund_name || p.fund_id} | date: ${toDateOnly(p.planned_date)} | status: ${p.status}${onlyMine === false ? ` | by: ${p.user_name}` : ""}${p.apartment_name ? ` | apartment: ${p.apartment_name}` : ""}`
+      );
+
+      return {
+        content: [{ type: "text" as const, text: formatted.join("\n") }],
+      };
+    }
+  );
+
+  server.tool(
+    "create_planned_expense",
+    "Create a planned expense (תכנון) — reserves an amount in a fund for a future expense. Requires fund ID (use list_my_funds first), amount, description, and planned date.",
+    {
+      fundId: z.number().describe("Fund ID to plan the expense in"),
+      amount: z.number().positive().describe("Planned amount in ILS (shekel)"),
+      description: z.string().min(1).describe("What the planned expense is for"),
+      plannedDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .describe("Planned date in YYYY-MM-DD format"),
+      apartmentId: z
+        .number()
+        .optional()
+        .describe("Apartment ID (optional, only for circles that track apartments)"),
+    },
+    async ({ fundId, amount, description, plannedDate, apartmentId }) => {
+      const result = await apiRequest(jwt, "POST", "/planned-expenses", {
+        fundId,
+        amount,
+        description,
+        plannedDate,
+        ...(apartmentId !== undefined ? { apartmentId } : {}),
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Planned expense created successfully!\nID: ${result.id}\nAmount: ₪${result.amount}\nFund: ${fundId}\nDate: ${toDateOnly(result.planned_date)}\nStatus: ${result.status}\nDescription: ${result.description}`,
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "update_planned_expense",
+    "Update a planned expense (תכנון). Use list_my_planned_expenses first to find the ID. Set status to \"executed\" or \"cancelled\" to release the reserved amount from the fund.",
+    {
+      id: z.number().describe("Planned expense ID to update"),
+      fundId: z.number().optional().describe("New fund ID"),
+      amount: z.number().positive().optional().describe("New amount in ILS"),
+      description: z.string().min(1).optional().describe("New description"),
+      plannedDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe("New planned date in YYYY-MM-DD format"),
+      status: z
+        .enum(["planned", "executed", "cancelled"])
+        .optional()
+        .describe("New status"),
+      apartmentId: z.number().optional().describe("New apartment ID"),
+    },
+    async ({ id, ...updates }) => {
+      const body: any = {};
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) body[key] = value;
+      }
+
+      const result = await apiRequest(
+        jwt,
+        "PATCH",
+        `/planned-expenses/${id}`,
+        body
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Planned expense #${id} updated successfully!\nAmount: ₪${result.amount}\nDate: ${toDateOnly(result.planned_date)}\nDescription: ${result.description}\nStatus: ${result.status}`,
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "delete_planned_expense",
+    "Delete a planned expense (תכנון). Use list_my_planned_expenses first to find the ID.",
+    {
+      id: z.number().describe("Planned expense ID to delete"),
+    },
+    async ({ id }) => {
+      await apiRequest(jwt, "DELETE", `/planned-expenses/${id}`);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Planned expense #${id} deleted successfully.`,
+          },
+        ],
+      };
+    }
+  );
+
   return server;
+}
+
+/** Backend DATE columns arrive as ISO timestamps (e.g. "2026-10-15T00:00:00.000Z"); keep YYYY-MM-DD. */
+function toDateOnly(value: unknown): string {
+  return typeof value === "string" ? value.slice(0, 10) : String(value ?? "");
 }
