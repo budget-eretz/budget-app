@@ -25,6 +25,7 @@ router.delete('/:fundId/monthly-allocations/:year/:month', fundMonthlyAllocation
 // Monthly status and data routes
 router.get('/:fundId/monthly-status/:year/:month', fundController.getMonthlyStatus);
 router.get('/:fundId/monthly-expenses/:year/:month', fundController.getMonthlyExpenses);
+router.get('/:fundId/expenses', fundController.getFundExpenses);
 router.get('/:fundId/monthly-planned/:year/:month', fundController.getMonthlyPlannedExpenses);
 
 // Allocation history route

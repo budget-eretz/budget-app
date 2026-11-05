@@ -490,6 +490,213 @@ export async function getMonthlyStatus(req: Request, res: Response) {
   }
 }
 
+/** Reimbursement statuses that reduce a fund's available balance (same as spent_amount). */
+const SPENT_REIMBURSEMENT_STATUSES = ['pending', 'under_review', 'approved', 'paid'];
+
+type FundExpenseFilter =
+  | { kind: 'month'; year: number; month: number }
+  | { kind: 'range'; dateFrom?: string; dateTo?: string; status?: string };
+
+/**
+ * Collects every expense charged to a fund (reimbursements, direct expenses and
+ * recurring-transfer applications) — the same sources that make up spent_amount.
+ * Callers MUST check canAccessFund before calling this.
+ */
+async function collectFundExpenses(
+  fundId: number,
+  user: NonNullable<Request['user']>,
+  filter: FundExpenseFilter
+): Promise<{ fund: any; expenses: any[] } | null> {
+  // Get fund and budget info for permission checking
+  const fundResult = await pool.query(
+    `SELECT f.id, f.name, f.budget_id, f.allocated_amount, b.name as budget_name, b.group_id
+     FROM funds f
+     JOIN budgets b ON f.budget_id = b.id
+     WHERE f.id = $1`,
+    [fundId]
+  );
+
+  if (fundResult.rows.length === 0) {
+    return null;
+  }
+
+  const fund = fundResult.rows[0];
+  const isCircleBudget = fund.group_id === null;
+
+  // Check if user can edit/delete direct expenses
+  let canManageDirectExpenses = false;
+  if (isCircleBudget) {
+    canManageDirectExpenses = user.isCircleTreasurer;
+  } else {
+    canManageDirectExpenses = user.isCircleTreasurer ||
+      (user.isGroupTreasurer && user.groupIds.includes(fund.group_id));
+  }
+
+  // Build date conditions per source
+  const dateParams: any[] = [];
+  let rCond = '';
+  let deCond = '';
+  let rtCond = '';
+  if (filter.kind === 'month') {
+    dateParams.push(filter.year, filter.month);
+    rCond = 'AND EXTRACT(YEAR FROM r.expense_date) = $2 AND EXTRACT(MONTH FROM r.expense_date) = $3';
+    deCond = 'AND EXTRACT(YEAR FROM de.expense_date) = $2 AND EXTRACT(MONTH FROM de.expense_date) = $3';
+    rtCond = 'AND rta.period_year = $2 AND rta.period_month = $3';
+  } else {
+    const parts: { r: string[]; de: string[]; rt: string[] } = { r: [], de: [], rt: [] };
+    if (filter.dateFrom) {
+      dateParams.push(filter.dateFrom);
+      const n = dateParams.length + 1;
+      parts.r.push(`r.expense_date >= $${n}::date`);
+      parts.de.push(`de.expense_date >= $${n}::date`);
+      parts.rt.push(`make_date(rta.period_year, rta.period_month, 1) >= date_trunc('month', $${n}::date)::date`);
+    }
+    if (filter.dateTo) {
+      dateParams.push(filter.dateTo);
+      const n = dateParams.length + 1;
+      parts.r.push(`r.expense_date <= $${n}::date`);
+      parts.de.push(`de.expense_date <= $${n}::date`);
+      parts.rt.push(`make_date(rta.period_year, rta.period_month, 1) <= $${n}::date`);
+    }
+    rCond = parts.r.map(c => `AND ${c}`).join(' ');
+    deCond = parts.de.map(c => `AND ${c}`).join(' ');
+    rtCond = parts.rt.map(c => `AND ${c}`).join(' ');
+  }
+
+  // A status filter only applies to reimbursements (other sources have no status)
+  const statusFilter = filter.kind === 'range' ? filter.status : undefined;
+  const reimbursementParams = [fundId, ...dateParams];
+  let rStatusCond = '';
+  if (statusFilter) {
+    reimbursementParams.push(statusFilter);
+    rStatusCond = `AND r.status = $${reimbursementParams.length}`;
+  }
+
+  // Get all reimbursements for the fund in the requested period
+  const reimbursementsResult = await pool.query(
+    `SELECT
+       'reimbursement' as type,
+       'r-' || r.id as id,
+       r.user_id as submitter_id,
+       u_submitter.full_name as submitter_name,
+       r.recipient_user_id,
+       u_recipient.full_name as recipient_name,
+       r.amount,
+       r.description,
+       r.expense_date as date,
+       r.status,
+       r.receipt_url
+     FROM reimbursements r
+     JOIN users u_submitter ON r.user_id = u_submitter.id
+     LEFT JOIN users u_recipient ON r.recipient_user_id = u_recipient.id
+     WHERE r.fund_id = $1
+       ${rCond}
+       ${rStatusCond}
+     ORDER BY r.expense_date DESC, r.created_at DESC`,
+    reimbursementParams
+  );
+
+  // Get all direct expenses for the fund in the requested period
+  const directExpensesResult = statusFilter ? { rows: [] as any[] } : await pool.query(
+    `SELECT
+       'direct_expense' as type,
+       'de-' || de.id as id,
+       de.created_by as submitter_id,
+       de.payee,
+       de.amount,
+       de.description,
+       de.expense_date as date,
+       de.receipt_url
+     FROM direct_expenses de
+     WHERE de.fund_id = $1
+       ${deCond}
+     ORDER BY de.expense_date DESC, de.created_at DESC`,
+    [fundId, ...dateParams]
+  );
+
+  // Get recurring transfer applications for this fund in the requested period
+  const recurringResult = statusFilter ? { rows: [] as any[] } : await pool.query(
+    `SELECT
+       'recurring_transfer' as type,
+       'rt-' || rta.id as id,
+       rt.recipient_user_id,
+       u.full_name as recipient_name,
+       rta.applied_amount as amount,
+       rt.description,
+       rta.period_year,
+       rta.period_month,
+       rt.frequency,
+       rta.created_at
+     FROM recurring_transfer_applications rta
+     JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+     JOIN users u ON rt.recipient_user_id = u.id
+     WHERE rt.fund_id = $1
+       ${rtCond}
+     ORDER BY rta.created_at DESC`,
+    [fundId, ...dateParams]
+  );
+
+  // Helper to format period display for recurring transfers
+  const formatRecurringPeriod = (frequency: string, periodYear: number, periodMonth: number): string => {
+    const hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+      'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+    switch (frequency) {
+      case 'monthly': return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
+      case 'quarterly': return `רבעון ${Math.floor((periodMonth - 1) / 3) + 1} ${periodYear}`;
+      case 'annual': return `שנת ${periodYear}`;
+      default: return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
+    }
+  };
+
+  // Combine and format expenses
+  const expenses = [
+    ...reimbursementsResult.rows.map(row => ({
+      id: row.id,
+      type: 'reimbursement',
+      submitter: row.submitter_name,
+      recipient: row.recipient_name || row.submitter_name,
+      amount: Number(row.amount),
+      description: row.description,
+      date: row.date,
+      status: row.status,
+      receiptUrl: row.receipt_url,
+      canEdit: false,
+      canDelete: false
+    })),
+    ...directExpensesResult.rows.map(row => ({
+      id: row.id,
+      type: 'direct_expense',
+      submitter: 'הוצאה ישירה',
+      recipient: row.payee,
+      amount: Number(row.amount),
+      description: row.description,
+      date: row.date,
+      status: null,
+      receiptUrl: row.receipt_url,
+      canEdit: canManageDirectExpenses,
+      canDelete: canManageDirectExpenses
+    })),
+    ...recurringResult.rows.map(row => ({
+      id: row.id,
+      type: 'recurring_transfer',
+      submitter: 'העברה קבועה',
+      recipient: row.recipient_name,
+      amount: Number(row.amount),
+      description: `${row.description} - ${formatRecurringPeriod(row.frequency, row.period_year, row.period_month)}`,
+      date: new Date(row.period_year, row.period_month - 1, 1).toISOString(),
+      status: null,
+      receiptUrl: null,
+      canEdit: false,
+      canDelete: false
+    }))
+  ];
+
+  // Sort by date descending
+  expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return { fund, expenses };
+}
+
 export async function getMonthlyExpenses(req: Request, res: Response) {
   try {
     const { fundId, year, month } = req.params;
@@ -502,159 +709,116 @@ export async function getMonthlyExpenses(req: Request, res: Response) {
       return res.status(403).json({ error: 'Access denied to this fund' });
     }
 
-    // Get fund and budget info for permission checking
-    const fundResult = await pool.query(
-      `SELECT f.id, f.budget_id, b.group_id 
-       FROM funds f 
-       JOIN budgets b ON f.budget_id = b.id 
-       WHERE f.id = $1`,
-      [fundId]
-    );
+    const result = await collectFundExpenses(parseInt(fundId), user, {
+      kind: 'month',
+      year: parseInt(year),
+      month: parseInt(month),
+    });
 
-    if (fundResult.rows.length === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Fund not found' });
     }
 
-    const fund = fundResult.rows[0];
-    const isCircleBudget = fund.group_id === null;
-
-    // Check if user can edit/delete direct expenses
-    let canManageDirectExpenses = false;
-    if (isCircleBudget) {
-      canManageDirectExpenses = user.isCircleTreasurer;
-    } else {
-      canManageDirectExpenses = user.isCircleTreasurer || 
-        (user.isGroupTreasurer && user.groupIds.includes(fund.group_id));
-    }
-
-    // Get all reimbursements for the fund in the specified month
-    const reimbursementsResult = await pool.query(
-      `SELECT 
-         'reimbursement' as type,
-         'r-' || r.id as id,
-         r.user_id as submitter_id,
-         u_submitter.full_name as submitter_name,
-         r.recipient_user_id,
-         u_recipient.full_name as recipient_name,
-         r.amount,
-         r.description,
-         r.expense_date as date,
-         r.status,
-         r.receipt_url
-       FROM reimbursements r
-       JOIN users u_submitter ON r.user_id = u_submitter.id
-       LEFT JOIN users u_recipient ON r.recipient_user_id = u_recipient.id
-       WHERE r.fund_id = $1
-         AND EXTRACT(YEAR FROM r.expense_date) = $2
-         AND EXTRACT(MONTH FROM r.expense_date) = $3
-       ORDER BY r.expense_date DESC, r.created_at DESC`,
-      [fundId, year, month]
-    );
-
-    // Get all direct expenses for the fund in the specified month
-    const directExpensesResult = await pool.query(
-      `SELECT
-         'direct_expense' as type,
-         'de-' || de.id as id,
-         de.created_by as submitter_id,
-         de.payee,
-         de.amount,
-         de.description,
-         de.expense_date as date,
-         de.receipt_url
-       FROM direct_expenses de
-       WHERE de.fund_id = $1
-         AND EXTRACT(YEAR FROM de.expense_date) = $2
-         AND EXTRACT(MONTH FROM de.expense_date) = $3
-       ORDER BY de.expense_date DESC, de.created_at DESC`,
-      [fundId, year, month]
-    );
-
-    // Get recurring transfer applications for this fund in the specified month
-    const recurringResult = await pool.query(
-      `SELECT
-         'recurring_transfer' as type,
-         'rt-' || rta.id as id,
-         rt.recipient_user_id,
-         u.full_name as recipient_name,
-         rta.applied_amount as amount,
-         rt.description,
-         rta.period_year,
-         rta.period_month,
-         rt.frequency,
-         rta.created_at
-       FROM recurring_transfer_applications rta
-       JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
-       JOIN users u ON rt.recipient_user_id = u.id
-       WHERE rt.fund_id = $1
-         AND rta.period_year = $2
-         AND rta.period_month = $3
-       ORDER BY rta.created_at DESC`,
-      [fundId, year, month]
-    );
-
-    // Helper to format period display for recurring transfers
-    const formatRecurringPeriod = (frequency: string, periodYear: number, periodMonth: number): string => {
-      const hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-        'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-      switch (frequency) {
-        case 'monthly': return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
-        case 'quarterly': return `רבעון ${Math.floor((periodMonth - 1) / 3) + 1} ${periodYear}`;
-        case 'annual': return `שנת ${periodYear}`;
-        default: return `${hebrewMonths[periodMonth - 1]} ${periodYear}`;
-      }
-    };
-
-    // Combine and format expenses
-    const expenses = [
-      ...reimbursementsResult.rows.map(row => ({
-        id: row.id,
-        type: 'reimbursement',
-        submitter: row.submitter_name,
-        recipient: row.recipient_name || row.submitter_name,
-        amount: Number(row.amount),
-        description: row.description,
-        date: row.date,
-        status: row.status,
-        receiptUrl: row.receipt_url,
-        canEdit: false,
-        canDelete: false
-      })),
-      ...directExpensesResult.rows.map(row => ({
-        id: row.id,
-        type: 'direct_expense',
-        submitter: 'הוצאה ישירה',
-        recipient: row.payee,
-        amount: Number(row.amount),
-        description: row.description,
-        date: row.date,
-        status: null,
-        receiptUrl: row.receipt_url,
-        canEdit: canManageDirectExpenses,
-        canDelete: canManageDirectExpenses
-      })),
-      ...recurringResult.rows.map(row => ({
-        id: row.id,
-        type: 'recurring_transfer',
-        submitter: 'העברה קבועה',
-        recipient: row.recipient_name,
-        amount: Number(row.amount),
-        description: `${row.description} - ${formatRecurringPeriod(row.frequency, row.period_year, row.period_month)}`,
-        date: new Date(row.period_year, row.period_month - 1, 1).toISOString(),
-        status: null,
-        receiptUrl: null,
-        canEdit: false,
-        canDelete: false
-      }))
-    ];
-
-    // Sort by date descending
-    expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    res.json({ expenses });
+    res.json({ expenses: result.expenses });
   } catch (error) {
     console.error('Get monthly expenses error:', error);
     res.status(500).json({ error: 'Failed to get monthly expenses' });
+  }
+}
+
+/**
+ * GET /funds/:fundId/expenses?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD&status=...
+ * All expenses charged to a fund (any user), plus the fund's balance summary.
+ * Same access rule as the fund's monthly-expenses view (canAccessFund).
+ */
+export async function getFundExpenses(req: Request, res: Response) {
+  try {
+    const fundId = parseInt(req.params.fundId);
+    const user = req.user!;
+    const { dateFrom, dateTo, status } = req.query as Record<string, string | undefined>;
+
+    if (Number.isNaN(fundId)) {
+      return res.status(400).json({ error: 'Invalid fund id' });
+    }
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if ((dateFrom && !dateRe.test(dateFrom)) || (dateTo && !dateRe.test(dateTo))) {
+      return res.status(400).json({ error: 'dateFrom/dateTo must be YYYY-MM-DD' });
+    }
+    const validStatuses = ['pending', 'under_review', 'approved', 'rejected', 'paid'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
+    }
+
+    // Check if user has access to this fund
+    const hasAccess = await canAccessFund(user.userId, fundId);
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this fund' });
+    }
+
+    const result = await collectFundExpenses(fundId, user, { kind: 'range', dateFrom, dateTo, status });
+
+    if (!result) {
+      return res.status(404).json({ error: 'Fund not found' });
+    }
+
+    // pg parses DATE columns (and recurring periods are built) at local midnight,
+    // so local getters give the true calendar day regardless of server TZ.
+    const toDay = (d: any) => {
+      const dt = new Date(d);
+      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    };
+
+    const expenses = result.expenses.map(e => ({
+      ...e,
+      day: toDay(e.date),
+      countsTowardSpent: e.type !== 'reimbursement' || SPENT_REIMBURSEMENT_STATUSES.includes(e.status),
+    }));
+
+    // All-time balance, same formula as getFundById / getAccessibleFunds
+    const balanceResult = await pool.query(
+      `SELECT
+         (SELECT COALESCE(SUM(amount), 0) FROM reimbursements
+          WHERE fund_id = $1 AND status IN ('pending', 'under_review', 'approved', 'paid')) +
+         (SELECT COALESCE(SUM(amount), 0) FROM direct_expenses
+          WHERE fund_id = $1) +
+         (SELECT COALESCE(SUM(rta.applied_amount), 0)
+          FROM recurring_transfer_applications rta
+          JOIN recurring_transfers rt ON rta.recurring_transfer_id = rt.id
+          WHERE rt.fund_id = $1) as spent_amount,
+         (SELECT COALESCE(SUM(amount), 0) FROM planned_expenses
+          WHERE fund_id = $1 AND status = 'planned') as planned_amount`,
+      [fundId]
+    );
+    const allocated = Number(result.fund.allocated_amount || 0);
+    const spent = Number(balanceResult.rows[0].spent_amount || 0);
+    const planned = Number(balanceResult.rows[0].planned_amount || 0);
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const listedSpent = round2(expenses.filter(e => e.countsTowardSpent).reduce((s, e) => s + e.amount, 0));
+
+    res.json({
+      fund: {
+        id: result.fund.id,
+        name: result.fund.name,
+        budgetId: result.fund.budget_id,
+        budgetName: result.fund.budget_name,
+        allocated_amount: allocated,
+        spent_amount: spent,
+        planned_amount: planned,
+        available_amount: allocated - spent - planned,
+      },
+      filter: { dateFrom: dateFrom || null, dateTo: dateTo || null, status: status || null },
+      totals: {
+        count: expenses.length,
+        listedSpent,
+        listedExcluded: round2(expenses.filter(e => !e.countsTowardSpent).reduce((s, e) => s + e.amount, 0)),
+      },
+      expenses,
+    });
+  } catch (error) {
+    console.error('Get fund expenses error:', error);
+    res.status(500).json({ error: 'Failed to get fund expenses' });
   }
 }
 

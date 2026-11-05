@@ -326,6 +326,84 @@ export function createBudgetServer(jwt: string): McpServer {
     }
   );
 
+  server.tool(
+    "list_fund_expenses",
+    "List ALL expenses charged to a fund (by any user, not only yours): reimbursements, direct expenses and recurring transfers — who, amount, date, description, status, type. Also returns the fund's balance (allocated / spent / planned / available). Only works for funds you can access (use list_my_funds to find the fund ID). Filter by month (YYYY-MM) or by dateFrom/dateTo, and optionally by reimbursement status.",
+    {
+      fundId: z.number().describe("Fund ID (from list_my_funds)"),
+      month: z
+        .string()
+        .regex(/^\d{4}-\d{2}$/)
+        .optional()
+        .describe("Only expenses in this month, YYYY-MM (optional; overrides dateFrom/dateTo)"),
+      dateFrom: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe("From date inclusive, YYYY-MM-DD (optional)"),
+      dateTo: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe("To date inclusive, YYYY-MM-DD (optional)"),
+      status: z
+        .enum(["pending", "under_review", "approved", "rejected", "paid"])
+        .optional()
+        .describe("Only reimbursements with this status (optional; excludes direct expenses and recurring transfers)"),
+    },
+    async ({ fundId, month, dateFrom, dateTo, status }) => {
+      let from = dateFrom;
+      let to = dateTo;
+      if (month) {
+        const [y, m] = month.split("-").map(Number);
+        const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        from = `${month}-01`;
+        to = `${month}-${String(lastDay).padStart(2, "0")}`;
+      }
+
+      const params = new URLSearchParams();
+      if (from) params.set("dateFrom", from);
+      if (to) params.set("dateTo", to);
+      if (status) params.set("status", status);
+      const qs = params.toString();
+      const data = await apiGet(jwt, `/funds/${fundId}/expenses${qs ? `?${qs}` : ""}`);
+
+      const f = data.fund;
+      const typeLabel: Record<string, string> = {
+        reimbursement: "reimbursement",
+        direct_expense: "direct expense",
+        recurring_transfer: "recurring transfer",
+      };
+      const period = from || to ? ` | period: ${from || "…"} → ${to || "…"}` : " | period: all time";
+
+      const header = [
+        `Fund [${f.id}] ${f.name} (budget: ${f.budgetName})`,
+        `Balance (all time): allocated ₪${f.allocated_amount} − spent ₪${f.spent_amount} − planned ₪${f.planned_amount} = available ₪${f.available_amount}`,
+        `Listed: ${data.totals.count} expenses${period}${status ? ` | status: ${status}` : ""} — counted as spent ₪${data.totals.listedSpent}` +
+          (data.totals.listedExcluded ? `, not counted (rejected) ₪${data.totals.listedExcluded}` : ""),
+      ];
+
+      const lines = (data.expenses || []).map((e: any) => {
+        const who =
+          e.type === "reimbursement"
+            ? e.recipient && e.recipient !== e.submitter
+              ? `${e.submitter} → ${e.recipient}`
+              : e.submitter
+            : e.recipient || "";
+        return `[${e.id}] ${e.day || toDateOnly(e.date)} | ₪${e.amount} | ${typeLabel[e.type] || e.type} | ${who} | ${e.description}${e.status ? ` | status: ${e.status}` : ""}${e.countsTowardSpent ? "" : " (not counted)"}`;
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [...header, "", ...(lines.length ? lines : ["No expenses found."])].join("\n"),
+          },
+        ],
+      };
+    }
+  );
+
   return server;
 }
 
